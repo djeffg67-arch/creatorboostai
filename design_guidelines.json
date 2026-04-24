@@ -1,0 +1,100 @@
+{
+  "project_name": "BodyIQ-AI",
+  "theme": "DARK",
+  "archetype": "5 (Jewel & Luxury)",
+  "core_concept": "Premium AI Intelligence, Minimal, High-end. Avoid heavy military styling. Clean AI technology look.",
+  "colors": {
+    "background": {
+      "primary": "#0A0F1C",
+      "secondary": "#0F172A",
+      "glass": "bg-slate-900/60 backdrop-blur-xl"
+    },
+    "text": {
+      "primary": "#F8FAFC",
+      "secondary": "#94A3B8",
+      "muted": "#64748B"
+    },
+    "accent": {
+      "primary": "#06B6D4",
+      "hover": "#22D3EE",
+      "subtle": "rgba(6, 182, 212, 0.1)"
+    },
+    "border": {
+      "default": "rgba(255, 255, 255, 0.1)",
+      "focus": "rgba(6, 182, 212, 0.5)"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Outfit, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "h3": "text-xl sm:text-2xl tracking-tight",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm uppercase tracking-[0.2em]"
+    }
+  },
+  "layout": {
+    "spacing": "Generous spacing. Use p-8, p-12, py-24 for marketing sections. Use gap-6, gap-8 for bento grids.",
+    "grid": {
+      "marketing": "grid-cols-1 md:grid-cols-12 gap-8. Asymmetric bento grids.",
+      "dashboard_demo": "grid-cols-1 lg:grid-cols-4 gap-4. Dense 'Control Room' grid for the multi-panel demo interface."
+    },
+    "radius": "rounded-none or max 8px (rounded-md) for sharp, technical AI aesthetic."
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-cyan-500 text-slate-950 hover:bg-cyan-400 font-medium tracking-wide transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_25px_rgba(6,182,212,0.5)]",
+      "secondary": "border border-white/20 hover:border-cyan-500/50 hover:text-cyan-400 bg-transparent text-white transition-all"
+    },
+    "cards": {
+      "marketing": "bg-[#0F172A] border border-white/5 hover:border-cyan-500/30 transition-all p-8",
+      "demo_panels": "bg-slate-900/40 backdrop-blur-md border border-white/10 p-4 flex flex-col h-full"
+    },
+    "inputs": "bg-slate-900/50 border border-white/10 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white placeholder:text-slate-500"
+  },
+  "interactions": {
+    "hover": "Subtle border color shifts to cyan, soft glows. Text shifts to white or cyan-400.",
+    "transitions": "all 0.3s ease-in-out",
+    "demo_animations": "Use framer-motion for smooth text-based narration transitions. Elements should fade in with a slight upward translation."
+  },
+  "media": {
+    "instructions": "Use exact provided URLs. Apply bg-black/40 overlay on hero images if needed for text contrast.",
+    "image_urls": [
+      {
+        "category": "hero_background",
+        "url": "https://images.unsplash.com/photo-1771011726574-60ab6028724a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRhcmslMjBibHVlJTIwdGVjaG5vbG9neXxlbnwwfHx8fDE3NzcwNTkwNTZ8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract dark blue grid for main homepage hero background"
+      },
+      {
+        "category": "demo_scenario",
+        "url": "https://images.unsplash.com/photo-1758518730083-4c12527b6742?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwyfHxidXNpbmVzcyUyMG1lZXRpbmclMjBuZWdvdGlhdGlvbnxlbnwwfHx8fDE3NzcwNTkwNDd8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Business professionals negotiating, used as the main video/scenario screen in the demo page"
+      },
+      {
+        "category": "forensic_library",
+        "url": "https://images.pexels.com/photos/8090294/pexels-photo-8090294.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Facial recognition biometric eye scan used for the Forensic Visual Library product page cover"
+      },
+      {
+        "category": "training_abstract",
+        "url": "https://images.unsplash.com/photo-1579567761406-4684ee0c75b6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzN8MHwxfHNlYXJjaHwyfHxuZW9uJTIwY3lhbiUyMGxpZ2h0JTIwYWJzdHJhY3R8ZW58MHx8fHwxNzc3MDU5MDU2fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Neon cyan abstract art to use as decorative background element for training cards"
+      }
+    ]
+  },
+  "pages_structure": {
+    "Home": "Hero with full viewport height, dark blue background, bold Outfit typography. 2 CTAs. Sections for explanation and training intros.",
+    "Demo": "Multi-panel dashboard style. Left/center: Scenario Video (Image). Right/Bottom panels: Signal Interpretation (Visual, Auditory, Behavioral bars/gauges), Pattern Recognition, Strategy Output. Bottom/Side: Text-based narration panel stepping through the analysis.",
+    "Training": "Split layout showing Signal Foundations ($400) and Applied Signals ($1500). High contrast cyan buttons linked to Stripe.",
+    "Forensic Library": "Product marketing page. 50/50 layout. Left side text/value prop, right side biometric scan image.",
+    "Contact": "Clean form over dark glass surface.",
+    "Admin": "Strict control room grid. Full width table for leads. Export CSV button top right."
+  },
+  "icons": "lucide-react, tailored with cyan or slate coloring.",
+  "testing": "All interactive elements must have data-testid attributes."
+}
