@@ -1,0 +1,102 @@
+import React, { useState } from "react";
+import { Layout } from "@/components/site/Layout";
+import { EmailCapture } from "@/components/site/EmailCapture";
+import { Lock, Check, Layers, Image as ImageIcon, BookOpen } from "lucide-react";
+import { toast } from "sonner";
+
+const COVER = "https://images.pexels.com/photos/8090294/pexels-photo-8090294.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
+
+const features = [
+    { icon: ImageIcon, title: "1,200+ Reference Frames", desc: "Catalogued micro-signal frames, indexed by channel and intensity." },
+    { icon: Layers, title: "12 Signal Categories", desc: "Structured by visual, auditory, and behavioral category taxonomies." },
+    { icon: BookOpen, title: "Field Annotations", desc: "Each frame paired with interpretation, context, and strategic note." },
+];
+
+export default function ForensicLibraryPage() {
+    const notify = () => toast.info("Purchase is opening soon. You'll be the first to know.");
+
+    return (
+        <Layout>
+            <section className="py-20 lg:py-28" data-testid="forensic-hero">
+                <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-5 lg:grid-cols-12 lg:px-8">
+                    <div className="lg:col-span-6">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Product · Reference Library</p>
+                        <h1 className="font-heading mt-4 text-balance text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
+                            The Forensic Visual Library
+                        </h1>
+                        <p className="mt-5 text-base leading-relaxed text-slate-300 sm:text-lg">
+                            A curated, annotated library of real-world signal frames — built for operators
+                            who need a visual reference they can trust.
+                        </p>
+
+                        <div className="mt-8 flex items-end gap-2 border-b border-white/5 pb-6">
+                            <span className="font-heading text-5xl font-semibold text-white">$59</span>
+                            <span className="mb-1.5 font-mono text-xs uppercase tracking-[0.18em] text-slate-500">One-time · lifetime access</span>
+                        </div>
+
+                        <ul className="mt-6 space-y-3 text-sm text-slate-300">
+                            {[
+                                "1,200+ annotated reference frames",
+                                "Searchable by channel, category, intensity",
+                                "Downloadable offline reference pack",
+                                "Lifetime updates as the library grows",
+                            ].map((b) => (
+                                <li key={b} className="flex items-start gap-2.5">
+                                    <Check size={15} className="mt-0.5 text-cyan-400" />
+                                    <span>{b}</span>
+                                </li>
+                            ))}
+                        </ul>
+
+                        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                            <button
+                                onClick={notify}
+                                data-testid="forensic-purchase-placeholder"
+                                className="inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-6 py-3.5 text-sm font-semibold text-ink-900 shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_30px_rgba(6,182,212,0.55)]"
+                            >
+                                <Lock size={15} /> Purchase · Opening Soon
+                            </button>
+                            <span className="inline-flex items-center font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                                · Integration pending
+                            </span>
+                        </div>
+
+                        <div className="mt-10 max-w-md rounded-md border border-white/10 bg-ink-700/30 p-5" data-testid="forensic-notify">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Get notified at launch</p>
+                            <div className="mt-3">
+                                <EmailCapture source="forensic_library" ctaLabel="Notify me" testid="forensic-lead" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="lg:col-span-6">
+                        <div className="relative overflow-hidden rounded-md border border-white/10 bg-ink-700/30">
+                            <img src={COVER} alt="Forensic Visual Library" className="aspect-[4/5] w-full object-cover opacity-85" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-transparent to-transparent" />
+                            <div className="absolute bottom-5 left-5 right-5 rounded-sm border border-cyan-500/30 bg-ink-900/70 p-4 backdrop-blur">
+                                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Sample Frame · V-04</p>
+                                <p className="mt-1 text-sm text-slate-200">Gaze vector · up-and-right · 340ms hold · interpretation: recall, not construction.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section className="pb-24" data-testid="forensic-features">
+                <div className="mx-auto max-w-7xl px-5 lg:px-8">
+                    <div className="grid grid-cols-1 gap-px rounded-md border border-white/5 bg-white/5 md:grid-cols-3">
+                        {features.map((f) => (
+                            <div key={f.title} className="bg-ink-800 p-8">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-cyan-500/30 bg-cyan-500/5">
+                                    <f.icon size={18} className="text-cyan-400" />
+                                </div>
+                                <h3 className="font-heading mt-5 text-lg font-semibold text-white">{f.title}</h3>
+                                <p className="mt-2 text-sm leading-relaxed text-slate-400">{f.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+        </Layout>
+    );
+}
