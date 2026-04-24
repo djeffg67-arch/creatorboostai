@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
 import { SignalTape } from "@/components/site/SignalTape";
+import { FounderBio } from "@/components/site/FounderBio";
 import { ArrowRight, Eye, Ear, Activity, Brain, Target, ShieldCheck } from "lucide-react";
 
 // Curated, optimized imagery (Unsplash CDN with width/quality params)
@@ -139,6 +140,9 @@ export default function HomePage() {
                 </div>
                 <SignalTape />
             </section>
+
+            {/* Founder authority strip */}
+            <FounderBio />
 
             {/* What it does */}
             <section className="relative py-24 lg:py-32" data-testid="what-it-does">

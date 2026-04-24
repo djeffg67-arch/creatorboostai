@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
+import { FounderBio } from "@/components/site/FounderBio";
 import { Check, ArrowRight, Zap } from "lucide-react";
 import { createCheckoutSession, captureLead } from "@/lib/api";
 import { toast } from "sonner";
@@ -104,6 +105,11 @@ export default function TrainingPage() {
             </section>
 
             <section className="pb-24" data-testid="training-pricing">
+                {/* Founder authority — positioned directly above pricing for conversion */}
+                <div className="pb-16 lg:pb-20">
+                    <FounderBio variant="compact" />
+                </div>
+
                 <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-5 lg:grid-cols-2 lg:px-8">
                     {tiers.map((t) => (
                         <div
