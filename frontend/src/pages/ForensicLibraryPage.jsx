@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
-import { Lock, Check, Layers, Image as ImageIcon, BookOpen } from "lucide-react";
+import { Lock, Check, Layers, Image as ImageIcon, BookOpen, Loader2 } from "lucide-react";
+import { createCheckoutSession } from "@/lib/api";
 import { toast } from "sonner";
 
 const COVER = "https://images.pexels.com/photos/8090294/pexels-photo-8090294.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
@@ -15,7 +16,23 @@ const features = [
 ];
 
 export default function ForensicLibraryPage() {
-    const notify = () => toast.info("Purchase is opening soon. You'll be the first to know.");
+    const [loading, setLoading] = useState(false);
+
+    const handlePurchase = async () => {
+        setLoading(true);
+        try {
+            const { url } = await createCheckoutSession({
+                product_key: "forensic_library",
+                origin_url: window.location.origin,
+            });
+            toast.success("Opening secure checkout…");
+            window.location.href = url;
+        } catch (err) {
+            const detail = err?.response?.data?.detail;
+            toast.error(typeof detail === "string" ? detail : "Could not open checkout. Try again.");
+            setLoading(false);
+        }
+    };
 
     return (
         <Layout>
@@ -60,14 +77,16 @@ export default function ForensicLibraryPage() {
 
                         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                             <button
-                                onClick={notify}
-                                data-testid="forensic-purchase-placeholder"
-                                className="inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-6 py-3.5 text-sm font-semibold text-ink-900 shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_30px_rgba(6,182,212,0.55)]"
+                                onClick={handlePurchase}
+                                disabled={loading}
+                                data-testid="forensic-purchase"
+                                className="inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-6 py-3.5 text-sm font-semibold text-ink-900 shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_30px_rgba(6,182,212,0.55)] disabled:opacity-60"
                             >
-                                <Lock size={15} /> Purchase · Opening Soon
+                                {loading ? <Loader2 size={15} className="animate-spin" /> : <Lock size={15} />}
+                                {loading ? "Opening checkout…" : "Purchase · $59"}
                             </button>
                             <span className="inline-flex items-center font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                                · Integration pending
+                                · Secure Stripe Checkout
                             </span>
                         </div>
 

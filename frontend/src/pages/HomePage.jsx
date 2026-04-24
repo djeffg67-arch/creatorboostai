@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
+import { SignalTape } from "@/components/site/SignalTape";
 import { ArrowRight, Eye, Ear, Activity, Brain, Target, ShieldCheck } from "lucide-react";
 
 // Curated, optimized imagery (Unsplash CDN with width/quality params)
@@ -24,10 +25,12 @@ export default function HomePage() {
         <Layout>
             {/* Hero */}
             <section className="relative overflow-hidden" data-testid="hero-section">
-                <div
-                    className="absolute inset-0 bg-cover bg-center opacity-30"
-                    style={{ backgroundImage: `url(${HERO_BG})` }}
-                />
+                <div className="absolute inset-0 animate-ken-burns">
+                    <div
+                        className="h-full w-full bg-cover bg-center opacity-30"
+                        style={{ backgroundImage: `url(${HERO_BG})` }}
+                    />
+                </div>
                 <div className="absolute inset-0 bg-gradient-to-b from-ink-800/60 via-ink-800/85 to-ink-800" />
                 <div className="absolute inset-0 ambient-grid" />
                 {/* Ambient glow orbs */}
@@ -120,6 +123,21 @@ export default function HomePage() {
                         </div>
                     </div>
                 </div>
+            </section>
+
+            {/* Signal Tape — live analysis strip */}
+            <section className="relative" data-testid="signal-tape-section">
+                <div className="mx-auto max-w-7xl px-5 pt-10 pb-2 lg:px-8">
+                    <div className="flex items-center justify-between pb-3">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">
+                            Live Signal Tape · Auto-Annotated Frames
+                        </p>
+                        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" /> Streaming
+                        </span>
+                    </div>
+                </div>
+                <SignalTape />
             </section>
 
             {/* What it does */}

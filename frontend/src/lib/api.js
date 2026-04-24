@@ -7,6 +7,14 @@ export const api = axios.create({ baseURL: API });
 
 export const captureLead = (payload) => api.post("/leads", payload).then((r) => r.data);
 
+export const listProducts = () => api.get("/products").then((r) => r.data);
+
+export const createCheckoutSession = (payload) =>
+    api.post("/checkout/session", payload).then((r) => r.data);
+
+export const getCheckoutStatus = (sessionId) =>
+    api.get(`/checkout/status/${sessionId}`).then((r) => r.data);
+
 export const adminLogin = (password) =>
     api.post("/admin/login", { password }).then((r) => r.data);
 

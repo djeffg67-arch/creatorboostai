@@ -1,0 +1,55 @@
+{
+  "summary": "BodyIQ-AI finalization pass — backend 32/33 pytest pass (new: products, 3 checkout session products, invalid product 400, origin_url honoring, payment_transactions pending row, admin/transactions auth+list, lead email graceful no-op, @reservation.local documented bug). Frontend cinematic confirmed: ken-burns, aurora-bg/grid, signal-tape (8 unique frames, 16-node loop), scan-sweep + vignette on Demo, input-glow on forms. Training Reserve fires POST /api/checkout/session with product_key=foundations + origin_url; Forensic Library Purchase fires with product_key=forensic_library. ThankYou renders 'NO SESSION' without session_id and 'VERIFYING PAYMENT' polling state with session_id. All 6 pages (/, /demo, /training, /forensic-library, /contact, /admin) return 200. ONE CRITICAL BUG: GET /api/checkout/status/{session_id} returns 502 for every session (even freshly-created valid ones) — emergent Stripe proxy returns 404 on GET lookup. This will block the ThankYou 'paid' confirmation path in production.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/checkout/status/{session_id}",
+        "issue": "Returns 502 'Unable to fetch checkout status' for ALL session IDs — even freshly-created valid cs_test_* sessions. Backend logs show Stripe/emergent proxy responds 404 'No such checkout.session: {id}' on the GET. Verified with 0s, 2s, 5s delays. This breaks the ThankYou polling flow — user will always see 'VERIFYING PAYMENT' and post-purchase email will never fire via polling (webhook would still work).",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/leads",
+        "issue": "The @reservation.local skip-email branch in server.py:154 is unreachable: pydantic EmailStr (email-validator) rejects .local TLD with 422 before the handler runs. Frontend TrainingPage.jsx sends 'pending+{ts}@reservation.local' on Reserve clicks — every one of these POSTs silently fails with 422 (swallowed by try/catch). Recommend: switch synthetic domain to @reservation.example.com (RFC reserved, valid format) OR change LeadCreate.email to plain str with manual validation."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "ThankYou polling",
+        "issue": "Depends on /api/checkout/status which currently 502s — page stuck on 'VERIFYING PAYMENT' indefinitely even for valid sessions. UI renders correctly; blocker is backend.",
+        "affected_selectors": ["ThankYouPage polling block"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_bodyiq_api.py",
+    "/app/backend/tests/test_bodyiq_checkout.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Investigate emergentintegrations get_checkout_status — sessions created via the emergent Stripe proxy return 404 when queried via same proxy. May require library upgrade or a different retrieval path. Consider falling back to direct stripe.checkout.Session.retrieve with a real Stripe test key, or have status endpoint return last-known DB state with a 'pending' flag instead of 502 when Stripe lookup fails.",
+    "Fix unreachable @reservation.local skip: change synthetic email domain in TrainingPage.jsx to @reservation.example.com and update server skip-check, OR remove reservation lead logging entirely and rely on payment_transactions row as the reservation signal."
+  ],
+  "critical_code_review_comments": [
+    "ThankYouPage UX: when status endpoint consistently 502s, the page never progresses beyond 'VERIFYING PAYMENT'. Add a max-retry + fallback (e.g., after 10 polls, show 'Payment likely succeeded, email will confirm').",
+    "server.py:344-355 dual Stripe lookup (emergentintegrations + raw stripe lib with sk_test_emergent) is redundant and the raw stripe call will likely fail since sk_test_emergent is not a real Stripe key. Consider removing the raw fallback.",
+    "Post-purchase email is only triggered via status polling OR webhook. If polling 502s and webhook isn't configured in the emergent sandbox, buyers receive NO confirmation email. Suggest adding a background job that periodically reconciles pending transactions older than N minutes.",
+    "Admin /api/admin/transactions returns full metadata dict including product_key & amount — fine, but no pagination. Will need limit/skip once transactions grow.",
+    "No rate limiting on POST /api/checkout/session — abuse could spam Stripe and fill payment_transactions with open sessions. Add idempotency key or per-IP throttle."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_bodyiq_checkout.py (new)"
+  ],
+  "success_rate": {"backend": "97%", "frontend": "100%"},
+  "test_credentials": "Admin password: bodyiq-admin-2026 (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "Created several payment_transactions rows (3 product sessions + 1 extra foundations + 1 forensic from polling test + Training/Forensic UI Reserve clicks) and ~13 leads with TEST_ prefix. Admin /api/admin/transactions and /api/admin/leads will show these.",
+  "retest_needed": true,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Run: pytest /app/backend/tests/ -v (33 tests, 1 expected failure = test_checkout_status_for_valid_session documenting the 502 bug). If main agent fixes checkout status endpoint, update that test to assert 200 with product_key/status fields. Reservation.local test documents current buggy behavior — flip to expect 201 when main agent fixes. Do NOT follow Stripe checkout URLs to completion (no card flow available in this env). Frontend URLs: bodyiq-training.preview.emergentagent.com; all 6 routes return 200.",
+  "rca of the issue": "GET /api/checkout/status/{session_id} returns 502: server.py calls stripe_checkout.get_checkout_status() from emergentintegrations, which hits https://integrations.emergentagent.com/stripe/v1/checkout/sessions/{id} via GET. Emergent proxy responds 404 'No such checkout.session: {id}' for ALL session IDs including those created milliseconds earlier via the same proxy's POST. Tested with 0/2/5s delays — consistently 404. The raw stripe fallback (stripe.checkout.Session.retrieve) with sk_test_emergent also fails silently (wrong key). Mitigation: (1) upgrade emergentintegrations, (2) proxy-side fix for GET, (3) return DB-backed last-known state + 'pending' flag when Stripe lookup fails so ThankYou page can show product info without blocking on live Stripe status, (4) rely on webhook for 'paid' transition instead of polling."
+}

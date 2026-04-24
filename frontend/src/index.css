@@ -177,6 +177,100 @@ code, .font-mono {
     100% { background-position: 200% 0; }
 }
 
+/* Signal tape auto-scroll (infinite) */
+@keyframes signal-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+.animate-signal-scroll { animation: signal-scroll 60s linear infinite; }
+.animate-signal-scroll:hover { animation-play-state: paused; }
+
+/* Scan line traversing (horizontal) */
+@keyframes scan-line {
+    0% { transform: translateY(0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(100%); opacity: 0; }
+}
+.animate-scan-line { animation: scan-line 2.8s ease-in-out infinite; }
+
+/* Ken Burns slow zoom on hero */
+@keyframes ken-burns {
+    0% { transform: scale(1.0) translate3d(0,0,0); }
+    50% { transform: scale(1.08) translate3d(-10px, -6px, 0); }
+    100% { transform: scale(1.0) translate3d(0,0,0); }
+}
+.animate-ken-burns { animation: ken-burns 28s ease-in-out infinite; transform-origin: center; }
+
+/* Aurora global bg */
+@keyframes aurora-shift {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.55; }
+    50% { transform: translate3d(2%, -1%, 0) scale(1.05); opacity: 0.7; }
+}
+.aurora-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -10;
+    pointer-events: none;
+    background:
+        radial-gradient(1200px 600px at 15% 10%, rgba(6,182,212,0.10), transparent 60%),
+        radial-gradient(1000px 500px at 85% 85%, rgba(59,130,246,0.08), transparent 60%),
+        radial-gradient(700px 400px at 50% 50%, rgba(139,92,246,0.05), transparent 60%);
+    animation: aurora-shift 18s ease-in-out infinite;
+}
+.aurora-grid {
+    position: fixed;
+    inset: 0;
+    z-index: -9;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(6, 182, 212, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(6, 182, 212, 0.04) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse at center, black 10%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 10%, transparent 70%);
+}
+
+/* Vignette for demo frames */
+.vignette::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    box-shadow:
+        inset 0 0 120px rgba(0, 0, 0, 0.55),
+        inset 0 0 40px rgba(10, 15, 28, 0.6);
+}
+
+/* Horizontal scan bar moving vertically across demo frame */
+@keyframes scan-sweep {
+    0% { transform: translateY(-8%); opacity: 0; }
+    8% { opacity: 1; }
+    92% { opacity: 1; }
+    100% { transform: translateY(108%); opacity: 0; }
+}
+.scan-sweep {
+    position: absolute;
+    inset-inline: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, rgba(34,211,238,0.75), transparent);
+    filter: drop-shadow(0 0 10px rgba(34,211,238,0.6));
+    animation: scan-sweep 4.5s linear infinite;
+    pointer-events: none;
+}
+
+/* Subtle parallax helper — uses transform3d on image */
+.parallax-slow {
+    will-change: transform;
+    transition: transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Focus glow for form inputs */
+.input-glow:focus {
+    box-shadow: 0 0 0 1px rgba(6,182,212,0.5), 0 0 20px rgba(6,182,212,0.25);
+}
+
 /* Selection */
 ::selection {
     background: rgba(6, 182, 212, 0.35);

@@ -60,7 +60,7 @@ export const EmailCapture = ({
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={placeholder}
                 data-testid={`${testid}-input`}
-                className="flex-1 rounded-md border border-white/10 bg-ink-700/70 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                className="input-glow flex-1 rounded-md border border-white/10 bg-ink-700/70 px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-all focus:border-cyan-500 focus:outline-none"
             />
             <button
                 type="submit"

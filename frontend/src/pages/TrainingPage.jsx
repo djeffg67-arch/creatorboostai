@@ -2,14 +2,8 @@ import React, { useState } from "react";
 import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
 import { Check, ArrowRight, Zap } from "lucide-react";
-import { captureLead } from "@/lib/api";
+import { createCheckoutSession, captureLead } from "@/lib/api";
 import { toast } from "sonner";
-
-// Placeholder Stripe payment link URLs. Replace when live.
-const STRIPE_LINKS = {
-    foundations: "https://buy.stripe.com/placeholder-signal-foundations-400",
-    applied: "https://buy.stripe.com/placeholder-applied-signals-1500",
-};
 
 const TRAINING_HERO = "https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=1920&q=75";
 const COACHING_IMG = "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1400&q=75";
@@ -59,19 +53,24 @@ export default function TrainingPage() {
 
     const handleReserve = async (tier) => {
         setReserving(tier.key);
-        // Lightweight capture (source=training). If email not collected we still fire; Stripe collects email downstream.
         try {
-            // best-effort anonymous reservation log
-            await captureLead({
-                email: `unknown+${Date.now()}@reservation.local`,
+            // Log reservation intent as a lead (best-effort)
+            captureLead({
+                email: `pending+${Date.now()}@reservation.local`,
                 source: "training",
-                metadata: { tier: tier.key, price: tier.price },
+                metadata: { tier: tier.key, price: tier.price, step: "initiated" },
             }).catch(() => null);
-        } finally {
-            toast.success("Redirecting to secure checkout…");
-            setTimeout(() => {
-                window.location.href = STRIPE_LINKS[tier.key];
-            }, 600);
+
+            const { url } = await createCheckoutSession({
+                product_key: tier.key,
+                origin_url: window.location.origin,
+            });
+            toast.success("Opening secure checkout…");
+            window.location.href = url;
+        } catch (err) {
+            const detail = err?.response?.data?.detail;
+            toast.error(typeof detail === "string" ? detail : "Could not open checkout. Try again.");
+            setReserving(null);
         }
     };
 

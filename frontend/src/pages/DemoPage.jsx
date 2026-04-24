@@ -171,9 +171,11 @@ export default function DemoPage() {
                 <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-12">
                     {/* Main scene */}
                     <div className="lg:col-span-8" data-testid="demo-scene">
-                        <div className="relative overflow-hidden rounded-md border border-white/10 bg-ink-700/30 scanlines">
+                        <div className="relative overflow-hidden rounded-md border border-white/10 bg-ink-700/30 scanlines vignette">
                             <div className="relative aspect-[16/9]">
                                 <img src={variant === "training" ? SCENE_TRAINING : SCENE_IMAGE} alt="scenario" className="h-full w-full object-cover opacity-80" />
+                                {/* Active scanning sweep */}
+                                <span className="scan-sweep" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/20 to-transparent" />
 
                                 {/* HUD corners */}
