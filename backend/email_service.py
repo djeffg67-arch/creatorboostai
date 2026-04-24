@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
 REPLY_TO_EMAIL = os.environ.get("REPLY_TO_EMAIL", SENDER_EMAIL)
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
+# If DNS for the branded sender isn't verified yet, set USE_RESEND_TEST_DOMAIN=true
+# to temporarily send from onboarding@resend.dev (Resend's pre-verified test domain).
+USE_TEST_DOMAIN = os.environ.get("USE_RESEND_TEST_DOMAIN", "false").lower() == "true"
+EFFECTIVE_SENDER = "onboarding@resend.dev" if USE_TEST_DOMAIN else SENDER_EMAIL
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
@@ -29,7 +33,7 @@ async def _send(to: str, subject: str, html: str) -> bool:
         logger.info(f"[email disabled] Would send to={to} subject={subject!r}")
         return False
     params = {
-        "from": f"BodyIQ-AI <{SENDER_EMAIL}>",
+        "from": f"BodyIQ-AI <{EFFECTIVE_SENDER}>",
         "to": [to],
         "subject": subject,
         "html": html,
