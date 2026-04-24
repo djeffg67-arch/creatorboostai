@@ -8,6 +8,8 @@ export default function ThankYouPage() {
         <Layout>
             <section className="relative overflow-hidden py-24 lg:py-36" data-testid="thankyou-page">
                 <div className="absolute inset-0 ambient-grid" />
+                <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 500, height: 500, top: -160, left: "50%", transform: "translateX(-50%)" }} />
+                <div className="glow-orb glow-orb--blue" style={{ width: 340, height: 340, bottom: -140, right: -60 }} />
                 <div className="relative mx-auto max-w-2xl px-5 text-center lg:px-8">
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-cyan-500/40 bg-cyan-500/10">
                         <CheckCircle2 size={28} className="text-cyan-400" />

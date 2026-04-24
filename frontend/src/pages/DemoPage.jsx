@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 const SCENE_IMAGE = "https://images.unsplash.com/photo-1758518730083-4c12527b6742?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwyfHxidXNpbmVzcyUyMG1lZXRpbmclMjBuZWdvdGlhdGlvbnxlbnwwfHx8fDE3NzcwNTkwNDd8MA&ixlib=rb-4.1.0&q=85";
+const SCENE_TRAINING = "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1600&q=75";
 
 // Scenario scripts — variant lets us swap via /demo/training
 const scenarios = {
@@ -138,7 +139,13 @@ export default function DemoPage() {
 
     return (
         <Layout hideFooter>
-            <section className="mx-auto max-w-[1600px] px-4 py-6 lg:px-6 lg:py-8" data-testid="demo-page">
+            <section className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-6 lg:py-8" data-testid="demo-page">
+                {/* Ambient background layer */}
+                <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                    <div className="absolute inset-0 ambient-grid opacity-60" />
+                    <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 480, height: 480, top: -160, left: -140 }} />
+                    <div className="glow-orb glow-orb--blue" style={{ width: 420, height: 420, bottom: -180, right: -100, animationDelay: "3s" }} />
+                </div>
                 {/* Header bar */}
                 <div className="flex flex-col gap-3 border-b border-white/5 pb-5 lg:flex-row lg:items-end lg:justify-between">
                     <div>
@@ -164,9 +171,9 @@ export default function DemoPage() {
                 <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-12">
                     {/* Main scene */}
                     <div className="lg:col-span-8" data-testid="demo-scene">
-                        <div className="relative overflow-hidden rounded-md border border-white/10 bg-ink-700/30">
+                        <div className="relative overflow-hidden rounded-md border border-white/10 bg-ink-700/30 scanlines">
                             <div className="relative aspect-[16/9]">
-                                <img src={SCENE_IMAGE} alt="scenario" className="h-full w-full object-cover opacity-80" />
+                                <img src={variant === "training" ? SCENE_TRAINING : SCENE_IMAGE} alt="scenario" className="h-full w-full object-cover opacity-80" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/20 to-transparent" />
 
                                 {/* HUD corners */}

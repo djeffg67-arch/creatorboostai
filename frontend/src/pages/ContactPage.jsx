@@ -38,8 +38,13 @@ export default function ContactPage() {
 
     return (
         <Layout>
-            <section className="py-20 lg:py-28" data-testid="contact-page">
-                <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-5 lg:grid-cols-12 lg:px-8">
+            <section className="relative py-20 lg:py-28" data-testid="contact-page">
+                <div className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
+                    <div className="absolute inset-0 ambient-grid opacity-50" />
+                    <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 360, height: 360, top: -140, right: -80 }} />
+                    <div className="glow-orb glow-orb--blue" style={{ width: 320, height: 320, bottom: -140, left: -80 }} />
+                </div>
+                <div className="relative mx-auto grid max-w-6xl grid-cols-1 gap-12 px-5 lg:grid-cols-12 lg:px-8">
                     <div className="lg:col-span-5">
                         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Contact</p>
                         <h1 className="font-heading mt-4 text-balance text-4xl font-semibold leading-tight text-white sm:text-5xl">

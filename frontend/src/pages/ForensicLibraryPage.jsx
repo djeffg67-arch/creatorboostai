@@ -5,6 +5,8 @@ import { Lock, Check, Layers, Image as ImageIcon, BookOpen } from "lucide-react"
 import { toast } from "sonner";
 
 const COVER = "https://images.pexels.com/photos/8090294/pexels-photo-8090294.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
+const ANALYSIS_BG = "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1920&q=75";
+const DETAIL_IMG = "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?auto=format&fit=crop&w=1200&q=75";
 
 const features = [
     { icon: ImageIcon, title: "1,200+ Reference Frames", desc: "Catalogued micro-signal frames, indexed by channel and intensity." },
@@ -17,8 +19,16 @@ export default function ForensicLibraryPage() {
 
     return (
         <Layout>
-            <section className="py-20 lg:py-28" data-testid="forensic-hero">
-                <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-5 lg:grid-cols-12 lg:px-8">
+            <section className="relative overflow-hidden py-20 lg:py-28" data-testid="forensic-hero">
+                {/* Ambient background */}
+                <div className="absolute inset-0">
+                    <img src={ANALYSIS_BG} alt="" loading="eager" className="h-full w-full object-cover opacity-[0.08]" />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-b from-ink-800/80 via-ink-800/95 to-ink-800" />
+                <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 420, height: 420, top: -120, right: -80 }} />
+                <div className="glow-orb glow-orb--violet" style={{ width: 320, height: 320, bottom: -100, left: -60 }} />
+
+                <div className="relative mx-auto grid max-w-7xl grid-cols-1 gap-10 px-5 lg:grid-cols-12 lg:px-8">
                     <div className="lg:col-span-6">
                         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Product · Reference Library</p>
                         <h1 className="font-heading mt-4 text-balance text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
@@ -82,7 +92,7 @@ export default function ForensicLibraryPage() {
                 </div>
             </section>
 
-            <section className="pb-24" data-testid="forensic-features">
+            <section className="relative pb-24" data-testid="forensic-features">
                 <div className="mx-auto max-w-7xl px-5 lg:px-8">
                     <div className="grid grid-cols-1 gap-px rounded-md border border-white/5 bg-white/5 md:grid-cols-3">
                         {features.map((f) => (
@@ -92,6 +102,19 @@ export default function ForensicLibraryPage() {
                                 </div>
                                 <h3 className="font-heading mt-5 text-lg font-semibold text-white">{f.title}</h3>
                                 <p className="mt-2 text-sm leading-relaxed text-slate-400">{f.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Detail imagery strip */}
+                    <div className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-3">
+                        {[DETAIL_IMG, COVER, ANALYSIS_BG].map((src, i) => (
+                            <div key={i} className="relative overflow-hidden rounded-md border border-white/10">
+                                <img src={src} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover opacity-70 transition-transform duration-700 hover:scale-105" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-transparent to-transparent" />
+                                <div className="absolute bottom-3 left-3 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">
+                                    Frame · {String(i + 1).padStart(2, "0")}
+                                </div>
                             </div>
                         ))}
                     </div>

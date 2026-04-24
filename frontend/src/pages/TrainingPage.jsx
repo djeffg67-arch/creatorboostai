@@ -11,6 +11,10 @@ const STRIPE_LINKS = {
     applied: "https://buy.stripe.com/placeholder-applied-signals-1500",
 };
 
+const TRAINING_HERO = "https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=1920&q=75";
+const COACHING_IMG = "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1400&q=75";
+const APPLIED_IMG = "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1400&q=75";
+
 const tiers = [
     {
         key: "foundations",
@@ -19,6 +23,7 @@ const tiers = [
         price: 400,
         duration: "2-hour live session",
         summary: "Introduction to signal recognition and basic strategy application.",
+        image: COACHING_IMG,
         bullets: [
             "Baseline establishment framework",
             "Three primary signal channels explained",
@@ -36,6 +41,7 @@ const tiers = [
         duration: "2–3 hour live session",
         summary: "Deeper interpretation, pattern locking, and real-world application.",
         featured: true,
+        image: APPLIED_IMG,
         bullets: [
             "Advanced cross-channel fusion",
             "Live negotiation read + debrief",
@@ -72,7 +78,20 @@ export default function TrainingPage() {
     return (
         <Layout>
             <section className="relative overflow-hidden py-20 lg:py-28" data-testid="training-hero">
+                {/* Hero background */}
+                <div className="absolute inset-0">
+                    <img
+                        src={TRAINING_HERO}
+                        alt=""
+                        loading="eager"
+                        className="h-full w-full object-cover opacity-25"
+                    />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-b from-ink-800/70 via-ink-800/90 to-ink-800" />
                 <div className="absolute inset-0 ambient-grid" />
+                <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 420, height: 420, top: -120, right: -60 }} />
+                <div className="glow-orb glow-orb--blue" style={{ width: 360, height: 360, bottom: -140, left: -80 }} />
+
                 <div className="relative mx-auto max-w-5xl px-5 text-center lg:px-8">
                     <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Live Training · 2026 Cohorts</p>
                     <h1 className="font-heading mt-4 text-balance text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">

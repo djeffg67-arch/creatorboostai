@@ -4,8 +4,11 @@ import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
 import { ArrowRight, Eye, Ear, Activity, Brain, Target, ShieldCheck } from "lucide-react";
 
-const HERO_BG = "https://images.unsplash.com/photo-1771011726574-60ab6028724a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRhcmslMjBibHVlJTIwdGVjaG5vbG9neXxlbnwwfHx8fDE3NzcwNTkwNTZ8MA&ixlib=rb-4.1.0&q=85";
-const TRAINING_BG = "https://images.unsplash.com/photo-1579567761406-4684ee0c75b6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzN8MHwxfHNlYXJjaHwyfHxuZW9uJTIwY3lhbiUyMGxpZ2h0JTIwYWJzdHJhY3R8ZW58MHx8fHwxNzc3MDU5MDU2fDA&ixlib=rb-4.1.0&q=85";
+// Curated, optimized imagery (Unsplash CDN with width/quality params)
+const HERO_BG = "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1920&q=75";
+const MEETING_IMG = "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1400&q=75";
+const CONVERSATION_IMG = "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1200&q=75";
+const TRAINING_BG = "https://images.unsplash.com/photo-1579567761406-4684ee0c75b6?auto=format&fit=crop&w=1600&q=75";
 
 const capabilities = [
     { icon: Eye, title: "Visual Signal Read", desc: "Microexpression, gaze vector, posture asymmetry — translated into structured intelligence." },
@@ -22,11 +25,15 @@ export default function HomePage() {
             {/* Hero */}
             <section className="relative overflow-hidden" data-testid="hero-section">
                 <div
-                    className="absolute inset-0 bg-cover bg-center opacity-40"
+                    className="absolute inset-0 bg-cover bg-center opacity-30"
                     style={{ backgroundImage: `url(${HERO_BG})` }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-ink-800/50 via-ink-800/80 to-ink-800" />
+                <div className="absolute inset-0 bg-gradient-to-b from-ink-800/60 via-ink-800/85 to-ink-800" />
                 <div className="absolute inset-0 ambient-grid" />
+                {/* Ambient glow orbs */}
+                <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 520, height: 520, top: -120, right: -80 }} />
+                <div className="glow-orb glow-orb--blue" style={{ width: 420, height: 420, bottom: -140, left: -100, animationDelay: "2s" }} />
+                <div className="glow-orb glow-orb--violet" style={{ width: 300, height: 300, top: "40%", left: "45%", opacity: 0.18 }} />
 
                 <div className="relative mx-auto grid min-h-[88vh] max-w-7xl grid-cols-1 items-center gap-12 px-5 py-24 lg:grid-cols-12 lg:px-8 lg:py-32">
                     <div className="lg:col-span-8">
@@ -118,28 +125,77 @@ export default function HomePage() {
             {/* What it does */}
             <section className="relative py-24 lg:py-32" data-testid="what-it-does">
                 <div className="mx-auto max-w-7xl px-5 lg:px-8">
-                    <div className="max-w-3xl">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">01 / The System</p>
-                        <h2 className="font-heading mt-4 text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl">
-                            A structured read of every interaction.
-                        </h2>
-                        <p className="mt-5 text-base leading-relaxed text-slate-400">
-                            BodyIQ-AI fuses channels most humans process unconsciously into a single,
-                            interpretable output. You keep full situational awareness — we give you the
-                            scaffolding, the pattern, and the next move.
-                        </p>
-                    </div>
+                    <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
+                        <div className="lg:col-span-5">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">01 / The System</p>
+                            <h2 className="font-heading mt-4 text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl">
+                                A structured read of every interaction.
+                            </h2>
+                            <p className="mt-5 text-base leading-relaxed text-slate-400">
+                                BodyIQ-AI fuses channels most humans process unconsciously into a single,
+                                interpretable output. You keep full situational awareness — we give you the
+                                scaffolding, the pattern, and the next move.
+                            </p>
 
-                    <div className="mt-16 grid grid-cols-1 gap-px rounded-md border border-white/5 bg-white/5 sm:grid-cols-2 lg:grid-cols-3">
-                        {capabilities.map((c) => (
-                            <div key={c.title} className="bg-ink-800 p-8 transition-colors hover:bg-ink-700/50">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-cyan-500/30 bg-cyan-500/5">
-                                    <c.icon size={18} className="text-cyan-400" />
+                            {/* Paired image with overlay */}
+                            <div className="relative mt-10 overflow-hidden rounded-md border border-white/10">
+                                <img
+                                    src={MEETING_IMG}
+                                    alt="Professional meeting"
+                                    loading="lazy"
+                                    className="h-72 w-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/40 to-transparent" />
+                                <div className="absolute bottom-4 left-4 right-4 rounded-sm border border-cyan-500/30 bg-ink-900/75 p-3 backdrop-blur">
+                                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Live Frame · B-07</p>
+                                    <p className="mt-1 text-xs text-slate-200">Postural convergence detected · receptivity window opening</p>
                                 </div>
-                                <h3 className="font-heading mt-5 text-lg font-semibold text-white">{c.title}</h3>
-                                <p className="mt-2 text-sm leading-relaxed text-slate-400">{c.desc}</p>
                             </div>
-                        ))}
+                        </div>
+
+                        <div className="lg:col-span-7">
+                            <div className="grid grid-cols-1 gap-px rounded-md border border-white/5 bg-white/5 sm:grid-cols-2">
+                                {capabilities.map((c) => (
+                                    <div key={c.title} className="bg-ink-800 p-7 transition-colors hover:bg-ink-700/50">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-cyan-500/30 bg-cyan-500/5">
+                                            <c.icon size={18} className="text-cyan-400" />
+                                        </div>
+                                        <h3 className="font-heading mt-5 text-lg font-semibold text-white">{c.title}</h3>
+                                        <p className="mt-2 text-sm leading-relaxed text-slate-400">{c.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Scenario strip */}
+            <section className="relative py-20" data-testid="scenario-strip">
+                <div className="mx-auto max-w-7xl px-5 lg:px-8">
+                    <div className="relative overflow-hidden rounded-md border border-white/10 bg-ink-700/30">
+                        <img
+                            src={CONVERSATION_IMG}
+                            alt="Strategic conversation"
+                            loading="lazy"
+                            className="h-[420px] w-full object-cover opacity-70"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-ink-900 via-ink-900/70 to-transparent" />
+                        <div className="absolute inset-y-0 left-0 flex w-full items-center px-8 lg:w-2/3 lg:px-14">
+                            <div className="max-w-xl">
+                                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Field Application</p>
+                                <h3 className="font-heading mt-3 text-3xl font-semibold text-white sm:text-4xl">
+                                    Every meeting leaves a signal trail.
+                                </h3>
+                                <p className="mt-4 text-sm leading-relaxed text-slate-300 sm:text-base">
+                                    Whether you're negotiating capital, resolving conflict, or reading an
+                                    interview room — the signals are already there. BodyIQ-AI gives you the
+                                    framework to read them consistently.
+                                </p>
+                            </div>
+                        </div>
+                        {/* Decorative waveform */}
+                        <div className="absolute bottom-0 left-0 right-0 h-16 waveform opacity-60" />
                     </div>
                 </div>
             </section>
