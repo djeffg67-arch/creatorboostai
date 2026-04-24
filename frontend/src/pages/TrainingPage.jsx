@@ -56,7 +56,7 @@ export default function TrainingPage() {
         try {
             // Log reservation intent as a lead (best-effort)
             captureLead({
-                email: `pending+${Date.now()}@reservation.local`,
+                email: `pending+${Date.now()}@reservation.example.com`,
                 source: "training",
                 metadata: { tier: tier.key, price: tier.price, step: "initiated" },
             }).catch(() => null);

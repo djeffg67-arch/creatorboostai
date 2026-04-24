@@ -1,0 +1,33 @@
+{
+  "summary": "Regression pass for iter_3 fixes: (1) GET /api/checkout/status/{valid_id} now returns 200 with DB fallback, and (2) @reservation.example.com leads are accepted with 201 and skip welcome email. Backend: 34/34 pytest pass (up from 32/33). Frontend: Training Reserve click posts lead with status 201 (was 422 in iter_2). ThankYou page polled /api/checkout/status 11 times, each returned 200, and after MAX_ATTEMPTS transitioned cleanly to 'timeout' state with 'VERIFICATION DELAYED — We couldn't verify your payment just yet' UI — no longer hangs forever. Both critical + minor iter_2 issues verified fixed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_bodyiq_api.py",
+    "/app/backend/tests/test_bodyiq_checkout.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py get_checkout_status: DB fallback is correct. Consider also bumping txn.updated_at only when Stripe lookup succeeds, to avoid churning updated_at on every failed proxy call (low priority).",
+    "ThankYou polling: at MAX_ATTEMPTS the UI shows a friendly timeout but no explicit Retry button — consider a 'Check again' action that resets attempts (nice-to-have).",
+    "Post-purchase email still depends on webhook being received (since Stripe GET proxy is unreliable). Mocked Resend logs skip-only; in production ensure Stripe webhook endpoint is registered, otherwise confirmation emails for the forensic_library product will not fire even though the DB row flips to paid."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_bodyiq_checkout.py (updated iter_2 documented-failure tests to assert fixed behavior; added test_checkout_status_valid_session_returns_db_fallback_fields)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin password: bodyiq-admin-2026",
+  "seed_data_creation": "Pytest run created ~4 leads per VALID_SOURCE + several payment_transactions (foundations/applied/forensic_library plus extra sessions). UI test created 1 reservation lead (pending+*@reservation.example.com) and 1 foundations checkout session via Reserve click.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 34 backend tests pass. Previous iter_2 documented-bug tests (test_checkout_status_invalid_session accepting 502, test_lead_reservation_local_currently_rejected) have been flipped to assert success. New DB-fallback test verifies product_key/product_name/email/amount_total/currency populated from DB when Stripe GET proxy fails. Frontend verified: Training reservation lead returns 201, ThankYou polls 10x then shows timeout UI. No outstanding issues.",
+  "rca of the issue": "Iter_2 root cause (Emergent Stripe GET proxy returning 404 for valid sessions) is not fixed at the proxy layer but correctly worked around in server.py:338-363 via try/except around stripe_checkout.get_checkout_status() with fallback to DB-backed transaction fields. Webhook remains the authoritative path for payment_status=paid. Iter_2 minor RCA (@reservation.local rejected by pydantic EmailStr) fixed by switching synthetic email domain to @reservation.example.com (RFC 2606 reserved, passes email-validator) and updating server.py:154 skip-check accordingly."
+}

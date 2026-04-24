@@ -153,8 +153,33 @@ def test_checkout_status_for_valid_session(session):
 
 def test_checkout_status_invalid_session(session):
     r = session.get(f"{BASE_URL}/api/checkout/status/cs_test_invalid_id_bogus_000")
-    # Either 502 (Stripe error) or 404 (not found) acceptable per spec
-    assert r.status_code in (404, 502), r.status_code
+    # Nonexistent session (no DB row) must return 404
+    assert r.status_code == 404, r.status_code
+
+
+def test_checkout_status_valid_session_returns_db_fallback_fields(session):
+    """REGRESSION (iter_3 fix): Stripe GET proxy is unreliable, server now falls back
+    to DB-backed state. Must return 200 with all key fields populated from DB."""
+    c = session.post(
+        f"{BASE_URL}/api/checkout/session",
+        json={"product_key": "applied", "origin_url": "https://example.test", "email": "TEST_dbfallback@example.com"},
+    )
+    assert c.status_code == 200, c.text
+    sid = c.json()["session_id"]
+
+    r = session.get(f"{BASE_URL}/api/checkout/status/{sid}")
+    assert r.status_code == 200, f"Expected 200 with DB fallback, got {r.status_code}: {r.text}"
+    data = r.json()
+    # Required fields per spec
+    assert data["session_id"] == sid
+    assert data["status"] in {"open", "complete", "expired"}
+    assert data["payment_status"] in {"unpaid", "paid", "no_payment_required"}
+    assert data["product_key"] == "applied"
+    assert data["product_name"] == "Applied Signals"
+    assert data["currency"] == "usd"
+    assert isinstance(data["amount_total"], int) and data["amount_total"] > 0
+    # email echoes DB-stored hint
+    assert data["email"] == "TEST_dbfallback@example.com"
 
 
 # ---------- /api/admin/transactions ----------
@@ -200,20 +225,18 @@ def test_lead_demo_source_no_email_exception(session):
     assert r.status_code == 201
 
 
-def test_lead_reservation_local_currently_rejected(session):
-    """BUG: server.py has skip-email branch for @reservation.local, but pydantic
-    EmailStr (email-validator) rejects .local as reserved TLD BEFORE the handler
-    runs, so the synthetic email path produces 422 instead of 201. Frontend
-    TrainingPage.jsx sends pending+{ts}@reservation.local - these lead inserts
-    silently fail (try/catch swallows the 422).
-
-    This test documents current behavior so the regression is visible. Main
-    agent should either: (a) change LeadCreate.email to str + manual validate
-    or (b) use a different synthetic domain (e.g. @reservation.test or
-    @reservation.example.com).
+def test_lead_reservation_example_com_skip_email(session):
+    """REGRESSION (iter_3 fix): synthetic reservation email now uses
+    @reservation.example.com (RFC-reserved, valid format). Server must:
+      - accept the email (201)
+      - SKIP welcome email (no exception)
     """
     r = session.post(
         f"{BASE_URL}/api/leads",
-        json={"email": "unknown+123@reservation.local", "source": "training"},
+        json={"email": "unknown+123@reservation.example.com", "source": "training"},
     )
-    assert r.status_code == 422, "If this now passes with 201, update test - bug is fixed"
+    assert r.status_code == 201, f"Expected 201, got {r.status_code}: {r.text}"
+    d = r.json()
+    assert d["email"] == "unknown+123@reservation.example.com"
+    assert d["source"] == "training"
+    assert "id" in d

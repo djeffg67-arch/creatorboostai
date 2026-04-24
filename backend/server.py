@@ -151,7 +151,7 @@ async def create_lead(payload: LeadCreate):
             await send_contact_ack(payload.email, payload.name)
         else:
             # Skip synthetic reservation tracking rows
-            if not payload.email.endswith("@reservation.local"):
+            if not payload.email.endswith("@reservation.example.com"):
                 await send_lead_welcome(payload.email, payload.source)
     except Exception as e:
         logging.getLogger(__name__).warning(f"Lead email hook failed: {e}")
@@ -325,59 +325,55 @@ async def create_checkout_session(payload: CheckoutSessionCreate, http_request: 
 
 @api_router.get("/checkout/status/{session_id}", response_model=CheckoutStatusOut)
 async def get_checkout_status(session_id: str, http_request: Request):
-    stripe_checkout = _stripe_client(http_request)
-    try:
-        status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
-    except Exception as e:
-        logging.getLogger(__name__).error(f"Stripe status fetch failed: {e}")
-        raise HTTPException(status_code=502, detail="Unable to fetch checkout status")
-
     txn = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
     if txn is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    # Extract email from Stripe metadata/customer_details if not already saved
-    email = txn.get("email")
-    if not email and status.metadata:
-        email = status.metadata.get("customer_email") or status.metadata.get("customer_email_hint")
+    stripe_status = None
+    stripe_payment_status = None
+    stripe_amount = int(round(float(txn.get("amount", 0)) * 100))
+    stripe_currency = txn.get("currency", "usd")
+    stripe_email = None
 
-    # Try to pull buyer email from Stripe session directly (customer_details)
     try:
-        import stripe as _stripe  # emergentintegrations ships stripe
-        _stripe.api_key = STRIPE_API_KEY
-        raw = _stripe.checkout.Session.retrieve(session_id)
-        cd = raw.get("customer_details") if isinstance(raw, dict) else getattr(raw, "customer_details", None)
-        if cd:
-            be = cd.get("email") if isinstance(cd, dict) else getattr(cd, "email", None)
-            if be:
-                email = be
-    except Exception:
-        pass
+        stripe_checkout = _stripe_client(http_request)
+        status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
+        stripe_status = status.status
+        stripe_payment_status = status.payment_status
+        stripe_amount = status.amount_total
+        stripe_currency = status.currency
+        if status.metadata:
+            stripe_email = status.metadata.get("customer_email") or status.metadata.get("customer_email_hint")
+    except Exception as e:
+        # Emergent Stripe proxy GET is unreliable; fall back to DB (webhook keeps it fresh)
+        logging.getLogger(__name__).warning(f"Stripe status fetch failed for {session_id}; using DB. err={e}")
+
+    effective_status = stripe_status or txn.get("status", "open")
+    effective_payment_status = stripe_payment_status or txn.get("payment_status", "unpaid")
+    effective_email = stripe_email or txn.get("email")
 
     updates = {
-        "status": status.status,
-        "payment_status": status.payment_status,
+        "status": effective_status,
+        "payment_status": effective_payment_status,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    if email and email != txn.get("email"):
-        updates["email"] = email
+    if effective_email and effective_email != txn.get("email"):
+        updates["email"] = effective_email
     await db.payment_transactions.update_one({"session_id": session_id}, {"$set": updates})
-
     txn.update(updates)
 
-    # Fire email idempotently on first confirmed payment
-    if status.payment_status == "paid":
+    if effective_payment_status == "paid":
         await _trigger_post_purchase_email(txn)
 
     return CheckoutStatusOut(
         session_id=session_id,
-        status=status.status,
-        payment_status=status.payment_status,
-        amount_total=status.amount_total,
-        currency=status.currency,
+        status=effective_status,
+        payment_status=effective_payment_status,
+        amount_total=stripe_amount,
+        currency=stripe_currency,
         product_key=txn.get("product_key"),
         product_name=txn.get("product_name"),
-        email=email,
+        email=effective_email,
     )
 
 
