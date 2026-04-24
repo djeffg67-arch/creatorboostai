@@ -57,7 +57,7 @@ export default function ContactPage() {
 
                         <div className="mt-10 space-y-5">
                             {[
-                                { icon: Mail, title: "Email", value: "signal@bodyiq-ai.com" },
+                                { icon: Mail, title: "Email", value: "jeffrey@creatorboostai.com" },
                                 { icon: MapPin, title: "Operations", value: "Remote · Americas + EMEA" },
                                 { icon: Shield, title: "Response Time", value: "Under 48 hours" },
                             ].map((r) => (
