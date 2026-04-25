@@ -12,6 +12,7 @@ import ContactPage from "@/pages/ContactPage";
 import AdminPage from "@/pages/AdminPage";
 import RealtorDemoPage from "@/pages/RealtorDemoPage";
 import InsuranceDemoPage from "@/pages/InsuranceDemoPage";
+import VerticalPickerPage from "@/pages/VerticalPickerPage";
 
 function App() {
     return (
@@ -19,7 +20,7 @@ function App() {
             <BrowserRouter>
                 <Routes>
                     <Route path="/" element={<HomePage />} />
-                    <Route path="/demo" element={<DemoPage />} />
+                    <Route path="/demo" element={<VerticalPickerPage />} />
                     <Route path="/demo/realtor" element={<RealtorDemoPage />} />
                     <Route path="/demo/insurance" element={<InsuranceDemoPage />} />
                     <Route path="/demo/:variant" element={<DemoPage />} />

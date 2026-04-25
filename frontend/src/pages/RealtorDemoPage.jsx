@@ -157,18 +157,28 @@ const SCENES = [
             "Leadership opens this dashboard in the morning and instantly knows: what's moving, what's stuck, who needs help, and where the next dollar of revenue is coming from. " +
             "What used to take five reports, three meetings, and a Monday morning email — is now one screen.",
     },
-    // Scene 12 — Autonomous Option (~60s)
+    // Scene 12 — National + Regional Command Center (~90s)
     {
-        id: "autonomous", section: "Scene 12 · Autonomous Mode", title: "Approve every move — or let the system act.",
+        id: "national-cc", section: "Scene 12 · National & Regional Command", title: "Your nationwide command center.",
+        focus: "national-cc", image: IMG.citySkyline, fallback_ms: 90000,
+        narration:
+            "This is your nationwide command center. " +
+            "Every region, every market, every office, every agent — visible in real time, on one map. Active listings heat-mapped state by state. Closed deals per region. Revenue tracked market by market. Lead flow concentrations highlighted in real time. Compliance and transaction-coordinator alerts pinpointed to the office that triggered them. Commission payouts traced to the agent who earned them. " +
+            "Drill from the United States, into a state, into a city, into an office, into an individual agent. Identify underperforming markets instantly. Reallocate marketing budget to the metros where listings are converting. Coach the offices that are slipping. Increase output without increasing headcount. " +
+            "You're no longer managing agents. You're managing an entire national real estate operation — from one system.",
+    },
+    // Scene 13 — Autonomous Option (~60s)
+    {
+        id: "autonomous", section: "Scene 13 · Autonomous Mode", title: "Approve every move — or let the system act.",
         focus: "autonomous-choice", image: IMG.agentClient, fallback_ms: 60000,
         narration:
             "Now the most important question. " +
             "Would you like CreatorBoostAI to take action automatically — sending follow-ups, booking showings, routing leads, drafting contracts — or would you prefer to review and approve every move before it goes out? " +
             "You choose, by team, by channel, by deal size. Full autonomy, full approval, or anywhere in between. The system always defers to your control.",
     },
-    // Scene 13 — Closing (~45s)
+    // Scene 14 — Closing (~45s)
     {
-        id: "closing", section: "Scene 13 · Closing", title: "This is your business operating system.",
+        id: "closing", section: "Scene 14 · Closing", title: "This is your business operating system.",
         focus: "cta", image: IMG.handshake, fallback_ms: 45000,
         narration:
             "This is not another tool to add to your stack. " +
@@ -351,9 +361,12 @@ export default function RealtorDemoPage() {
 
     const handleStart = async () => {
         const cache = await prefetchAll();
+        const params = new URLSearchParams(window.location.search);
+        const sceneParam = parseInt(params.get("scene") || "1", 10);
+        const startIdx = Math.max(0, Math.min(SCENES.length - 1, sceneParam - 1));
         setStarted(true);
-        setScene(0); setDone(false); setPaused(false);
-        setTimeout(() => speakScene(0, cache), 200);
+        setScene(startIdx); setDone(false); setPaused(false);
+        setTimeout(() => speakScene(startIdx, cache), 200);
     };
     const handlePauseResume = () => {
         if (paused) {
@@ -480,9 +493,9 @@ const StartScreen = ({ onStart, prefetching, progress }) => (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Cinematic Demo Console</p>
-                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 13-scene walkthrough.</h2>
+                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 14-scene walkthrough.</h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                    A fully automated 13-scene cinematic walkthrough — narrated by Nova, an executive A.I. voice —
+                    A fully automated 14-scene cinematic walkthrough — narrated by Nova, an executive A.I. voice —
                     showing how CreatorBoostAI sits on top of the systems you already use and turns them into a
                     single command center. No clicks required. Sit back and watch.
                 </p>
@@ -506,7 +519,7 @@ const StartScreen = ({ onStart, prefetching, progress }) => (
                 </div>
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
                     {[
-                        "13 cinematic scenes",
+                        "14 cinematic scenes",
                         "100% auto-play · no clicks",
                         "Sits on top — never replaces",
                         "Subtitles + voice toggle",
@@ -632,6 +645,7 @@ const SceneStage = ({ scene }) => {
     if (f === "follow-up-automation") return <FollowUpAutomation />;
     if (f === "pipeline") return <PipelinePanel />;
     if (f === "autonomous-choice") return <AutonomousChoice />;
+    if (f === "national-cc") return <RealtorNationalCommandCenter />;
     if (f === "connect") return <ConnectionDiagram />;
     if (f === "dashboard-leads") return <DashboardMockup kind="leads" />;
     if (f === "dashboard-property") return <DashboardMockup kind="property" />;
@@ -657,6 +671,295 @@ const NarrativePanel = ({ scene }) => (
                 <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-transparent to-transparent" />
             </div>
         </div>
+    </div>
+);
+
+// =================================================================
+// Scene 12 — Realtor National + Regional Command Center
+// =================================================================
+const RealtorNationalCommandCenter = () => {
+    // Real-estate-tuned regions: listings + closed deals + GCI revenue + lead flow
+    const regions = [
+        {
+            name: "WEST", revenue: "$48.2M", listings: 3120, closed: 962, leads: 8420, conv: "11.6%", flag: "0", states: [
+                { ab: "WA", v: "$6.4M", t: "hot" }, { ab: "OR", v: "$2.4M", t: "strong" },
+                { ab: "CA", v: "$22.4M", t: "hot" }, { ab: "NV", v: "$1.8M", t: "neutral" },
+                { ab: "AZ", v: "$5.2M", t: "strong" }, { ab: "ID", v: "$1.1M", t: "neutral" },
+                { ab: "MT", v: "$0.7M", t: "weak" }, { ab: "WY", v: "$0.5M", t: "weak" },
+                { ab: "UT", v: "$2.8M", t: "strong" }, { ab: "CO", v: "$6.8M", t: "hot" },
+                { ab: "NM", v: "$1.9M", t: "neutral" }, { ab: "AK", v: "$0.4M", t: "weak" },
+                { ab: "HI", v: "$0.9M", t: "neutral" },
+            ]
+        },
+        {
+            name: "MIDWEST", revenue: "$36.4M", listings: 2480, closed: 712, leads: 5240, conv: "10.2%", flag: "1", states: [
+                { ab: "ND", v: "$0.4M", t: "weak" }, { ab: "SD", v: "$0.5M", t: "weak" },
+                { ab: "NE", v: "$1.4M", t: "neutral" }, { ab: "KS", v: "$2.1M", t: "neutral" },
+                { ab: "MN", v: "$5.4M", t: "strong" }, { ab: "IA", v: "$2.4M", t: "neutral" },
+                { ab: "MO", v: "$3.8M", t: "strong" }, { ab: "WI", v: "$3.2M", t: "strong" },
+                { ab: "IL", v: "$8.6M", t: "hot" }, { ab: "IN", v: "$2.8M", t: "neutral" },
+                { ab: "MI", v: "$6.2M", t: "hot" }, { ab: "OH", v: "$6.8M", t: "hot" },
+            ]
+        },
+        {
+            name: "SOUTH", revenue: "$62.4M", listings: 4180, closed: 1412, leads: 11240, conv: "12.8%", flag: "0", states: [
+                { ab: "TX", v: "$18.4M", t: "hot" }, { ab: "OK", v: "$1.8M", t: "neutral" },
+                { ab: "AR", v: "$1.1M", t: "neutral" }, { ab: "LA", v: "$2.2M", t: "neutral" },
+                { ab: "MS", v: "$0.9M", t: "weak" }, { ab: "AL", v: "$2.4M", t: "strong" },
+                { ab: "TN", v: "$4.6M", t: "strong" }, { ab: "KY", v: "$2.1M", t: "neutral" },
+                { ab: "GA", v: "$7.4M", t: "hot" }, { ab: "FL", v: "$24.6M", t: "hot" },
+                { ab: "SC", v: "$2.4M", t: "neutral" }, { ab: "NC", v: "$6.4M", t: "strong" },
+                { ab: "VA", v: "$4.2M", t: "strong" }, { ab: "WV", v: "$0.5M", t: "weak" },
+            ]
+        },
+        {
+            name: "NORTHEAST", revenue: "$54.8M", listings: 2840, closed: 894, leads: 7120, conv: "13.6%", flag: "2", states: [
+                { ab: "PA", v: "$8.4M", t: "hot" }, { ab: "NY", v: "$22.6M", t: "hot" },
+                { ab: "NJ", v: "$8.4M", t: "hot" }, { ab: "CT", v: "$3.6M", t: "strong" },
+                { ab: "RI", v: "$0.9M", t: "neutral" }, { ab: "MA", v: "$6.4M", t: "hot" },
+                { ab: "VT", v: "$0.5M", t: "weak" }, { ab: "NH", v: "$1.1M", t: "neutral" },
+                { ab: "ME", v: "$0.9M", t: "neutral" }, { ab: "DE", v: "$0.7M", t: "weak" },
+                { ab: "MD", v: "$1.3M", t: "neutral" },
+            ]
+        },
+    ];
+
+    const tour = [
+        {
+            level: "NATIONAL", title: "United States · All Markets",
+            kpis: [["GCI Revenue", "$201.8M"], ["Active Listings", "12,620"], ["Closed YTD", "3,980"], ["Lead Flow", "32,020 / 30d"]],
+            note: "All 50 states. 248 offices. 2,140 agents. Live across every market.",
+        },
+        {
+            level: "STATE", title: "Florida · FL · Drill-down",
+            kpis: [["GCI Revenue", "$24.6M"], ["Active Listings", "1,820"], ["Closed YTD", "612"], ["Avg DOM", "27d"]],
+            note: "Top-performing state. Miami-Dade driving 38% of FL volume.",
+        },
+        {
+            level: "CITY", title: "Miami · Greater Miami Metro",
+            kpis: [["GCI Revenue", "$9.4M"], ["Listings", "684"], ["Closed YTD", "224"], ["Offices", "8"]],
+            note: "4 brokerage offices · 62 agents · top of leaderboard.",
+        },
+        {
+            level: "OFFICE", title: "Miami Brickell · Office #FL-01",
+            kpis: [["GCI Revenue", "$3.2M"], ["Listings", "184"], ["Closed YTD", "62"], ["Agents", "18"]],
+            note: "A. Reyes leading office at $824k GCI YTD.",
+        },
+        {
+            level: "AGENT", title: "Reyes, A. · Senior Agent",
+            kpis: [["GCI YTD", "$824k"], ["Closed Deals", "24"], ["Avg Sale", "$684k"], ["Conv. Rate", "18.2%"]],
+            note: "Top performer · luxury + waterfront · 6-year tenure",
+        },
+    ];
+
+    const STATE_NAMES = {
+        WA: "Washington", OR: "Oregon", CA: "California", NV: "Nevada", AZ: "Arizona", ID: "Idaho",
+        MT: "Montana", WY: "Wyoming", UT: "Utah", CO: "Colorado", NM: "New Mexico", AK: "Alaska",
+        HI: "Hawaii", ND: "North Dakota", SD: "South Dakota", NE: "Nebraska", KS: "Kansas",
+        MN: "Minnesota", IA: "Iowa", MO: "Missouri", WI: "Wisconsin", IL: "Illinois", IN: "Indiana",
+        MI: "Michigan", OH: "Ohio", TX: "Texas", OK: "Oklahoma", AR: "Arkansas", LA: "Louisiana",
+        MS: "Mississippi", AL: "Alabama", TN: "Tennessee", KY: "Kentucky", GA: "Georgia",
+        FL: "Florida", SC: "South Carolina", NC: "North Carolina", VA: "Virginia", WV: "West Virginia",
+        PA: "Pennsylvania", NY: "New York", NJ: "New Jersey", CT: "Connecticut", RI: "Rhode Island",
+        MA: "Massachusetts", VT: "Vermont", NH: "New Hampshire", ME: "Maine", DE: "Delaware", MD: "Maryland",
+    };
+
+    const [autoIdx, setAutoIdx] = React.useState(0);
+    const [pickedState, setPickedState] = React.useState(null);
+    const [manualLevel, setManualLevel] = React.useState(0); // 0 nation 1 state 2 city 3 office 4 agent
+    const isManual = pickedState !== null;
+
+    React.useEffect(() => {
+        if (isManual) return;
+        const t = setInterval(() => setAutoIdx(p => (p + 1) % tour.length), 7000);
+        return () => clearInterval(t);
+    }, [tour.length, isManual]);
+
+    const buildManualDrill = () => {
+        if (!pickedState) return tour[autoIdx];
+        const fullName = STATE_NAMES[pickedState.ab] || pickedState.ab;
+        const tier = pickedState.t;
+        const tierLabel = tier === "hot" ? "TOP-PERFORMING MARKET" : tier === "strong" ? "STRONG MARKET" : tier === "weak" ? "UNDERPERFORMING — coach + reallocate" : "STEADY MARKET";
+        const num = parseFloat(pickedState.v.replace(/[$M]/g, "")) || 1;
+        const listings = Math.round(num * 76);
+        const closed = Math.round(num * 24);
+        const dom = tier === "hot" ? "21d" : tier === "strong" ? "28d" : tier === "weak" ? "62d" : "38d";
+        const offices = Math.max(1, Math.round(num / 2.5));
+
+        if (manualLevel === 1) {
+            return {
+                level: "STATE",
+                title: `${fullName} · ${pickedState.ab} · Drill-down`,
+                kpis: [["GCI Revenue", pickedState.v], ["Listings", listings.toLocaleString()], ["Closed YTD", closed.toLocaleString()], ["Avg DOM", dom]],
+                note: `${tierLabel}. ${pickedState.region} region. ${offices} offices.`,
+            };
+        }
+        if (manualLevel === 2) {
+            return {
+                level: "CITY",
+                title: `${fullName} Major Metro`,
+                kpis: [["GCI Revenue", `$${(num / 2.4).toFixed(1)}M`], ["Listings", Math.round(listings / 2.4).toLocaleString()], ["Closed YTD", Math.round(closed / 2.4).toLocaleString()], ["Offices", Math.max(2, Math.round(offices / 2))]],
+                note: `Top metro for ${fullName}. Driving 35-45% of state volume.`,
+            };
+        }
+        if (manualLevel === 3) {
+            return {
+                level: "OFFICE",
+                title: `${fullName} Downtown · Office #${pickedState.ab}-01`,
+                kpis: [["GCI Revenue", `$${(num / 6).toFixed(2)}M`], ["Listings", Math.round(listings / 6).toLocaleString()], ["Closed YTD", Math.round(closed / 6).toLocaleString()], ["Agents", Math.max(6, Math.round(num * 1.4))]],
+                note: `Lead office for ${fullName}. Top agent leading at $${(num * 0.06).toFixed(2)}M GCI YTD.`,
+            };
+        }
+        if (manualLevel === 4) {
+            return {
+                level: "AGENT",
+                title: `Top Agent · ${fullName}`,
+                kpis: [["GCI YTD", `$${(num / 18).toFixed(2)}M`], ["Closed", Math.round(closed / 18)], ["Avg Sale", "$684k"], ["Conv.", tier === "hot" ? "18.2%" : "12.4%"]],
+                note: `Leading ${fullName} agent · luxury + standard split · multi-year tenure`,
+            };
+        }
+        return tour[0];
+    };
+
+    const drill = isManual ? buildManualDrill() : tour[autoIdx];
+
+    const handleStateClick = (regionName, state) => {
+        setPickedState({ ...state, region: regionName });
+        setManualLevel(1);
+    };
+    const drillNext = () => setManualLevel(l => Math.min(4, l + 1));
+    const backToNation = () => { setPickedState(null); setManualLevel(0); setAutoIdx(0); };
+
+    const tierColor = (t) =>
+        t === "hot" ? "border-cyan-400/60 bg-cyan-400/20 text-cyan-200 shadow-[0_0_8px_rgba(6,182,212,0.4)]" :
+        t === "strong" ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300" :
+        t === "weak" ? "border-amber-500/40 bg-amber-500/10 text-amber-300" :
+        "border-white/10 bg-ink-800 text-slate-300";
+
+    const nextLabel = manualLevel === 1 ? "City" : manualLevel === 2 ? "Office" : manualLevel === 3 ? "Agent" : null;
+
+    return (
+        <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="national-cc">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                    <Globe2 size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">National Command Center · 50 States · 248 Offices</span>
+                </div>
+                <span className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300"><span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" /> LIVE</span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <RKPI label="GCI Revenue" value="$201.8M" trend="+11% YoY" />
+                <RKPI label="Active Listings" value="12,620" trend="+312 mo" />
+                <RKPI label="Closed YTD" value="3,980" trend="+18% YoY" />
+                <RKPI label="Lead Flow" value="32,020" trend="last 30d" />
+            </div>
+
+            <div className="mt-5 rounded-sm border border-white/10 bg-ink-800 p-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                        Revenue heatmap · {isManual ? "click any state to drill" : "click to drill (auto-rotating)"}
+                    </p>
+                    <div className="flex items-center gap-3 font-mono text-[8px] uppercase tracking-[0.2em] text-slate-500">
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-cyan-400/60 bg-cyan-400/20" /> Hot</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-cyan-500/40 bg-cyan-500/10" /> Strong</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-white/10 bg-ink-800" /> Neutral</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-amber-500/40 bg-amber-500/10" /> Weak</span>
+                    </div>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-4">
+                    {regions.map((r) => (
+                        <div key={r.name} className="rounded-sm border border-white/10 bg-ink-900 p-3">
+                            <div className="flex items-center justify-between">
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{r.name}</span>
+                                <span className="font-heading text-sm font-semibold text-white">{r.revenue}</span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400">
+                                <span>{r.listings.toLocaleString()} listings</span>
+                                <span>· {r.closed} closed</span>
+                                <span>· {r.leads.toLocaleString()} leads</span>
+                                {r.flag !== "0" && <span className="text-amber-300">⚠ {r.flag}</span>}
+                            </div>
+                            <div className="mt-3 grid grid-cols-4 gap-1">
+                                {r.states.map((s) => {
+                                    const selected = pickedState?.ab === s.ab;
+                                    return (
+                                        <button
+                                            key={s.ab}
+                                            type="button"
+                                            onClick={() => handleStateClick(r.name, s)}
+                                            data-testid={`state-pill-${s.ab}`}
+                                            className={`group relative rounded-sm border px-1.5 py-1 text-center transition-all cursor-pointer hover:scale-110 hover:z-10 ${tierColor(s.t)} ${selected ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-ink-900" : ""}`}
+                                            title={`${STATE_NAMES[s.ab] || s.ab} · ${s.v} · click to drill`}
+                                        >
+                                            <span className="font-mono text-[9px] font-semibold">{s.ab}</span>
+                                            <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-sm border border-white/10 bg-ink-900 px-2 py-0.5 font-mono text-[9px] text-cyan-300 group-hover:block">{s.v}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="mt-4 rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-4" data-testid="drill-panel">
+                <div className="flex items-center justify-between flex-wrap gap-2 border-b border-cyan-500/20 pb-3">
+                    <div className="flex items-center gap-2">
+                        <span className="rounded-sm border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">DRILL · {drill.level}</span>
+                        <span className="font-heading text-sm font-semibold text-white">{drill.title}</span>
+                    </div>
+                    {!isManual ? (
+                        <div className="flex items-center gap-1">
+                            {tour.map((_, i) => (
+                                <span key={i} className={`h-1 w-5 rounded-full transition-all ${i === autoIdx ? "bg-cyan-400" : "bg-white/10"}`} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5">
+                            {nextLabel && (
+                                <button onClick={drillNext} data-testid="drill-next-btn" className="inline-flex items-center gap-1 rounded-sm border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500 hover:text-ink-900">
+                                    <Briefcase size={10} /> {nextLabel}
+                                </button>
+                            )}
+                            <button onClick={backToNation} data-testid="drill-back-btn" className="inline-flex items-center gap-1 rounded-sm border border-white/15 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                                <Globe2 size={10} /> Nation
+                            </button>
+                        </div>
+                    )}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 fade-in-up" key={`${drill.level}-${drill.title}`}>
+                    {drill.kpis.map(([l, v]) => (
+                        <div key={l} className="rounded-sm border border-white/10 bg-ink-900 p-2">
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{l}</p>
+                            <p className="font-heading mt-1 text-base font-semibold text-cyan-300">{v}</p>
+                        </div>
+                    ))}
+                </div>
+                <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">{drill.note}</p>
+                {isManual && (
+                    <div className="mt-3 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.22em]">
+                        <button onClick={backToNation} className="text-cyan-300 hover:text-cyan-200">Nation</button>
+                        <span className="text-slate-600">›</span>
+                        <button onClick={() => setManualLevel(1)} className={manualLevel >= 1 ? "text-cyan-300 hover:text-cyan-200" : "text-slate-500"}>{pickedState?.ab}</button>
+                        {manualLevel >= 2 && <><span className="text-slate-600">›</span><button onClick={() => setManualLevel(2)} className={manualLevel >= 2 ? "text-cyan-300 hover:text-cyan-200" : "text-slate-500"}>City</button></>}
+                        {manualLevel >= 3 && <><span className="text-slate-600">›</span><button onClick={() => setManualLevel(3)} className={manualLevel >= 3 ? "text-cyan-300 hover:text-cyan-200" : "text-slate-500"}>Office</button></>}
+                        {manualLevel >= 4 && <><span className="text-slate-600">›</span><span className="text-cyan-300">Agent</span></>}
+                    </div>
+                )}
+            </div>
+
+            <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
+                Nation → State → City → Office → Agent · drill any layer · reallocate marketing budget · coach offices that slip
+            </p>
+        </div>
+    );
+};
+const RKPI = ({ label, value, trend }) => (
+    <div className="rounded-sm border border-cyan-500/20 bg-cyan-500/5 p-3">
+        <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">{label}</p>
+        <p className="font-heading mt-2 text-xl font-semibold text-white">{value}</p>
+        <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300">{trend}</p>
     </div>
 );
 
