@@ -1139,8 +1139,8 @@ const NationalCommandCenter = () => {
         },
     ];
 
-    // Auto-rotate drill-down focus every 8s: nation → state → office → agent → back
-    const drilldown = [
+    // Auto-rotating tour drilldown (used when no manual selection)
+    const tour = [
         {
             level: "NATIONAL", title: "United States · All Operations",
             kpis: [["Revenue", "$284.2M"], ["Policies", "10,492"], ["Avg Conv.", "12.0%"], ["Compliance", "100%"]],
@@ -1162,12 +1162,82 @@ const NationalCommandCenter = () => {
             note: "Top performer · auto + commercial GL · 4-year tenure",
         },
     ];
-    const [drillIdx, setDrillIdx] = React.useState(0);
+
+    // State full-name lookup for nicer drill titles
+    const STATE_NAMES = {
+        WA: "Washington", OR: "Oregon", CA: "California", NV: "Nevada", AZ: "Arizona", ID: "Idaho",
+        MT: "Montana", WY: "Wyoming", UT: "Utah", CO: "Colorado", NM: "New Mexico", AK: "Alaska",
+        HI: "Hawaii", ND: "North Dakota", SD: "South Dakota", NE: "Nebraska", KS: "Kansas",
+        MN: "Minnesota", IA: "Iowa", MO: "Missouri", WI: "Wisconsin", IL: "Illinois", IN: "Indiana",
+        MI: "Michigan", OH: "Ohio", TX: "Texas", OK: "Oklahoma", AR: "Arkansas", LA: "Louisiana",
+        MS: "Mississippi", AL: "Alabama", TN: "Tennessee", KY: "Kentucky", GA: "Georgia",
+        FL: "Florida", SC: "South Carolina", NC: "North Carolina", VA: "Virginia", WV: "West Virginia",
+        PA: "Pennsylvania", NY: "New York", NJ: "New Jersey", CT: "Connecticut", RI: "Rhode Island",
+        MA: "Massachusetts", VT: "Vermont", NH: "New Hampshire", ME: "Maine", DE: "Delaware", MD: "Maryland",
+    };
+
+    // Click-to-drill state machine
+    const [autoIdx, setAutoIdx] = React.useState(0);
+    const [pickedState, setPickedState] = React.useState(null); // {ab, v, t, region}
+    const [manualLevel, setManualLevel] = React.useState(0); // 0 nation, 1 state, 2 office, 3 agent
+    const isManual = pickedState !== null;
+
     React.useEffect(() => {
-        const t = setInterval(() => setDrillIdx(p => (p + 1) % drilldown.length), 8000);
+        if (isManual) return; // freeze auto-rotate while user is drilling
+        const t = setInterval(() => setAutoIdx(p => (p + 1) % tour.length), 8000);
         return () => clearInterval(t);
-    }, [drilldown.length]);
-    const drill = drilldown[drillIdx];
+    }, [tour.length, isManual]);
+
+    // Build drill content for the manually picked state (tier-aware)
+    const buildManualDrill = () => {
+        if (!pickedState) return tour[autoIdx];
+        const fullName = STATE_NAMES[pickedState.ab] || pickedState.ab;
+        const tier = pickedState.t;
+        const tierLabel = tier === "hot" ? "TOP-PERFORMING" : tier === "strong" ? "STRONG" : tier === "weak" ? "UNDERPERFORMING — coach + reallocate" : "STEADY";
+        // derive plausible numbers from revenue $ value
+        const num = parseFloat(pickedState.v.replace(/[$M]/g, "")) || 1;
+        const policies = Math.round(num * 42);
+        const offices = Math.max(1, Math.round(num / 1.5));
+        const conv = tier === "hot" ? "13.4%" : tier === "strong" ? "12.1%" : tier === "weak" ? "9.2%" : "11.0%";
+
+        if (manualLevel === 1) {
+            return {
+                level: "STATE",
+                title: `${fullName} · ${pickedState.ab} · Drill-down`,
+                kpis: [["Revenue", pickedState.v], ["Policies", policies.toLocaleString()], ["Conversion", conv], ["Offices", offices]],
+                note: `${tierLabel}. ${pickedState.region} region.`,
+            };
+        }
+        if (manualLevel === 2) {
+            const officeRev = (num / 3).toFixed(1) + "M";
+            const officePol = Math.round(num * 14);
+            return {
+                level: "OFFICE",
+                title: `${fullName} Metro · Office #${pickedState.ab}-01`,
+                kpis: [["Revenue", `$${officeRev}`], ["Policies", officePol.toLocaleString()], ["Conversion", conv], ["Producers", Math.max(4, Math.round(num))]],
+                note: `Lead office for ${fullName}. Top producer leading at $1.2M+ GCI YTD.`,
+            };
+        }
+        if (manualLevel === 3) {
+            return {
+                level: "AGENT",
+                title: `Top Producer · ${fullName}`,
+                kpis: [["GCI YTD", `$${(num / 4).toFixed(2)}M`], ["Policies", Math.round(num * 5)], ["Bind Rate", tier === "hot" ? "36%" : "29%"], ["Renewal Ret.", tier === "hot" ? "96%" : "91%"]],
+                note: `Leading ${fullName} producer · personal lines + commercial split`,
+            };
+        }
+        return tour[0]; // nation
+    };
+
+    const drill = isManual ? buildManualDrill() : tour[autoIdx];
+
+    const handleStateClick = (regionName, state) => {
+        setPickedState({ ...state, region: regionName });
+        setManualLevel(1);
+    };
+    const drillToOffice = () => setManualLevel(2);
+    const drillToAgent = () => setManualLevel(3);
+    const backToNation = () => { setPickedState(null); setManualLevel(0); setAutoIdx(0); };
 
     const tierColor = (t) =>
         t === "hot" ? "border-cyan-400/60 bg-cyan-400/20 text-cyan-200 shadow-[0_0_8px_rgba(6,182,212,0.4)]" :
@@ -1195,8 +1265,10 @@ const NationalCommandCenter = () => {
 
             {/* Heatmap-style regional grid */}
             <div className="mt-5 rounded-sm border border-white/10 bg-ink-800 p-4">
-                <div className="flex items-center justify-between">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Revenue heatmap · click to drill (auto-rotating)</p>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                        Revenue heatmap · {isManual ? "click any state to drill" : "click to drill (auto-rotating)"}
+                    </p>
                     <div className="flex items-center gap-3 font-mono text-[8px] uppercase tracking-[0.2em] text-slate-500">
                         <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-cyan-400/60 bg-cyan-400/20" /> Hot</span>
                         <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-cyan-500/40 bg-cyan-500/10" /> Strong</span>
@@ -1217,32 +1289,60 @@ const NationalCommandCenter = () => {
                                 {r.flag !== "0" && <span className="text-amber-300">⚠ {r.flag} flag{r.flag !== "1" ? "s" : ""}</span>}
                             </div>
                             <div className="mt-3 grid grid-cols-4 gap-1">
-                                {r.states.map((s) => (
-                                    <div key={s.ab} className={`group relative rounded-sm border px-1.5 py-1 text-center transition-all ${tierColor(s.t)}`}>
-                                        <span className="font-mono text-[9px] font-semibold">{s.ab}</span>
-                                        <span className="absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-sm border border-white/10 bg-ink-900 px-2 py-0.5 font-mono text-[9px] text-cyan-300 group-hover:block">{s.v}</span>
-                                    </div>
-                                ))}
+                                {r.states.map((s) => {
+                                    const selected = pickedState?.ab === s.ab;
+                                    return (
+                                        <button
+                                            key={s.ab}
+                                            type="button"
+                                            onClick={() => handleStateClick(r.name, s)}
+                                            data-testid={`state-pill-${s.ab}`}
+                                            className={`group relative rounded-sm border px-1.5 py-1 text-center transition-all cursor-pointer hover:scale-110 hover:z-10 ${tierColor(s.t)} ${selected ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-ink-900" : ""}`}
+                                            title={`${STATE_NAMES[s.ab] || s.ab} · ${s.v} · click to drill`}
+                                        >
+                                            <span className="font-mono text-[9px] font-semibold">{s.ab}</span>
+                                            <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-sm border border-white/10 bg-ink-900 px-2 py-0.5 font-mono text-[9px] text-cyan-300 group-hover:block">{s.v}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
 
-            {/* Auto-drilling focus panel */}
-            <div className="mt-4 rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-4">
-                <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+            {/* Drill focus panel — auto-rotating OR manually drilled */}
+            <div className="mt-4 rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-4" data-testid="drill-panel">
+                <div className="flex items-center justify-between flex-wrap gap-2 border-b border-cyan-500/20 pb-3">
                     <div className="flex items-center gap-2">
                         <span className="rounded-sm border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">DRILL · {drill.level}</span>
                         <span className="font-heading text-sm font-semibold text-white">{drill.title}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                        {drilldown.map((_, i) => (
-                            <span key={i} className={`h-1 w-6 rounded-full transition-all ${i === drillIdx ? "bg-cyan-400" : "bg-white/10"}`} />
-                        ))}
-                    </div>
+                    {!isManual ? (
+                        <div className="flex items-center gap-1">
+                            {tour.map((_, i) => (
+                                <span key={i} className={`h-1 w-6 rounded-full transition-all ${i === autoIdx ? "bg-cyan-400" : "bg-white/10"}`} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5">
+                            {manualLevel < 2 && (
+                                <button onClick={drillToOffice} data-testid="drill-office-btn" className="inline-flex items-center gap-1 rounded-sm border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500 hover:text-ink-900">
+                                    <Briefcase size={10} /> Office
+                                </button>
+                            )}
+                            {manualLevel === 2 && (
+                                <button onClick={drillToAgent} data-testid="drill-agent-btn" className="inline-flex items-center gap-1 rounded-sm border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500 hover:text-ink-900">
+                                    <Users size={10} /> Agent
+                                </button>
+                            )}
+                            <button onClick={backToNation} data-testid="drill-back-btn" className="inline-flex items-center gap-1 rounded-sm border border-white/15 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                                <Globe2 size={10} /> Nation
+                            </button>
+                        </div>
+                    )}
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 fade-in-up" key={drill.level}>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 fade-in-up" key={`${drill.level}-${drill.title}`}>
                     {drill.kpis.map(([l, v]) => (
                         <div key={l} className="rounded-sm border border-white/10 bg-ink-900 p-2">
                             <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{l}</p>
@@ -1251,6 +1351,16 @@ const NationalCommandCenter = () => {
                     ))}
                 </div>
                 <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">{drill.note}</p>
+                {/* Breadcrumb when manual */}
+                {isManual && (
+                    <div className="mt-3 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.22em]">
+                        <button onClick={backToNation} className="text-cyan-300 hover:text-cyan-200">Nation</button>
+                        <span className="text-slate-600">›</span>
+                        <button onClick={() => setManualLevel(1)} className={manualLevel >= 1 ? "text-cyan-300 hover:text-cyan-200" : "text-slate-500"}>{pickedState?.ab}</button>
+                        {manualLevel >= 2 && <><span className="text-slate-600">›</span><button onClick={() => setManualLevel(2)} className="text-cyan-300 hover:text-cyan-200">Office</button></>}
+                        {manualLevel >= 3 && <><span className="text-slate-600">›</span><span className="text-cyan-300">Agent</span></>}
+                    </div>
+                )}
             </div>
 
             <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
