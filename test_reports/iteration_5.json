@@ -1,0 +1,64 @@
+{
+  "summary": "Step 1 verification PASS. 19/19 backend tests green; all 6 critical frontend pages render on desktop (1920x1080) and mobile (390x844) with zero horizontal overflow and zero console errors. Stripe subscription + one-time checkout return live test session URLs; high-ticket products ($7K/$27K) are correctly rejected from /api/checkout/session and route through /apply application flow only. Application submission end-to-end works (UI -> POST /api/applications -> success view + booking_url + admin retrieval).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/health", "issue": "Endpoint does not exist. Backend exposes /api/ (returns {status: online}) instead. Review request asked for /api/health — either add an alias or update spec/docs."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "naming_mismatch_vs_review_request": [
+    "Review used plan keys 'sub_starter'/'sub_pro' but backend & frontend use 'cb_starter_monthly'/'cb_pro_monthly' (consistent end-to-end — no bug, just doc drift).",
+    "Review used program keys 'strategy_7k'/'full_training_27k' but backend & frontend use 'accelerator_7k'/'mastery_27k' (consistent end-to-end — no bug, just doc drift).",
+    "Review used POST /api/subscriptions/checkout but actual route is POST /api/checkout/subscription (works correctly; PricingPage.jsx already calls the right URL)."
+  ],
+  "verified_flows": [
+    "POST /api/checkout/subscription (cb_starter_monthly $49) -> 200 + Stripe URL",
+    "POST /api/checkout/subscription (cb_pro_monthly $149) -> 200 + Stripe URL",
+    "POST /api/checkout/session (foundations $400) -> 200 + Stripe URL",
+    "POST /api/checkout/session (applied $1500) -> 200 + Stripe URL",
+    "POST /api/checkout/session (accelerator_7k) -> 400 (correctly rejected)",
+    "POST /api/checkout/session (mastery_27k) -> 400 (correctly rejected)",
+    "POST /api/applications (accelerator_7k) -> 201 + booking_url + persists in admin list",
+    "POST /api/applications (mastery_27k) -> 201",
+    "POST /api/applications (foundations) -> 400 (correctly rejected as non-high-ticket)",
+    "GET /api/admin/applications with admin token -> 200 + items returned",
+    "GET /api/admin/applications without token -> 401",
+    "POST /api/track/picker-click (realtor / insurance) -> 204",
+    "GET /api/admin/picker-stats -> 200 with by_vertical aggregation",
+    "POST /api/admin/login wrong password -> 401",
+    "Frontend desktop /pricing: subscribe-starter button click -> /api/checkout/subscription 200",
+    "Frontend desktop /training: 4 tiers visible; 7K & 27K buttons navigate to /apply/:program (no Stripe call)",
+    "Frontend desktop /apply/accelerator_7k: all 9 form testids visible; submit -> 201, success view + booking link rendered",
+    "Frontend desktop /portal: email + access-token inputs visible",
+    "Frontend desktop /demo: realtor + insurance vertical cards visible",
+    "Frontend mobile (390x844): /, /pricing, /training, /apply/accelerator_7k, /portal, /demo all render with 0px horizontal overflow",
+    "Zero browser console errors on any page tested"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_bodyiq_step1.py",
+    "/app/test_reports/pytest/iter5_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Add a /api/health alias returning {status:'ok'} or update internal documentation to point to /api/ (current healthcheck endpoint).",
+    "OPTIONAL: Update internal product/plan-key naming docs to match the actual codebase (cb_starter_monthly / cb_pro_monthly / accelerator_7k / mastery_27k) so future reviews use the correct keys."
+  ],
+  "critical_code_review_comments": [
+    "server.py is ~880 lines and starting to mix concerns (catalog, payments, applications, picker analytics, TTS, LLM). Consider splitting into routers (payments_router, applications_router, admin_router, llm_router) before adding more features.",
+    "Subscription checkout (line 610-674) currently uses one-time CheckoutSessionRequest with a comment acknowledging this — buyer will be charged once, not recurring, until native Stripe subscription mode is wired. This is a known limitation but MUST be flipped to mode='subscription' before turning live keys on, otherwise $49/mo and $149/mo will only charge a single time.",
+    "/api/portal/login returns the portal_token round-trip success but no rate-limiting; consider adding basic throttling before going live to avoid token enumeration.",
+    "ADMIN_TOKENS is an in-memory dict — fine for single-instance preview, but tokens will be lost on restart and won't work across replicas in production. Move to DB-backed tokens or short-lived JWT before scaling.",
+    "Webhook signature verification depends on Emergent integrations wrapper; verify STRIPE_WEBHOOK_SECRET is set when switching to live keys, otherwise handle_webhook will silently skip verification."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% (all 6 pages, both viewports, all critical interactions)"},
+  "test_credentials": "Admin password: bodyiq-admin-2026 (validated). Stripe in test mode (sk_test_emergent) — checkout URLs return https://checkout.stripe.com/...",
+  "seed_data_creation": "Created TEST_-prefixed leads/applications/picker-clicks during testing (jane@example.com, john@example.com, uisubmit@example.com). Safe to leave or purge.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All Step-1 verification flows are green. The ONE thing to revisit before flipping live Stripe keys: subscription checkout uses one-time CheckoutSessionRequest (server.py L641-647 with explicit comment) — when live keys land, switch to native Stripe subscription mode so $49/$149 actually recur. Naming convention is cb_starter_monthly/cb_pro_monthly/cb_starter_annual/cb_pro_annual for plans; accelerator_7k/mastery_27k for high-ticket programs (review request used different names but code is consistent end-to-end)."
+}
