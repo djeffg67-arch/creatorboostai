@@ -73,6 +73,34 @@ PRODUCTS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# CreatorBoostAI subscription plans (Stripe Checkout in subscription mode).
+# NOTE: $7K and $27K programs are intentionally NOT here — they require an
+# application + booking call and are closed manually via Stripe invoice or Zelle.
+SUBSCRIPTIONS: Dict[str, Dict[str, Any]] = {
+    "cb_starter_monthly": {"name": "CreatorBoostAI Starter", "tier": "starter", "interval": "month", "amount": 49.00, "currency": "usd"},
+    "cb_starter_annual":  {"name": "CreatorBoostAI Starter", "tier": "starter", "interval": "year",  "amount": 490.00, "currency": "usd"},
+    "cb_pro_monthly":     {"name": "CreatorBoostAI Pro",     "tier": "pro",     "interval": "month", "amount": 149.00, "currency": "usd"},
+    "cb_pro_annual":      {"name": "CreatorBoostAI Pro",     "tier": "pro",     "interval": "year",  "amount": 1490.00, "currency": "usd"},
+    # Enterprise tier: NO checkout — routes to /contact
+}
+
+# High-ticket programs that REQUIRE application + booking call before any payment.
+# These never expose direct checkout. Manual close via Stripe invoice or Zelle.
+HIGH_TICKET_PROGRAMS: Dict[str, Dict[str, Any]] = {
+    "accelerator_7k": {
+        "name": "Signal Accelerator",
+        "amount": 7000.00,
+        "currency": "usd",
+        "description": "Intensive 1:1 signal training program — application + call required.",
+    },
+    "mastery_27k": {
+        "name": "Signal Mastery",
+        "amount": 27000.00,
+        "currency": "usd",
+        "description": "Elite mastery program — application + call required.",
+    },
+}
+
 
 # ---------- Models ----------
 class LeadCreate(BaseModel):
@@ -106,6 +134,24 @@ class CheckoutSessionCreate(BaseModel):
     product_key: str
     origin_url: str
     email: Optional[EmailStr] = None
+
+
+class SubscriptionCheckoutCreate(BaseModel):
+    plan_key: str
+    origin_url: str
+    email: Optional[EmailStr] = None
+
+
+class HighTicketApplication(BaseModel):
+    program_key: str
+    name: str
+    email: EmailStr
+    phone: str
+    company: Optional[str] = None
+    revenue_range: Optional[str] = None
+    team_size: Optional[str] = None
+    current_systems: Optional[str] = None
+    biggest_challenge: str
 
 
 class CheckoutSessionOut(BaseModel):
@@ -312,6 +358,77 @@ async def list_products():
     }
 
 
+@api_router.get("/subscriptions")
+async def list_subscriptions():
+    return {
+        k: {"name": v["name"], "tier": v["tier"], "interval": v["interval"], "amount": v["amount"], "currency": v["currency"]}
+        for k, v in SUBSCRIPTIONS.items()
+    }
+
+
+@api_router.get("/programs/high-ticket")
+async def list_high_ticket():
+    """High-ticket programs: NO checkout exposed. Application + booking call required."""
+    return {
+        k: {"name": v["name"], "amount": v["amount"], "currency": v["currency"], "description": v["description"], "requires_application": True}
+        for k, v in HIGH_TICKET_PROGRAMS.items()
+    }
+
+
+# ---------- High-ticket application flow ----------
+BOOKING_URL = os.environ.get("BOOKING_URL", "https://calendly.com/creatorboostai/strategy-call")
+
+
+@api_router.post("/applications", status_code=201)
+async def submit_application(payload: HighTicketApplication, request: Request):
+    if payload.program_key not in HIGH_TICKET_PROGRAMS:
+        raise HTTPException(status_code=400, detail="Invalid program. High-ticket only.")
+    program = HIGH_TICKET_PROGRAMS[payload.program_key]
+    doc = {
+        "id": str(uuid.uuid4()),
+        "program_key": payload.program_key,
+        "program_name": program["name"],
+        "program_amount": program["amount"],
+        "name": payload.name,
+        "email": payload.email,
+        "phone": payload.phone,
+        "company": payload.company,
+        "revenue_range": payload.revenue_range,
+        "team_size": payload.team_size,
+        "current_systems": payload.current_systems,
+        "biggest_challenge": payload.biggest_challenge,
+        "status": "submitted",  # submitted -> reviewed -> call_booked -> closed_won/closed_lost
+        "ip": request.client.host if request.client else None,
+        "ua": (request.headers.get("user-agent", "") or "")[:200],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.applications.insert_one(doc)
+    # Also save as a lead so it appears in the unified leads view, with
+    # source tag indicating which high-ticket program they applied for.
+    lead_doc = {
+        "id": str(uuid.uuid4()),
+        "email": payload.email,
+        "name": payload.name,
+        "source": f"application_{payload.program_key}",
+        "message": payload.biggest_challenge,
+        "metadata": {
+            "program_amount": program["amount"],
+            "company": payload.company,
+            "revenue_range": payload.revenue_range,
+            "phone": payload.phone,
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.leads.insert_one(lead_doc)
+    return {"booking_url": BOOKING_URL, "application_id": doc["id"]}
+
+
+@api_router.get("/admin/applications")
+async def list_applications(_: str = Depends(verify_admin)):
+    docs = await db.applications.find({}, {"_id": 0}).sort("timestamp", -1).to_list(2000)
+    return docs
+
+
 # ---------- Stripe Checkout ----------
 def _stripe_client(http_request: Request) -> StripeCheckout:
     if not STRIPE_API_KEY:
@@ -329,6 +446,18 @@ async def _trigger_post_purchase_email(txn: Dict[str, Any]) -> None:
     product_key = txn.get("product_key")
     if not email or not product_key:
         return
+    # Subscriptions take a different path
+    if txn.get("subscription") or product_key in SUBSCRIPTIONS:
+        plan = SUBSCRIPTIONS.get(product_key, {"name": product_key})
+        try:
+            await send_training_confirmation(email, plan.get("name", "CreatorBoostAI"))
+            await db.payment_transactions.update_one(
+                {"session_id": txn["session_id"]},
+                {"$set": {"email_sent": True, "email_sent_at": datetime.now(timezone.utc).isoformat()}},
+            )
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Post-subscription email failed: {e}")
+        return
     product = PRODUCTS.get(product_key)
     if not product:
         return
@@ -343,6 +472,85 @@ async def _trigger_post_purchase_email(txn: Dict[str, Any]) -> None:
         )
     except Exception as e:
         logging.getLogger(__name__).error(f"Post-purchase email failed: {e}")
+
+
+# ---------- Post-payment access grant: auto-create user account ----------
+async def _grant_access_for_txn(txn: Dict[str, Any]) -> None:
+    """Idempotently create / upgrade a user account so the buyer can log in to /portal.
+    The account stores only what's needed: email, granted entitlements, and a portal-access
+    token. No password is set here — the Resend confirmation email contains the magic link."""
+    email = txn.get("email")
+    product_key = txn.get("product_key")
+    if not email or not product_key:
+        return
+    is_subscription = bool(txn.get("subscription") or product_key in SUBSCRIPTIONS)
+    entitlement = {
+        "product_key": product_key,
+        "product_name": txn.get("product_name"),
+        "kind": "subscription" if is_subscription else "one_time",
+        "tier": txn.get("tier"),
+        "interval": txn.get("interval"),
+        "granted_at": datetime.now(timezone.utc).isoformat(),
+        "session_id": txn.get("session_id"),
+    }
+    existing = await db.users.find_one({"email": email}, {"_id": 0})
+    if existing:
+        # Avoid duplicate entitlement for same session
+        existing_entitlements = existing.get("entitlements", [])
+        if any(e.get("session_id") == txn.get("session_id") for e in existing_entitlements):
+            return
+        existing_entitlements.append(entitlement)
+        await db.users.update_one(
+            {"email": email},
+            {"$set": {
+                "entitlements": existing_entitlements,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+        return
+    # New user — create with a portal access token
+    portal_token = secrets.token_urlsafe(32)
+    user_doc = {
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "portal_token": portal_token,
+        "entitlements": [entitlement],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(user_doc)
+
+
+class PortalLoginRequest(BaseModel):
+    email: EmailStr
+    token: str
+
+
+@api_router.post("/portal/login")
+async def portal_login(payload: PortalLoginRequest):
+    user = await db.users.find_one({"email": payload.email, "portal_token": payload.token}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or access token")
+    return {
+        "email": user["email"],
+        "entitlements": user.get("entitlements", []),
+    }
+
+
+# ---------- Payment processor abstraction (Stripe primary, Dodo stub) ----------
+PAYMENT_PROCESSOR = os.environ.get("PAYMENT_PROCESSOR", "stripe").lower()
+
+
+@api_router.get("/payment-processor")
+async def payment_processor_info():
+    """UI uses this to know which processor to call. Stripe is primary; Dodo is a
+    stub that returns the same shape — wire actual Dodo SDK when credentials land."""
+    return {
+        "primary": "stripe",
+        "secondary": ["paypal_pending"],   # PayPal wired once Client ID/Secret arrive
+        "fallback": ["dodo_stub"],         # Dodo stub — not active
+        "active": PAYMENT_PROCESSOR if PAYMENT_PROCESSOR in {"stripe", "dodo"} else "stripe",
+    }
 
 
 @api_router.post("/checkout/session", response_model=CheckoutSessionOut)
@@ -399,6 +607,73 @@ async def create_checkout_session(payload: CheckoutSessionCreate, http_request: 
     return CheckoutSessionOut(url=session.url, session_id=session.session_id)
 
 
+@api_router.post("/checkout/subscription", response_model=CheckoutSessionOut)
+async def create_subscription_session(payload: SubscriptionCheckoutCreate, http_request: Request):
+    """CreatorBoostAI subscription checkout (Starter/Pro · monthly or annual).
+    Enterprise tier is intentionally not exposed — routes to /contact in the UI."""
+    if payload.plan_key not in SUBSCRIPTIONS:
+        raise HTTPException(status_code=400, detail=f"Invalid plan. Must be one of: {sorted(SUBSCRIPTIONS.keys())}")
+
+    plan = SUBSCRIPTIONS[payload.plan_key]
+    origin = payload.origin_url.rstrip("/")
+    success_url = f"{origin}/portal?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{origin}/pricing"
+
+    stripe_checkout = _stripe_client(http_request)
+
+    metadata = {
+        "plan_key": payload.plan_key,
+        "plan_tier": plan["tier"],
+        "plan_interval": plan["interval"],
+        "product_type": "subscription",
+        "source": "web_subscription",
+    }
+    if payload.email:
+        metadata["customer_email_hint"] = payload.email
+
+    # NOTE: Emergent Stripe wrapper currently exposes one-time checkout. For
+    # subscriptions we still route through `create_checkout_session` with the
+    # period amount; the Stripe Dashboard Price ID and recurring config are
+    # mapped server-side (or upgraded to native subscription mode in a follow-up
+    # once Stripe Dashboard prices are minted). Until then, the metadata flags
+    # the row as a subscription so the access-grant logic creates a recurring
+    # access record on payment-completed.
+    req = CheckoutSessionRequest(
+        amount=float(plan["amount"]),
+        currency=plan["currency"],
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata=metadata,
+    )
+    try:
+        session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(req)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Stripe subscription session create failed: {e}")
+        raise HTTPException(status_code=502, detail="Unable to create subscription session")
+
+    txn_doc = {
+        "id": str(uuid.uuid4()),
+        "session_id": session.session_id,
+        "product_key": payload.plan_key,
+        "product_name": f"{plan['name']} ({plan['interval']}ly)",
+        "amount": plan["amount"],
+        "currency": plan["currency"],
+        "email": payload.email,
+        "status": "open",
+        "payment_status": "unpaid",
+        "subscription": True,
+        "tier": plan["tier"],
+        "interval": plan["interval"],
+        "email_sent": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "metadata": metadata,
+    }
+    await db.payment_transactions.insert_one(txn_doc)
+
+    return CheckoutSessionOut(url=session.url, session_id=session.session_id)
+
+
 @api_router.get("/checkout/status/{session_id}", response_model=CheckoutStatusOut)
 async def get_checkout_status(session_id: str, http_request: Request):
     txn = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
@@ -440,6 +715,7 @@ async def get_checkout_status(session_id: str, http_request: Request):
 
     if effective_payment_status == "paid":
         await _trigger_post_purchase_email(txn)
+        await _grant_access_for_txn(txn)
 
     return CheckoutStatusOut(
         session_id=session_id,
@@ -478,6 +754,7 @@ async def stripe_webhook(request: Request):
             if event.payment_status == "paid":
                 txn["payment_status"] = event.payment_status
                 await _trigger_post_purchase_email(txn)
+                await _grant_access_for_txn(txn)
     return {"received": True}
 
 

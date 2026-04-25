@@ -32,3 +32,21 @@ export const adminExportUrl = (token) =>
 
 export const adminPickerStats = (token) =>
     api.get("/admin/picker-stats", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+
+export const submitApplication = (payload) =>
+    api.post("/applications", payload).then((r) => r.data);
+
+export const listSubscriptions = () =>
+    api.get("/subscriptions").then((r) => r.data);
+
+export const listHighTicket = () =>
+    api.get("/programs/high-ticket").then((r) => r.data);
+
+export const createSubscriptionSession = (payload) =>
+    api.post("/checkout/subscription", payload).then((r) => r.data);
+
+export const portalLogin = (payload) =>
+    api.post("/portal/login", payload).then((r) => r.data);
+
+export const adminListApplications = (token) =>
+    api.get("/admin/applications", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);

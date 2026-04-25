@@ -1,8 +1,9 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
 import { FounderBio } from "@/components/site/FounderBio";
-import { Check, ArrowRight, Zap } from "lucide-react";
+import { Check, ArrowRight, Zap, Lock } from "lucide-react";
 import { createCheckoutSession, captureLead } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -49,8 +50,45 @@ const tiers = [
     },
 ];
 
+// High-ticket programs — application + booking call required, NEVER direct checkout
+const eliteTiers = [
+    {
+        key: "accelerator_7k",
+        tag: "Tier III · Accelerator",
+        name: "Signal Accelerator",
+        price: 7000,
+        duration: "Application + strategy call",
+        summary: "Intensive 1:1 program — qualifying application required, closed manually after a strategy call.",
+        bullets: [
+            "Personalized signal protocol design",
+            "Multi-session 1:1 coaching",
+            "Live forensic case reviews of your deals",
+            "Direct access to founder",
+            "Custom playbook + lifetime updates",
+        ],
+        cta: "Apply now",
+    },
+    {
+        key: "mastery_27k",
+        tag: "Tier IV · Mastery",
+        name: "Signal Mastery",
+        price: 27000,
+        duration: "Application + strategy call",
+        summary: "Elite mastery program — limited intake, application + executive-level call required.",
+        bullets: [
+            "Full executive-level engagement",
+            "Quarterly in-person intensives",
+            "Custom enterprise framework deployment",
+            "Founder + advisory board access",
+            "Lifetime cohort + library access",
+        ],
+        cta: "Apply now",
+    },
+];
+
 export default function TrainingPage() {
     const [reserving, setReserving] = useState(null);
+    const navigate = useNavigate();
 
     const handleReserve = async (tier) => {
         setReserving(tier.key);
@@ -161,7 +199,55 @@ export default function TrainingPage() {
                     ))}
                 </div>
 
-                {/* Low-commit lead capture for on-the-fence buyers */}
+                {/* Elite Programs — application + booking call required, NO direct checkout */}
+                <div className="mx-auto mt-20 max-w-6xl px-5 lg:px-8" data-testid="training-elite">
+                    <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 inline-flex items-center gap-2">
+                        <Lock size={12} className="text-amber-300" />
+                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Elite Programs · Application Required</span>
+                    </div>
+                    <h2 className="font-heading mt-4 text-3xl font-semibold text-white sm:text-4xl">High-touch programs for serious operators.</h2>
+                    <p className="mt-3 max-w-2xl text-sm text-slate-400">
+                        Tier III and IV are not bookable online. Submit a short application and we'll schedule
+                        a strategy call to confirm fit before any payment is taken. Closed manually via Stripe
+                        invoice or wire — never an auto-charge.
+                    </p>
+                    <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        {eliteTiers.map((t) => (
+                            <div
+                                key={t.key}
+                                data-testid={`tier-${t.key}`}
+                                className="relative flex flex-col rounded-md border border-white/10 bg-gradient-to-b from-amber-500/5 to-transparent p-8 lg:p-10 transition-all hover:border-amber-500/30"
+                            >
+                                <span className="absolute -top-3 left-8 inline-flex items-center gap-1.5 rounded-sm border border-amber-500/50 bg-ink-900 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">
+                                    <Lock size={10} /> Apply only
+                                </span>
+                                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">{t.tag}</p>
+                                <h2 className="font-heading mt-3 text-3xl font-semibold text-white sm:text-4xl">{t.name}</h2>
+                                <p className="mt-2 text-sm text-slate-400">{t.duration}</p>
+                                <p className="mt-5 text-sm leading-relaxed text-slate-300">{t.summary}</p>
+                                <div className="mt-8 flex items-end gap-1.5 border-b border-white/5 pb-6">
+                                    <span className="font-heading text-5xl font-semibold text-white">${t.price.toLocaleString()}</span>
+                                    <span className="mb-1.5 font-mono text-xs uppercase tracking-[0.18em] text-slate-500">USD · upon close</span>
+                                </div>
+                                <ul className="mt-6 space-y-3 text-sm text-slate-300">
+                                    {t.bullets.map((b) => (
+                                        <li key={b} className="flex items-start gap-2.5">
+                                            <Check size={15} className="mt-0.5 flex-shrink-0 text-amber-300" />
+                                            <span>{b}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <button
+                                    data-testid={`apply-${t.key}`}
+                                    onClick={() => navigate(`/apply/${t.key}`)}
+                                    className="mt-8 inline-flex items-center justify-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-6 py-3.5 text-sm font-semibold text-amber-300 transition-all hover:bg-amber-500 hover:text-ink-900"
+                                >
+                                    {t.cta} <ArrowRight size={16} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
                 <div className="mx-auto mt-20 max-w-3xl px-5 text-center lg:px-8" data-testid="training-lead-capture">
                     <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Not ready to reserve?</p>
                     <h3 className="font-heading mt-3 text-2xl font-semibold text-white sm:text-3xl">
