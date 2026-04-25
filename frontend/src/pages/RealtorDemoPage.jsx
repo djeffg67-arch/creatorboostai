@@ -147,9 +147,19 @@ const SCENES = [
             "Read-only by default. Encrypted in transit and at rest. Every action logged. Every automated message reviewable before send. " +
             "We don't replace your systems. We oversee, organize, and optimize them — so your existing investments finally start producing the leverage they were supposed to.",
     },
-    // Scene 11 — Dashboard Reveal (~90s)
+    // Scene 11 — Execution Engine (~75s) — proprietary positioning layer
     {
-        id: "dashboard-reveal", section: "Scene 11 · The Command Center", title: "One screen. Whole business.",
+        id: "execution-engine", section: "Scene 11 · The Execution Engine", title: "Not a CRM. Not a marketing tool. An execution layer.",
+        focus: "execution-engine", image: IMG.corporateOffice, fallback_ms: 75000,
+        narration:
+            "Now here's what actually makes this different. " +
+            "CreatorBoostAI runs on proprietary, patent-pending execution systems. It is not a CRM. It is not a marketing tool. It is an execution layer that runs across the systems you already operate — Salesforce, Yardi, AppFolio, Follow Up Boss, kvCORE, MLS, your transaction stack, and the rest. " +
+            "It analyzes every connected system in real time. It identifies revenue opportunities and operational inefficiencies the moment they appear. And — when you authorize it — it executes actions across those systems automatically. " +
+            "This is a category shift. Most platforms give you data. Some give you insights. CreatorBoostAI executes.",
+    },
+    // Scene 12 — Dashboard Reveal (~90s)
+    {
+        id: "dashboard-reveal", section: "Scene 12 · The Command Center", title: "One screen. Whole business.",
         focus: "dashboard-executive", image: IMG.conferenceRoom, fallback_ms: 90000,
         narration:
             "This is the command center. " +
@@ -157,9 +167,9 @@ const SCENES = [
             "Leadership opens this dashboard in the morning and instantly knows: what's moving, what's stuck, who needs help, and where the next dollar of revenue is coming from. " +
             "What used to take five reports, three meetings, and a Monday morning email — is now one screen.",
     },
-    // Scene 12 — National + Regional Command Center (~90s)
+    // Scene 13 — National + Regional Command Center (~90s)
     {
-        id: "national-cc", section: "Scene 12 · National & Regional Command", title: "Your nationwide command center.",
+        id: "national-cc", section: "Scene 13 · National & Regional Command", title: "Your nationwide command center.",
         focus: "national-cc", image: IMG.citySkyline, fallback_ms: 90000,
         narration:
             "This is your nationwide command center. " +
@@ -167,23 +177,24 @@ const SCENES = [
             "Drill from the United States, into a state, into a city, into an office, into an individual agent. Identify underperforming markets instantly. Reallocate marketing budget to the metros where listings are converting. Coach the offices that are slipping. Increase output without increasing headcount. " +
             "You're no longer managing agents. You're managing an entire national real estate operation — from one system.",
     },
-    // Scene 13 — Autonomous Option (~60s)
+    // Scene 14 — Autonomous Option (~60s)
     {
-        id: "autonomous", section: "Scene 13 · Autonomous Mode", title: "Approve every move — or let the system act.",
+        id: "autonomous", section: "Scene 14 · Autonomous Mode", title: "Approve every move — or let the system act.",
         focus: "autonomous-choice", image: IMG.agentClient, fallback_ms: 60000,
         narration:
             "Now the most important question. " +
             "Would you like CreatorBoostAI to take action automatically — sending follow-ups, booking showings, routing leads, drafting contracts — or would you prefer to review and approve every move before it goes out? " +
             "You choose, by team, by channel, by deal size. Full autonomy, full approval, or anywhere in between. The system always defers to your control.",
     },
-    // Scene 14 — Closing (~45s)
+    // Scene 15 — Closing (~45s)
     {
-        id: "closing", section: "Scene 14 · Closing", title: "This is your business operating system.",
+        id: "closing", section: "Scene 15 · Closing", title: "Most platforms give you data. CreatorBoostAI executes.",
         focus: "cta", image: IMG.handshake, fallback_ms: 45000,
         narration:
             "This is not another tool to add to your stack. " +
-            "This is the operating system for your real estate business. The layer that finally makes every system, every agent, every lead, and every property work together — automatically. " +
-            "When you're ready, send this demo to your leadership team, replay any section, or book a live walkthrough where we map CreatorBoostAI directly to your stack. Welcome to the new operating standard for real estate.",
+            "This is the operating system for your real estate business — a proprietary, patent-pending execution layer that finally makes every system, every agent, every lead, and every property work together, automatically. " +
+            "When you're ready, send this demo to your leadership team, replay any section, or book a live walkthrough where we map CreatorBoostAI directly to your stack. " +
+            "Most platforms give you data. Some give you insights. CreatorBoostAI executes.",
     },
 ];
 
@@ -490,9 +501,9 @@ const StartScreen = ({ onStart, prefetching, progress }) => (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Cinematic Demo Console</p>
-                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 14-scene walkthrough.</h2>
+                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 15-scene walkthrough.</h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                    A fully automated 14-scene cinematic walkthrough — narrated by Nova, an executive A.I. voice —
+                    A fully automated 15-scene cinematic walkthrough — narrated by Nova, an executive A.I. voice —
                     showing how CreatorBoostAI sits on top of the systems you already use and turns them into a
                     single command center. No clicks required. Sit back and watch.
                 </p>
@@ -516,7 +527,7 @@ const StartScreen = ({ onStart, prefetching, progress }) => (
                 </div>
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
                     {[
-                        "14 cinematic scenes",
+                        "15 cinematic scenes",
                         "100% auto-play · no clicks",
                         "Sits on top — never replaces",
                         "Subtitles + voice toggle",
@@ -643,6 +654,7 @@ const SceneStage = ({ scene }) => {
     if (f === "pipeline") return <PipelinePanel />;
     if (f === "autonomous-choice") return <AutonomousChoice />;
     if (f === "national-cc") return <RealtorNationalCommandCenter />;
+    if (f === "execution-engine") return <ExecutionEngine kind="realtor" />;
     if (f === "connect") return <ConnectionDiagram />;
     if (f === "dashboard-leads") return <DashboardMockup kind="leads" />;
     if (f === "dashboard-property") return <DashboardMockup kind="property" />;
@@ -672,7 +684,138 @@ const NarrativePanel = ({ scene }) => (
 );
 
 // =================================================================
-// Scene 12 — Realtor National + Regional Command Center
+// Scene 11 — The Execution Engine (proprietary positioning layer)
+// =================================================================
+const EXECUTION_SYSTEMS_REALTOR = [
+    { name: "Salesforce", short: "SF", domain: "CRM" },
+    { name: "Yardi", short: "YRD", domain: "Property" },
+    { name: "AppFolio", short: "APF", domain: "Property" },
+    { name: "Follow Up Boss", short: "FUB", domain: "CRM" },
+    { name: "kvCORE", short: "KVC", domain: "Marketing" },
+    { name: "MLS", short: "MLS", domain: "Listings" },
+    { name: "Dotloop", short: "DOT", domain: "Transaction" },
+    { name: "Mailchimp", short: "MC", domain: "Email" },
+];
+
+const ExecutionEngine = ({ kind = "realtor" }) => {
+    // Realtor uses Salesforce/Yardi/AppFolio set; Insurance can override via prop later if needed
+    const systems = EXECUTION_SYSTEMS_REALTOR;
+
+    return (
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-ink-700/50 to-ink-900/80 p-5 fade-in-up shadow-[0_0_50px_rgba(6,182,212,0.15)]" data-testid="execution-engine">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                    <Cpu size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">CB Core · Execution Engine</span>
+                </div>
+                <span className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">PATENT-PENDING</span>
+            </div>
+
+            {/* Central engine + orbiting systems visualization */}
+            <div className="relative mt-6 mx-auto max-w-3xl aspect-square sm:aspect-[16/10]">
+                {/* Outer rings */}
+                <div className="absolute inset-[12%] rounded-full border border-cyan-500/15" />
+                <div className="absolute inset-[24%] rounded-full border border-cyan-500/25" />
+                <div className="absolute inset-[36%] rounded-full border border-cyan-500/40" />
+
+                {/* Surrounding system nodes — positioned in a circle */}
+                {systems.map((s, i) => {
+                    const angle = (i / systems.length) * 2 * Math.PI - Math.PI / 2;
+                    const r = 44; // radius in % of container
+                    const x = 50 + r * Math.cos(angle);
+                    const y = 50 + r * Math.sin(angle);
+                    return (
+                        <div
+                            key={s.name}
+                            className="absolute -translate-x-1/2 -translate-y-1/2 fade-in-up"
+                            style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${i * 80}ms` }}
+                        >
+                            {/* Beam from node to center */}
+                            <div
+                                className="pointer-events-none absolute left-1/2 top-1/2 h-px origin-left bg-gradient-to-r from-cyan-400/60 to-cyan-400/0 animate-pulse"
+                                style={{
+                                    width: `${r}%`,
+                                    transform: `translate(0,0) rotate(${angle * 180 / Math.PI + 180}deg)`,
+                                    transformOrigin: "left center",
+                                    animationDelay: `${i * 200}ms`,
+                                }}
+                            />
+                            <div className="relative z-10 rounded-md border border-cyan-500/40 bg-ink-900 px-3 py-2 text-center shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:scale-110 transition-all">
+                                <span className="font-mono text-[10px] font-semibold text-cyan-300">{s.short}</span>
+                                <p className="mt-0.5 text-[9px] text-slate-300 leading-tight">{s.name}</p>
+                                <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-slate-500">{s.domain}</p>
+                            </div>
+                        </div>
+                    );
+                })}
+
+                {/* Central CB Core engine — glowing orb */}
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                    <div className="relative">
+                        <div className="absolute inset-0 rounded-full bg-cyan-400 blur-2xl opacity-50 animate-pulse" />
+                        <div className="absolute inset-[-20px] rounded-full border border-cyan-400/40 animate-pulse" />
+                        <div className="relative z-10 flex h-28 w-28 sm:h-32 sm:w-32 flex-col items-center justify-center rounded-full border-2 border-cyan-400/60 bg-gradient-to-br from-cyan-500 via-cyan-600 to-blue-700 shadow-[0_0_40px_rgba(6,182,212,0.7)]">
+                            <Sparkles size={18} className="text-white" />
+                            <span className="font-heading mt-1 text-xs font-semibold text-white">CB CORE</span>
+                            <span className="font-mono text-[8px] uppercase tracking-[0.22em] text-cyan-100">EXECUTION</span>
+                            <span className="font-mono text-[8px] uppercase tracking-[0.22em] text-cyan-100">ENGINE</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* 3-pillar callout: Analyzes · Identifies · Executes */}
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {[
+                    { Icon: Brain, label: "Analyzes", note: "Every connected system in real time" },
+                    { Icon: Target, label: "Identifies", note: "Revenue opportunities + inefficiencies" },
+                    { Icon: Zap, label: "Executes", note: "Actions across all systems · live" },
+                ].map((p, i) => (
+                    <div key={p.label} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-4 fade-in-up" style={{ animationDelay: `${(systems.length + i) * 80}ms` }}>
+                        <div className="flex items-center gap-2">
+                            <p.Icon size={14} className="text-cyan-400" />
+                            <span className="font-heading text-base font-semibold text-white">{p.label}</span>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-200">{p.note}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Category positioning */}
+            <div className="mt-5 rounded-sm border border-cyan-500/40 bg-cyan-500/10 p-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Category Positioning</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="rounded-sm border border-amber-500/40 bg-amber-500/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-amber-300 line-through">Not a CRM</span>
+                    <span className="rounded-sm border border-amber-500/40 bg-amber-500/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-amber-300 line-through">Not a marketing tool</span>
+                    <span className="rounded-sm border border-amber-500/40 bg-amber-500/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-amber-300 line-through">Not another CRM</span>
+                    <span className="rounded-sm border border-cyan-400/60 bg-cyan-500/20 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-200 font-semibold">→ AN EXECUTION LAYER</span>
+                </div>
+            </div>
+
+            {/* Trust + signature line */}
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-sm border border-white/10 bg-ink-900 p-4">
+                    <div className="flex items-center gap-2">
+                        <ShieldCheck size={13} className="text-cyan-400" />
+                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Defensibility</span>
+                    </div>
+                    <p className="mt-2 text-sm text-white">Proprietary, patent-pending execution systems. Unique architecture, audited, encrypted, and built for enterprise scale.</p>
+                </div>
+                <div className="rounded-sm border border-cyan-500/40 bg-cyan-500/10 p-4 flex flex-col justify-center">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">The Signature Line</p>
+                    <p className="mt-2 text-base font-semibold text-white leading-snug">
+                        Most platforms give you data.<br />
+                        Some give you insights.<br />
+                        <span className="text-cyan-300">CreatorBoostAI executes.</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// =================================================================
+// Scene 13 — Realtor National + Regional Command Center
 // =================================================================
 const RealtorNationalCommandCenter = () => {
     // Real-estate-tuned regions: listings + closed deals + GCI revenue + lead flow
