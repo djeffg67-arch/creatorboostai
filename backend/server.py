@@ -12,7 +12,7 @@ from pathlib import Path
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -252,6 +252,55 @@ async def export_leads_csv(token: str = Query(...)):
 async def list_transactions(_: str = Depends(verify_admin)):
     docs = await db.payment_transactions.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return docs
+
+
+# ---------- Picker analytics ----------
+class PickerClick(BaseModel):
+    vertical: str  # "realtor" | "insurance" | other
+    referrer: Optional[str] = None
+
+
+@api_router.post("/track/picker-click", status_code=204)
+async def track_picker_click(payload: PickerClick, request: Request):
+    vertical = (payload.vertical or "").strip().lower()
+    if vertical not in {"realtor", "insurance", "mortgage", "healthcare", "advisor", "hospitality"}:
+        # accept but bucket anything else under "other" — preserves analytics integrity
+        vertical = "other"
+    doc = {
+        "id": str(uuid.uuid4()),
+        "vertical": vertical,
+        "referrer": (payload.referrer or "")[:200],
+        "ip": (request.client.host if request.client else None),
+        "ua": (request.headers.get("user-agent", "") or "")[:200],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.picker_clicks.insert_one(doc)
+    return Response(status_code=204)
+
+
+@api_router.get("/admin/picker-stats")
+async def picker_stats(_: str = Depends(verify_admin)):
+    docs = await db.picker_clicks.find({}, {"_id": 0}).to_list(50000)
+    now = datetime.now(timezone.utc)
+    last_24 = (now - timedelta(hours=24)).isoformat()
+    last_7d = (now - timedelta(days=7)).isoformat()
+    by_vertical: Dict[str, int] = {}
+    last24_total = 0
+    last7d_total = 0
+    for d in docs:
+        v = d.get("vertical", "other")
+        by_vertical[v] = by_vertical.get(v, 0) + 1
+        ts = d.get("timestamp", "")
+        if ts >= last_24:
+            last24_total += 1
+        if ts >= last_7d:
+            last7d_total += 1
+    return {
+        "total": len(docs),
+        "by_vertical": by_vertical,
+        "last_24h": last24_total,
+        "last_7d": last7d_total,
+    }
 
 
 # ---------- Products (public) ----------

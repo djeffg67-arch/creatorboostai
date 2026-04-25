@@ -51,6 +51,25 @@ const COMING_SOON = [
 ];
 
 export default function VerticalPickerPage() {
+    const apiBase = (process.env.REACT_APP_BACKEND_URL || "") + "/api";
+    const trackClick = (vertical) => {
+        try {
+            const body = JSON.stringify({ vertical, referrer: document.referrer || "" });
+            const blob = new Blob([body], { type: "application/json" });
+            // sendBeacon survives navigation; falls back to fetch keepalive
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(`${apiBase}/track/picker-click`, blob);
+            } else {
+                fetch(`${apiBase}/track/picker-click`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body,
+                    keepalive: true,
+                }).catch(() => {});
+            }
+        } catch { /* never block navigation */ }
+    };
+
     return (
         <Layout>
             <div className="relative mx-auto max-w-[1400px] px-4 py-12 lg:px-8 lg:py-20" data-testid="vertical-picker">
@@ -84,6 +103,7 @@ export default function VerticalPickerPage() {
                         <Link
                             key={v.id}
                             to={v.href}
+                            onClick={() => trackClick(v.id)}
                             data-testid={`vertical-card-${v.id}`}
                             className={`group relative overflow-hidden rounded-md border border-white/10 bg-ink-700/40 p-6 transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_60px_rgba(6,182,212,0.18)] hover:-translate-y-1 lg:p-8 ${v.ringClass}`}
                         >

@@ -5,9 +5,10 @@ import {
     adminListLeads,
     adminStats,
     adminExportUrl,
+    adminPickerStats,
 } from "@/lib/api";
 import { toast } from "sonner";
-import { LogIn, Download, RefreshCw, Loader2, Users, Mail, Inbox } from "lucide-react";
+import { LogIn, Download, RefreshCw, Loader2, Users, Mail, Inbox, Building2, ShieldCheck, MousePointerClick } from "lucide-react";
 
 const STORAGE_KEY = "bodyiq_admin_token";
 
@@ -16,18 +17,21 @@ export default function AdminPage() {
     const [password, setPassword] = useState("");
     const [leads, setLeads] = useState([]);
     const [stats, setStats] = useState(null);
+    const [pickerStats, setPickerStats] = useState(null);
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState("all");
 
     const loadData = useCallback(async (t) => {
         setLoading(true);
         try {
-            const [leadsRes, statsRes] = await Promise.all([
+            const [leadsRes, statsRes, pickerRes] = await Promise.all([
                 adminListLeads(t),
                 adminStats(t),
+                adminPickerStats(t).catch(() => null),
             ]);
             setLeads(leadsRes);
             setStats(statsRes);
+            setPickerStats(pickerRes);
         } catch (err) {
             if (err?.response?.status === 401) {
                 localStorage.removeItem(STORAGE_KEY);
@@ -67,6 +71,7 @@ export default function AdminPage() {
         setToken("");
         setLeads([]);
         setStats(null);
+        setPickerStats(null);
     };
 
     const filteredLeads = filter === "all" ? leads : leads.filter((l) => l.source === filter);
@@ -149,6 +154,27 @@ export default function AdminPage() {
                     <StatCard icon={Inbox} label="Demo" value={(stats?.by_source?.demo ?? 0) + (stats?.by_source?.demo_training ?? 0)} />
                 </div>
 
+                {/* Picker analytics */}
+                {pickerStats && (
+                    <div className="mt-4 rounded-md border border-cyan-500/30 bg-cyan-500/5 p-4" data-testid="picker-stats">
+                        <div className="flex items-center justify-between flex-wrap gap-2 border-b border-cyan-500/20 pb-3">
+                            <div className="flex items-center gap-2">
+                                <MousePointerClick size={13} className="text-cyan-400" />
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Vertical Picker · /demo</span>
+                            </div>
+                            <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
+                                {pickerStats.last_24h} clicks · 24h · {pickerStats.last_7d} clicks · 7d · {pickerStats.total} all-time
+                            </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            <PickerStatCard icon={Building2} label="Real Estate" value={pickerStats?.by_vertical?.realtor ?? 0} />
+                            <PickerStatCard icon={ShieldCheck} label="Insurance" value={pickerStats?.by_vertical?.insurance ?? 0} />
+                            <PickerStatCard icon={MousePointerClick} label="Mortgage" value={pickerStats?.by_vertical?.mortgage ?? 0} />
+                            <PickerStatCard icon={MousePointerClick} label="Other" value={pickerStats?.by_vertical?.other ?? 0} />
+                        </div>
+                    </div>
+                )}
+
                 {/* Filters */}
                 <div className="mt-8 flex flex-wrap gap-2" data-testid="admin-filters">
                     <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
@@ -217,6 +243,16 @@ const StatCard = ({ icon: Icon, label, value }) => (
             <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">{label}</span>
         </div>
         <p className="font-heading mt-3 text-3xl font-semibold text-white">{value}</p>
+    </div>
+);
+
+const PickerStatCard = ({ icon: Icon, label, value }) => (
+    <div className="rounded-sm border border-white/10 bg-ink-900 p-3">
+        <div className="flex items-center gap-2">
+            <Icon size={12} className="text-cyan-400" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">{label}</span>
+        </div>
+        <p className="font-heading mt-2 text-xl font-semibold text-white">{value}</p>
     </div>
 );
 

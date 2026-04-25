@@ -29,3 +29,6 @@ export const adminStats = (token) =>
 
 export const adminExportUrl = (token) =>
     `${API}/admin/leads/export.csv?token=${encodeURIComponent(token)}`;
+
+export const adminPickerStats = (token) =>
+    api.get("/admin/picker-stats", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
