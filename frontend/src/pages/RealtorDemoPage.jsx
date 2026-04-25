@@ -587,7 +587,7 @@ const GlobalTimeline = ({ overallProgress, scene, total, section }) => (
 
 // Cinematic subtitle bar — bottom of viewport during demo
 const SubtitleBar = ({ narration, muted }) => (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-4 pb-4 lg:pb-6" data-testid="subtitle-bar">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-4 pb-20 sm:pb-16 lg:pb-10" data-testid="subtitle-bar">
         <div className="mx-auto max-w-4xl rounded-md border border-white/10 bg-ink-900/85 px-4 py-3 backdrop-blur-xl shadow-[0_0_30px_rgba(0,0,0,0.5)] lg:px-6 lg:py-4">
             <div className="flex items-start gap-3">
                 <span className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-400">
