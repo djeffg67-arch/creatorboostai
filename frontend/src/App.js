@@ -13,6 +13,7 @@ import AdminPage from "@/pages/AdminPage";
 import RealtorDemoPage from "@/pages/RealtorDemoPage";
 import InsuranceDemoPage from "@/pages/InsuranceDemoPage";
 import VerticalPickerPage from "@/pages/VerticalPickerPage";
+import PressPage from "@/pages/PressPage";
 
 function App() {
     return (
@@ -24,6 +25,7 @@ function App() {
                     <Route path="/demo/realtor" element={<RealtorDemoPage />} />
                     <Route path="/demo/insurance" element={<InsuranceDemoPage />} />
                     <Route path="/demo/:variant" element={<DemoPage />} />
+                    <Route path="/press" element={<PressPage />} />
                     <Route path="/training" element={<TrainingPage />} />
                     <Route path="/thank-you" element={<ThankYouPage />} />
                     <Route path="/forensic-library" element={<ForensicLibraryPage />} />
