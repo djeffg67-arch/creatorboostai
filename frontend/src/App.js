@@ -11,6 +11,7 @@ import ForensicLibraryPage from "@/pages/ForensicLibraryPage";
 import ContactPage from "@/pages/ContactPage";
 import AdminPage from "@/pages/AdminPage";
 import RealtorDemoPage from "@/pages/RealtorDemoPage";
+import InsuranceDemoPage from "@/pages/InsuranceDemoPage";
 
 function App() {
     return (
@@ -20,6 +21,7 @@ function App() {
                     <Route path="/" element={<HomePage />} />
                     <Route path="/demo" element={<DemoPage />} />
                     <Route path="/demo/realtor" element={<RealtorDemoPage />} />
+                    <Route path="/demo/insurance" element={<InsuranceDemoPage />} />
                     <Route path="/demo/:variant" element={<DemoPage />} />
                     <Route path="/training" element={<TrainingPage />} />
                     <Route path="/thank-you" element={<ThankYouPage />} />

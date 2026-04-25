@@ -44,7 +44,17 @@ Routes, premium navy/cyan design, multi-panel demo without proprietary definitio
 - Iter 2: 100% (visual only)
 - Iter 3: 34/34 backend + 100% frontend
 
-### Iter 5 (2026-04-25) — 13-Scene Cinematic Auto-Play Demo (Phase 1+2+3)
+### Iter 5 (2026-04-25) — 13-Scene Cinematic Realtor Demo (Phase 1+2+3)
+**New parallel route built** — same engine as realtor demo, insurance-specific content
+- **14 scenes · ~12 min runtime** matching user's exact spec:
+  - 1 Hook · 2 Current Software Stack · 3 CB Positioning · 4 Lead Flow · 5 AI Risk + Underwriting · 6 Follow-Up + Sales Automation · 7 Policy + Client Mgmt · 8 Commission + Payroll · 9 Compliance + Audit · 10 Integration Layer · 11 Revenue Multiplier · 12 Command Center · 13 Autonomous Mode · 14 Enterprise Close
+- **Insurance stack overlayed:** Catalyst CRM, Core by Catalyst, HubSpot, Salesforce FSC, QQCatalyst, Applied Epic, AMS360, EZLynx, Microsoft 365, Teams, Slack, Zoom, Strike Graph, Vanta, AML/KYC, DocuSign (16 platforms total)
+- **6 brand-new insurance-specific visuals:** `FragmentedAgents`, `InsuranceStackGrid` (4 categories), `InsuranceLeadFunnel`, `RiskUnderwritingPanel` (with risk scores + carrier matches), `PolicyLifecyclePanel`, `CommissionEnginePanel`, `CompliancePanel` (SOC2 + AML/KYC), `RevenueMultiplierPanel` (before/after metrics), `CommandCenterDashboard` (insurance KPIs)
+- **Reused engine:** auto-play with `audio.ended` + per-scene fallback timer · subtitle bar · global timeline · pause/voice-off only · prefetch parallelized
+- **Demo email generator:** insurance-tailored copy + roles (Agent/Broker, Agency Principal, Underwriter, Compliance, Carrier)
+- **Verified:** smoke test passed, Scene 1 → Scene 2 auto-advanced, all visuals + subtitles render correctly on desktop + mobile
+
+### Iter 5 (2026-04-25) — 13-Scene Cinematic Realtor Demo (Phase 1+2+3)
 **Restructure: 22 scenes → 13 scenes** matching exact user spec
 - Scene 1 Hook · 2 Current Stack · 3 CB Intro · 4 Lead Capture · 5 AI Qualification · 6 Follow-Up Automation · 7 Tasks & Pipeline · 8 Property & Management · 9 Revenue Engine · 10 Integration Layer · 11 Command Center · 12 Autonomous Mode · 13 Closing
 - Target runtime: ~12-13 min (per-scene `fallback_ms` 45–90s)
