@@ -10,6 +10,7 @@ import ThankYouPage from "@/pages/ThankYouPage";
 import ForensicLibraryPage from "@/pages/ForensicLibraryPage";
 import ContactPage from "@/pages/ContactPage";
 import AdminPage from "@/pages/AdminPage";
+import RealtorDemoPage from "@/pages/RealtorDemoPage";
 
 function App() {
     return (
@@ -18,6 +19,7 @@ function App() {
                 <Routes>
                     <Route path="/" element={<HomePage />} />
                     <Route path="/demo" element={<DemoPage />} />
+                    <Route path="/demo/realtor" element={<RealtorDemoPage />} />
                     <Route path="/demo/:variant" element={<DemoPage />} />
                     <Route path="/training" element={<TrainingPage />} />
                     <Route path="/thank-you" element={<ThankYouPage />} />

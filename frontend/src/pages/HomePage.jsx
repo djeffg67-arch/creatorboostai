@@ -66,6 +66,13 @@ export default function HomePage() {
                                 Experience the Demo <ArrowRight size={16} />
                             </Link>
                             <Link
+                                to="/demo/realtor"
+                                data-testid="hero-cta-realtor-demo"
+                                className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-6 py-3.5 text-sm font-semibold text-cyan-300 transition-all hover:bg-cyan-500 hover:text-ink-900"
+                            >
+                                View Realtor Demo
+                            </Link>
+                            <Link
                                 to="/training"
                                 data-testid="hero-cta-training"
                                 className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-transparent px-6 py-3.5 text-sm font-semibold text-white transition-all hover:border-cyan-500/50 hover:text-cyan-400"
