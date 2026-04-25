@@ -73,14 +73,34 @@ PRODUCTS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# CreatorBoostAI subscription plans (Stripe Checkout in subscription mode).
+# CreatorBoostAI subscription plans (Stripe Checkout in NATIVE subscription mode).
+# Each plan maps to a Stripe Price ID (created in the Stripe Dashboard with
+# `recurring` config — monthly or yearly). When the wrapper passes
+# `stripe_price_id` whose Price has `recurring`, Stripe Checkout opens in
+# subscription mode and bills the customer on the Price's interval forever.
 # NOTE: $7K and $27K programs are intentionally NOT here — they require an
 # application + booking call and are closed manually via Stripe invoice or Zelle.
 SUBSCRIPTIONS: Dict[str, Dict[str, Any]] = {
-    "cb_starter_monthly": {"name": "CreatorBoostAI Starter", "tier": "starter", "interval": "month", "amount": 49.00, "currency": "usd"},
-    "cb_starter_annual":  {"name": "CreatorBoostAI Starter", "tier": "starter", "interval": "year",  "amount": 490.00, "currency": "usd"},
-    "cb_pro_monthly":     {"name": "CreatorBoostAI Pro",     "tier": "pro",     "interval": "month", "amount": 149.00, "currency": "usd"},
-    "cb_pro_annual":      {"name": "CreatorBoostAI Pro",     "tier": "pro",     "interval": "year",  "amount": 1490.00, "currency": "usd"},
+    "cb_starter_monthly": {
+        "name": "CreatorBoostAI Starter", "tier": "starter", "interval": "month",
+        "amount": 49.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_CB_STARTER_MONTHLY",
+    },
+    "cb_starter_annual":  {
+        "name": "CreatorBoostAI Starter", "tier": "starter", "interval": "year",
+        "amount": 490.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_CB_STARTER_ANNUAL",
+    },
+    "cb_pro_monthly":     {
+        "name": "CreatorBoostAI Pro",     "tier": "pro",     "interval": "month",
+        "amount": 149.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_CB_PRO_MONTHLY",
+    },
+    "cb_pro_annual":      {
+        "name": "CreatorBoostAI Pro",     "tier": "pro",     "interval": "year",
+        "amount": 1490.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_CB_PRO_ANNUAL",
+    },
     # Enterprise tier: NO checkout — routes to /contact
 }
 
@@ -531,10 +551,20 @@ async def portal_login(payload: PortalLoginRequest):
     user = await db.users.find_one({"email": payload.email, "portal_token": payload.token}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or access token")
+    # Attach live subscription rows so the portal UI can display billing state.
+    subs = await db.subscriptions.find({"email": payload.email}, {"_id": 0}).to_list(50)
     return {
         "email": user["email"],
         "entitlements": user.get("entitlements", []),
+        "subscriptions": subs,
     }
+
+
+@api_router.get("/admin/subscriptions")
+async def admin_list_subscriptions(_: str = Depends(verify_admin)):
+    """Admin: list all CreatorBoostAI subscription rows (active + canceled)."""
+    docs = await db.subscriptions.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    return docs
 
 
 # ---------- Payment processor abstraction (Stripe primary, Dodo stub) ----------
@@ -609,12 +639,31 @@ async def create_checkout_session(payload: CheckoutSessionCreate, http_request: 
 
 @api_router.post("/checkout/subscription", response_model=CheckoutSessionOut)
 async def create_subscription_session(payload: SubscriptionCheckoutCreate, http_request: Request):
-    """CreatorBoostAI subscription checkout (Starter/Pro · monthly or annual).
+    """CreatorBoostAI subscription checkout — NATIVE Stripe subscription mode.
+
+    Each plan maps to a Stripe Price ID with `recurring` config (set in Stripe
+    Dashboard). Passing `stripe_price_id` to the Emergent wrapper makes Stripe
+    Checkout open in subscription mode and the customer is billed every period
+    automatically. Initial access is granted on `checkout.session.completed`;
+    cancellations/renewals are handled by `customer.subscription.deleted` and
+    `invoice.paid` events on /api/webhook/stripe.
+
     Enterprise tier is intentionally not exposed — routes to /contact in the UI."""
     if payload.plan_key not in SUBSCRIPTIONS:
         raise HTTPException(status_code=400, detail=f"Invalid plan. Must be one of: {sorted(SUBSCRIPTIONS.keys())}")
 
     plan = SUBSCRIPTIONS[payload.plan_key]
+    price_id = (os.environ.get(plan["price_id_env"], "") or "").strip()
+    if not price_id:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Subscription billing is not configured for {payload.plan_key}. "
+                f"Missing env var {plan['price_id_env']}. Mint a recurring Price in "
+                f"Stripe Dashboard → Products and paste the price_... ID into backend/.env."
+            ),
+        )
+
     origin = payload.origin_url.rstrip("/")
     success_url = f"{origin}/portal?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{origin}/pricing"
@@ -631,16 +680,13 @@ async def create_subscription_session(payload: SubscriptionCheckoutCreate, http_
     if payload.email:
         metadata["customer_email_hint"] = payload.email
 
-    # NOTE: Emergent Stripe wrapper currently exposes one-time checkout. For
-    # subscriptions we still route through `create_checkout_session` with the
-    # period amount; the Stripe Dashboard Price ID and recurring config are
-    # mapped server-side (or upgraded to native subscription mode in a follow-up
-    # once Stripe Dashboard prices are minted). Until then, the metadata flags
-    # the row as a subscription so the access-grant logic creates a recurring
-    # access record on payment-completed.
+    # Native subscription mode: passing a recurring Price ID makes Stripe
+    # auto-create the subscription on checkout and bill on the recurring
+    # interval forever. No need to set mode='subscription' explicitly — Stripe
+    # detects it from the Price config.
     req = CheckoutSessionRequest(
-        amount=float(plan["amount"]),
-        currency=plan["currency"],
+        stripe_price_id=price_id,
+        quantity=1,
         success_url=success_url,
         cancel_url=cancel_url,
         metadata=metadata,
@@ -662,6 +708,8 @@ async def create_subscription_session(payload: SubscriptionCheckoutCreate, http_
         "status": "open",
         "payment_status": "unpaid",
         "subscription": True,
+        "subscription_mode": "stripe_native",
+        "stripe_price_id": price_id,
         "tier": plan["tier"],
         "interval": plan["interval"],
         "email_sent": False,
@@ -731,6 +779,19 @@ async def get_checkout_status(session_id: str, http_request: Request):
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
+    """Stripe webhook — handles BOTH one-time and native subscription events.
+
+    Events routed:
+      - checkout.session.completed       → grant initial access (one-time + sub initial)
+      - invoice.paid                     → recurring renewal: refresh subscription record
+      - customer.subscription.created    → store subscription record
+      - customer.subscription.updated    → keep status / period_end fresh
+      - customer.subscription.deleted    → revoke portal access (cancellation / final dunning)
+
+    Idempotency: every event_id is recorded in `processed_webhook_events`.
+    Replays are short-circuited so duplicate Stripe deliveries never double-grant
+    or double-charge user access.
+    """
     stripe_checkout = _stripe_client(request)
     body = await request.body()
     sig = request.headers.get("Stripe-Signature")
@@ -740,22 +801,180 @@ async def stripe_webhook(request: Request):
         logging.getLogger(__name__).error(f"Webhook verify failed: {e}")
         raise HTTPException(status_code=400, detail="Invalid webhook")
 
-    if event.event_type == "checkout.session.completed" and event.session_id:
-        txn = await db.payment_transactions.find_one({"session_id": event.session_id}, {"_id": 0})
-        if txn:
-            await db.payment_transactions.update_one(
-                {"session_id": event.session_id},
+    # ---- Idempotency: refuse to process the same event_id twice ----
+    event_id = getattr(event, "event_id", None)
+    if event_id:
+        already = await db.processed_webhook_events.find_one({"event_id": event_id}, {"_id": 0})
+        if already:
+            return {"received": True, "duplicate": True}
+        await db.processed_webhook_events.insert_one({
+            "event_id": event_id,
+            "event_type": event.event_type,
+            "session_id": event.session_id,
+            "processed_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    event_type = event.event_type
+    metadata = event.metadata or {}
+
+    if event_type == "checkout.session.completed" and event.session_id:
+        await _handle_checkout_completed(event)
+
+    elif event_type == "customer.subscription.created":
+        await _upsert_subscription_record(event, status_override="active")
+
+    elif event_type == "customer.subscription.updated":
+        await _upsert_subscription_record(event)
+
+    elif event_type == "invoice.paid":
+        # Recurring renewal — bump last_renewal_at on the subscription record.
+        email = metadata.get("customer_email_hint") or metadata.get("customer_email")
+        plan_key = metadata.get("plan_key")
+        if email and plan_key:
+            await db.subscriptions.update_one(
+                {"email": email, "plan_key": plan_key},
                 {"$set": {
-                    "payment_status": event.payment_status,
-                    "status": "complete",
+                    "status": "active",
+                    "last_renewal_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }},
+                upsert=False,
+            )
+
+    elif event_type == "customer.subscription.deleted":
+        # Final cancellation — mark sub canceled and revoke portal access on user.
+        email = metadata.get("customer_email_hint") or metadata.get("customer_email")
+        plan_key = metadata.get("plan_key")
+        if email:
+            await db.subscriptions.update_one(
+                {"email": email, **({"plan_key": plan_key} if plan_key else {})},
+                {"$set": {
+                    "status": "canceled",
+                    "canceled_at": datetime.now(timezone.utc).isoformat(),
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }},
             )
-            if event.payment_status == "paid":
-                txn["payment_status"] = event.payment_status
-                await _trigger_post_purchase_email(txn)
-                await _grant_access_for_txn(txn)
+            # Mark all matching subscription entitlements on the user as inactive.
+            user = await db.users.find_one({"email": email}, {"_id": 0})
+            if user:
+                ents = user.get("entitlements", [])
+                changed = False
+                for ent in ents:
+                    if ent.get("kind") == "subscription" and (not plan_key or ent.get("product_key") == plan_key):
+                        ent["status"] = "canceled"
+                        ent["canceled_at"] = datetime.now(timezone.utc).isoformat()
+                        changed = True
+                if changed:
+                    await db.users.update_one(
+                        {"email": email},
+                        {"$set": {"entitlements": ents, "updated_at": datetime.now(timezone.utc).isoformat()}},
+                    )
+
     return {"received": True}
+
+
+async def _handle_checkout_completed(event) -> None:
+    """Initial purchase (one-time OR subscription) — refresh txn + grant access + email."""
+    txn = await db.payment_transactions.find_one({"session_id": event.session_id}, {"_id": 0})
+    if not txn:
+        return
+    await db.payment_transactions.update_one(
+        {"session_id": event.session_id},
+        {"$set": {
+            "payment_status": event.payment_status,
+            "status": "complete",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    if event.payment_status != "paid":
+        return
+    txn["payment_status"] = event.payment_status
+    # Pull customer email from event metadata if txn didn't have one
+    if not txn.get("email"):
+        meta = event.metadata or {}
+        hinted = meta.get("customer_email") or meta.get("customer_email_hint")
+        if hinted:
+            txn["email"] = hinted
+            await db.payment_transactions.update_one(
+                {"session_id": event.session_id}, {"$set": {"email": hinted}}
+            )
+    await _trigger_post_purchase_email(txn)
+    await _grant_access_for_txn(txn)
+    # If subscription, also seed/refresh the subscriptions collection
+    if txn.get("subscription") or txn.get("product_key") in SUBSCRIPTIONS:
+        await _upsert_subscription_record_from_txn(txn)
+
+
+async def _upsert_subscription_record_from_txn(txn: Dict[str, Any]) -> None:
+    """Seed the `subscriptions` collection on initial checkout.session.completed."""
+    email = txn.get("email")
+    plan_key = txn.get("product_key")
+    if not email or plan_key not in SUBSCRIPTIONS:
+        return
+    plan = SUBSCRIPTIONS[plan_key]
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.subscriptions.update_one(
+        {"email": email, "plan_key": plan_key},
+        {"$set": {
+            "email": email,
+            "plan_key": plan_key,
+            "tier": plan["tier"],
+            "interval": plan["interval"],
+            "amount": plan["amount"],
+            "currency": plan["currency"],
+            "status": "active",
+            "session_id": txn.get("session_id"),
+            "stripe_price_id": txn.get("stripe_price_id"),
+            "started_at": now_iso,
+            "last_renewal_at": now_iso,
+            "updated_at": now_iso,
+        },
+         "$setOnInsert": {
+            "id": str(uuid.uuid4()),
+            "created_at": now_iso,
+        }},
+        upsert=True,
+    )
+
+
+async def _upsert_subscription_record(event, status_override: Optional[str] = None) -> None:
+    """Used by customer.subscription.created/updated webhook events.
+
+    The Emergent webhook wrapper exposes only event_id, event_type, session_id,
+    payment_status and metadata. So we identify the subscription via the metadata
+    we attached at checkout (customer_email_hint + plan_key)."""
+    metadata = event.metadata or {}
+    email = metadata.get("customer_email_hint") or metadata.get("customer_email")
+    plan_key = metadata.get("plan_key")
+    if not email or plan_key not in SUBSCRIPTIONS:
+        return
+    plan = SUBSCRIPTIONS[plan_key]
+    now_iso = datetime.now(timezone.utc).isoformat()
+    set_doc = {
+        "email": email,
+        "plan_key": plan_key,
+        "tier": plan["tier"],
+        "interval": plan["interval"],
+        "amount": plan["amount"],
+        "currency": plan["currency"],
+        "updated_at": now_iso,
+    }
+    set_on_insert = {
+        "id": str(uuid.uuid4()),
+        "started_at": now_iso,
+        "created_at": now_iso,
+    }
+    # status goes in either $set (when explicitly overriding) or $setOnInsert
+    # (default). Mongo forbids the same field in both operators.
+    if status_override:
+        set_doc["status"] = status_override
+    else:
+        set_on_insert["status"] = "active"
+    await db.subscriptions.update_one(
+        {"email": email, "plan_key": plan_key},
+        {"$set": set_doc, "$setOnInsert": set_on_insert},
+        upsert=True,
+    )
 
 
 # ---------- TTS ----------

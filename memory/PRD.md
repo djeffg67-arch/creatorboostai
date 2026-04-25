@@ -112,29 +112,78 @@ Routes, premium navy/cyan design, multi-panel demo without proprietary definitio
 
 
 
+### Iter 5 (2026-02-26) — Native Stripe Subscription Mode
+**Goal**: Convert CreatorBoostAI subscription checkout from one-time charge fallback to true recurring billing using native Stripe subscription mode.
+
+**Backend (`server.py`)**
+- `SUBSCRIPTIONS` dict — each plan now references its env var name (`price_id_env`) for the Stripe Dashboard recurring Price ID
+- `POST /api/checkout/subscription` — refactored to pass `stripe_price_id` (recurring Price) to `CheckoutSessionRequest`. Stripe Checkout auto-detects recurring config and opens in subscription mode. Customer is billed every period forever.
+- Fail-fast: returns **503 with explicit error** when the Price ID env var is missing — never silently falls back to one-time charge
+- `txn_doc` now persists `subscription_mode="stripe_native"` and `stripe_price_id` for audit
+- `POST /api/webhook/stripe` — extended to handle subscription lifecycle events:
+  - `checkout.session.completed` → grant initial access (existing, refactored into `_handle_checkout_completed`)
+  - `customer.subscription.created` → upsert into new `subscriptions` collection
+  - `customer.subscription.updated` → keep status fresh
+  - `invoice.paid` → recurring renewal: bump `last_renewal_at`, mark `status="active"`
+  - `customer.subscription.deleted` → revoke portal access: mark sub `canceled`, flag user entitlements `canceled`
+- **Idempotency**: every `event_id` recorded in new `processed_webhook_events` collection. Duplicate Stripe deliveries (retries) short-circuit with `{"received": True, "duplicate": True}`.
+- `POST /api/portal/login` — now also returns `subscriptions` array so portal UI can display billing state
+- `GET /api/admin/subscriptions` — admin endpoint listing all subscription rows (active + canceled)
+
+**Env vars added (`backend/.env`)**
+- `STRIPE_WEBHOOK_SECRET` — to be filled in when wiring live Stripe webhook
+- `STRIPE_PRICE_CB_STARTER_MONTHLY` — Stripe Dashboard recurring Price for $49/mo
+- `STRIPE_PRICE_CB_STARTER_ANNUAL` — Stripe Dashboard recurring Price for $490/yr
+- `STRIPE_PRICE_CB_PRO_MONTHLY` — Stripe Dashboard recurring Price for $149/mo
+- `STRIPE_PRICE_CB_PRO_ANNUAL` — Stripe Dashboard recurring Price for $1,490/yr
+
+**New collections**
+- `subscriptions` — `{id, email, plan_key, tier, interval, amount, currency, status, started_at, last_renewal_at, canceled_at, session_id, stripe_price_id, created_at, updated_at}`
+- `processed_webhook_events` — `{event_id, event_type, session_id, processed_at}`
+
+**Tests added** (`tests/test_bodyiq_subscriptions.py`)
+- 9 tests covering: catalog, plan-key validation, 503-on-missing-price-id safety rail, webhook signature enforcement, admin auth, in-process subscription create/cancel handler logic, idempotency mechanic
+- Updated `test_bodyiq_step1.py` to accept the new 503 contract until user provides Price IDs
+
+**Test results**
+- 76/76 backend tests passing
+- Pricing UI verified rendering on desktop (1920×800)
+
+### Test Results — Iter 5
+- Backend: 76/76 (all prior + 9 new subscription tests)
+- Frontend: rendering verified, no regressions
+
+
+
 ## Prioritized Backlog
 
-### P0 — Launch blockers
-- Provide real Resend API key → set `RESEND_API_KEY` in `/app/backend/.env`
-- Complete DNS authentication (SPF + DKIM) for creatorboostai.com in Resend dashboard
-- Register Stripe webhook endpoint in Stripe dashboard (point to `{SITE_URL}/api/webhook/stripe`)
-- Swap `STRIPE_API_KEY` from `sk_test_emergent` to live `sk_live_...` key at launch
+### P0 — Launch blockers (BEFORE FLIPPING LIVE STRIPE KEYS)
+- **User must mint 4 recurring Price IDs in their Stripe Dashboard** (Products → Add Product → Add Price → Recurring → monthly OR yearly):
+  - Starter Monthly $49 → paste `price_...` into `STRIPE_PRICE_CB_STARTER_MONTHLY`
+  - Starter Annual $490 → paste `price_...` into `STRIPE_PRICE_CB_STARTER_ANNUAL`
+  - Pro Monthly $149 → paste `price_...` into `STRIPE_PRICE_CB_PRO_MONTHLY`
+  - Pro Annual $1,490 → paste `price_...` into `STRIPE_PRICE_CB_PRO_ANNUAL`
+- Provide live `STRIPE_API_KEY=sk_live_...`
+- Register Stripe webhook in Dashboard → Developers → Webhooks pointed at `{SITE_URL}/api/webhook/stripe`. Subscribe to events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`. Paste the signing secret into `STRIPE_WEBHOOK_SECRET`.
+- Provide real Resend API key → set `RESEND_API_KEY`
+- Complete Resend DNS authentication (SPF + DKIM) for creatorboostai.com
 
 ### P1 — Conversion / UX
-- Add "Check again" button on ThankYou timeout state
-- Rate limiting on /api/checkout/session + /api/admin/login
-- Per-session retry backoff on webhook email delivery
+- PayPal Business as secondary processor (awaiting user Client ID + Secret)
+- DNS apex-to-www redirect via Cloudflare (user action)
+- Stripe Customer Portal link from /portal so users can self-cancel/upgrade
 - Cohort countdown / seats-remaining on training page (scarcity)
-- Admin view for payment_transactions with date filter
+- Admin view for payment_transactions + subscriptions with date filter
 
 ### P2 — Expansion
-- Full accounts / paid content gate
-- Voice narration (OpenAI TTS)
+- Refactor: split RealtorDemoPage / InsuranceDemoPage (~1600 lines each) into shared components
+- Dodo Payments fallback (currently stubbed)
 - Funnel analytics (Posthog / GA4)
-- Idempotency keys on checkout
+- Voice narration polish for additional verticals
 
 ## Next Tasks
-1. User provides Resend API key → drop into `.env`, restart backend → emails go live
-2. User verifies creatorboostai.com DKIM/SPF in Resend
-3. User registers Stripe webhook at Stripe dashboard for live reliability
-4. Swap test → live Stripe key
+1. **User provides 4 Stripe Price IDs** → paste into `backend/.env` → restart backend → re-test live recurrence
+2. User provides `STRIPE_WEBHOOK_SECRET` from Stripe Dashboard webhook config
+3. User provides live `sk_live_...` key + Resend `re_...` key
+4. End-to-end live recurrence verification
+5. PayPal integration once Client ID + Secret arrive

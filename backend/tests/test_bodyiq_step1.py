@@ -52,26 +52,37 @@ class TestSubscriptions:
         assert data["cb_pro_monthly"]["amount"] == 149.00
 
     def test_subscription_checkout_starter(self, session):
+        # Native subscription mode requires STRIPE_PRICE_CB_STARTER_MONTHLY env var.
+        # Until that's provided by the user (Stripe Dashboard → Products → recurring Price),
+        # the endpoint MUST 503 with a clear configuration error — never silently fall
+        # back to a one-time charge. Once the env var is set, this returns 200 + Stripe URL.
         r = session.post(f"{API}/checkout/subscription", json={
             "plan_key": "cb_starter_monthly",
             "origin_url": BASE_URL,
             "email": "TEST_starter@example.com",
         })
-        assert r.status_code == 200, f"{r.status_code}: {r.text}"
-        data = r.json()
-        assert "url" in data and "session_id" in data
-        assert "stripe.com" in data["url"] or "checkout" in data["url"].lower()
+        if r.status_code == 200:
+            data = r.json()
+            assert "url" in data and "session_id" in data
+            assert "stripe.com" in data["url"] or "checkout" in data["url"].lower()
+        else:
+            assert r.status_code == 503, f"{r.status_code}: {r.text}"
+            assert "STRIPE_PRICE_CB_STARTER_MONTHLY" in r.json()["detail"]
 
     def test_subscription_checkout_pro(self, session):
+        # Same contract as starter — see comment above.
         r = session.post(f"{API}/checkout/subscription", json={
             "plan_key": "cb_pro_monthly",
             "origin_url": BASE_URL,
             "email": "TEST_pro@example.com",
         })
-        assert r.status_code == 200, f"{r.status_code}: {r.text}"
-        data = r.json()
-        assert data["url"].startswith("https://")
-        assert data["session_id"]
+        if r.status_code == 200:
+            data = r.json()
+            assert data["url"].startswith("https://")
+            assert data["session_id"]
+        else:
+            assert r.status_code == 503, f"{r.status_code}: {r.text}"
+            assert "STRIPE_PRICE_CB_PRO_MONTHLY" in r.json()["detail"]
 
     def test_subscription_invalid_plan_rejected(self, session):
         r = session.post(f"{API}/checkout/subscription", json={
