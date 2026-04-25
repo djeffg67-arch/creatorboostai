@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Layout } from "@/components/site/Layout";
 import { toast } from "sonner";
+import { analyzeLead } from "@/lib/api";
 import {
     Play, Pause, ArrowRight, ArrowLeft, RotateCcw, Volume2, VolumeX,
     Sparkles, Building2, Users, MessageSquare, CalendarCheck, DollarSign,
@@ -514,6 +515,10 @@ export default function RealtorDemoPage() {
                         )}
                     </>
                 )}
+
+                <div className="mt-12">
+                    <TryYourLead />
+                </div>
 
                 <div className="mt-12">
                     <CustomerEmailSection />
@@ -1298,3 +1303,172 @@ const Field = ({ label, children }) => (
         <div className="mt-2">{children}</div>
     </label>
 );
+
+// ---------- Try with your own lead ----------
+const SAMPLE_LEAD = "Hi, I have a 4-bedroom home in East Grand Rapids worth around $700k. We're relocating to Florida in May and want to time the spring market right. I check Zillow weekly.";
+
+const TryYourLead = () => {
+    const [text, setText] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState(null);
+    const [error, setError] = useState(null);
+
+    const run = async () => {
+        const desc = text.trim();
+        if (desc.length < 10) {
+            toast.error("Add a bit more detail (min 10 characters)");
+            return;
+        }
+        setLoading(true);
+        setError(null);
+        setResult(null);
+        try {
+            const data = await analyzeLead(desc);
+            setResult(data);
+        } catch (err) {
+            const msg = err?.response?.data?.detail;
+            setError(typeof msg === "string" ? msg : "Could not analyze. Try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const useSample = () => setText(SAMPLE_LEAD);
+
+    const copyMessage = async () => {
+        if (!result) return;
+        try {
+            await navigator.clipboard.writeText(result.personalized_message);
+            toast.success("Message copied");
+        } catch {
+            toast.error("Copy failed");
+        }
+    };
+
+    const typeLabel = (t) => ({
+        buyer: "Buyer Lead",
+        seller: "Seller Lead",
+        renter: "Rental Lead",
+        property_management: "Property Management",
+        investor: "Investor Lead",
+    }[t] || t);
+
+    return (
+        <section className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-6 lg:p-8" data-testid="try-your-lead">
+            <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-cyan-400" />
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Try With Your Own Lead</span>
+            </div>
+            <h2 className="font-heading mt-3 text-2xl font-semibold text-white sm:text-3xl">Run live AI analysis on your own lead.</h2>
+            <p className="mt-2 max-w-2xl text-sm text-slate-300">
+                Paste a real lead description — what they said, what they want, what they're considering. CreatorBoostAI will analyze it and produce the next best action and a personalized outreach message in seconds.
+            </p>
+
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+                <div className="lg:col-span-5 space-y-3">
+                    <textarea
+                        rows={8}
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        placeholder="Hi, I'm interested in a 3-bedroom rental in Heritage Hill. Pre-approved up to $2,400/mo. Need to move in by April 1…"
+                        data-testid="lead-input"
+                        className="input-glow w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={run}
+                            disabled={loading}
+                            data-testid="lead-analyze-btn"
+                            className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-400 disabled:opacity-60"
+                        >
+                            {loading ? (
+                                <>
+                                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink-900/30 border-t-ink-900" />
+                                    Analyzing…
+                                </>
+                            ) : (
+                                <><Brain size={14} /> Analyze Lead</>
+                            )}
+                        </button>
+                        <button onClick={useSample} className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                            <Sparkles size={11} /> Use sample
+                        </button>
+                    </div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
+                        Powered by GPT · Emergent Universal Key
+                    </p>
+                </div>
+
+                <div className="lg:col-span-7">
+                    <div className="rounded-md border border-white/10 bg-ink-800 p-5 min-h-[300px]" data-testid="lead-result">
+                        {error && (
+                            <div className="rounded-sm border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm text-red-300" data-testid="lead-error">
+                                {error}
+                            </div>
+                        )}
+                        {!result && !error && !loading && (
+                            <div className="flex h-64 items-center justify-center text-center">
+                                <p className="max-w-xs text-sm text-slate-500">
+                                    Drop in a lead and click <span className="text-cyan-300">Analyze Lead</span>. The AI's read + outreach copy will appear here.
+                                </p>
+                            </div>
+                        )}
+                        {loading && (
+                            <div className="flex h-64 items-center justify-center text-center">
+                                <p className="font-mono text-xs uppercase tracking-[0.22em] text-cyan-300">Analyzing intent + drafting outreach…</p>
+                            </div>
+                        )}
+                        {result && (
+                            <div className="space-y-5 fade-in-up">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="rounded-sm border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                                        {typeLabel(result.lead_type)}
+                                    </span>
+                                    <span className="rounded-sm border border-white/10 bg-ink-900 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                                        Intent · {result.intent_score}%
+                                    </span>
+                                    <span className="rounded-sm border border-white/10 bg-ink-900 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                                        Urgency · {result.urgency}%
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <SignalBar label="Intent" value={result.intent_score} note="AI-estimated readiness" />
+                                    <SignalBar label="Urgency" value={result.urgency} note="Decision window pressure" />
+                                </div>
+
+                                <div>
+                                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Key Signals</p>
+                                    <ul className="mt-2 space-y-1.5 text-sm text-slate-200">
+                                        {result.key_signals.map((s, i) => (
+                                            <li key={i} className="flex items-start gap-2">
+                                                <Check size={13} className="mt-0.5 flex-shrink-0 text-cyan-400" />
+                                                <span>{s}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+
+                                <div className="rounded-sm border border-cyan-500/40 bg-cyan-500/10 p-3">
+                                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Recommended Action</p>
+                                    <p className="mt-1 text-sm text-white">{result.recommended_action}</p>
+                                </div>
+
+                                <div>
+                                    <div className="flex items-center justify-between">
+                                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Personalized Outreach</p>
+                                        <button onClick={copyMessage} data-testid="lead-copy-message"
+                                            className="inline-flex items-center gap-1.5 rounded-sm border border-cyan-500/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500 hover:text-ink-900">
+                                            <Copy size={11} /> Copy
+                                        </button>
+                                    </div>
+                                    <pre className="mt-2 whitespace-pre-wrap rounded-sm border border-white/10 bg-ink-900 p-4 font-sans text-sm leading-relaxed text-slate-200">{result.personalized_message}</pre>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+};

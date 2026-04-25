@@ -38,6 +38,11 @@ from email_service import (
 # ---------- TTS ----------
 from tts_service import generate_or_cache as tts_generate, ALLOWED_VOICES, DEFAULT_VOICE
 
+# ---------- LLM ----------
+from emergentintegrations.llm.chat import LlmChat, UserMessage as LlmUserMessage
+import json as _json
+import re as _re
+
 app = FastAPI(title="BodyIQ-AI API")
 api_router = APIRouter(prefix="/api")
 
@@ -123,6 +128,19 @@ class TTSRequest(BaseModel):
     text: str
     voice: Optional[str] = DEFAULT_VOICE
     model: Optional[str] = "tts-1"
+
+
+class LeadAnalyzeRequest(BaseModel):
+    description: str = Field(..., min_length=10, max_length=2000)
+
+
+class LeadAnalyzeResponse(BaseModel):
+    lead_type: str
+    intent_score: int
+    urgency: int
+    key_signals: List[str]
+    recommended_action: str
+    personalized_message: str
 
 
 # ---------- Auth dependency ----------
@@ -425,6 +443,92 @@ async def tts_speak(payload: TTSRequest):
         content=audio,
         media_type="audio/mpeg",
         headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+# ---------- Lead analyze (live AI) ----------
+LEAD_SYSTEM_PROMPT = """You are CreatorBoostAI's real estate analyst. Given a free-form lead description, return a STRICT JSON object only — no prose, no markdown fences. Keys exactly as follows:
+
+{
+  "lead_type": "buyer | seller | renter | property_management | investor",
+  "intent_score": 0-100 integer,
+  "urgency": 0-100 integer,
+  "key_signals": ["3-5 short bullet phrases of behavioral / market signals"],
+  "recommended_action": "ONE clear next best action sentence under 25 words",
+  "personalized_message": "A 3-5 sentence outreach message in the voice of Jeffrey, a Grand Rapids realtor. Personable, direct, references specifics from the lead, suggests a concrete time (e.g. Thursday 3 PM). Sign as '— Jeffrey, BodyIQ Realty'."
+}
+
+Rules:
+- Output JSON only. No commentary, no code fences.
+- All string values plain text (no markdown).
+- Pick the single best lead_type even if ambiguous."""
+
+
+def _extract_json(s: str) -> Optional[dict]:
+    if not s:
+        return None
+    s = s.strip()
+    # strip code fences
+    s = _re.sub(r"^```(?:json)?\s*", "", s)
+    s = _re.sub(r"\s*```$", "", s)
+    try:
+        return _json.loads(s)
+    except Exception:
+        # try to grab the first {...} block
+        m = _re.search(r"\{.*\}", s, flags=_re.S)
+        if m:
+            try:
+                return _json.loads(m.group(0))
+            except Exception:
+                return None
+        return None
+
+
+@api_router.post("/lead/analyze", response_model=LeadAnalyzeResponse)
+async def analyze_lead(payload: LeadAnalyzeRequest):
+    key = os.environ.get("EMERGENT_LLM_KEY", "").strip()
+    if not key:
+        raise HTTPException(status_code=503, detail="LLM not configured")
+    chat = LlmChat(
+        api_key=key,
+        session_id=str(uuid.uuid4()),
+        system_message=LEAD_SYSTEM_PROMPT,
+    ).with_model("openai", "gpt-5.1")
+    try:
+        raw = await chat.send_message(LlmUserMessage(text=payload.description.strip()))
+    except Exception as e:
+        logging.getLogger(__name__).error(f"LLM analyze failed: {e}")
+        raise HTTPException(status_code=502, detail="Analysis service temporarily unavailable")
+
+    data = _extract_json(raw if isinstance(raw, str) else str(raw))
+    if not data:
+        raise HTTPException(status_code=502, detail="Invalid analysis response")
+
+    # Coerce types & defaults
+    try:
+        intent = int(data.get("intent_score", 0))
+        urgency = int(data.get("urgency", 0))
+    except Exception:
+        intent, urgency = 0, 0
+    intent = max(0, min(100, intent))
+    urgency = max(0, min(100, urgency))
+    signals = data.get("key_signals") or []
+    if not isinstance(signals, list):
+        signals = [str(signals)]
+    signals = [str(x)[:140] for x in signals][:5]
+
+    valid_types = {"buyer", "seller", "renter", "property_management", "investor"}
+    lead_type = str(data.get("lead_type", "buyer")).lower().strip().replace(" ", "_")
+    if lead_type not in valid_types:
+        lead_type = "buyer"
+
+    return LeadAnalyzeResponse(
+        lead_type=lead_type,
+        intent_score=intent,
+        urgency=urgency,
+        key_signals=signals,
+        recommended_action=str(data.get("recommended_action", ""))[:300],
+        personalized_message=str(data.get("personalized_message", ""))[:1500],
     )
 
 
