@@ -255,8 +255,9 @@ export default function RealtorDemoPage() {
         setPrefetching(true);
         setPrefetchProgress(0);
         const cache = {};
-        for (let i = 0; i < SCENES.length; i++) {
-            const s = SCENES[i];
+        const CONCURRENCY = 5;
+        let done = 0;
+        const fetchOne = async (s) => {
             try {
                 const res = await fetch(`${apiBase}/tts/speak`, {
                     method: "POST",
@@ -268,7 +269,12 @@ export default function RealtorDemoPage() {
                     cache[s.id] = URL.createObjectURL(blob);
                 }
             } catch { /* fallback later */ }
-            setPrefetchProgress(Math.round(((i + 1) / SCENES.length) * 100));
+            done += 1;
+            setPrefetchProgress(Math.round((done / SCENES.length) * 100));
+        };
+        for (let i = 0; i < SCENES.length; i += CONCURRENCY) {
+            const chunk = SCENES.slice(i, i + CONCURRENCY);
+            await Promise.all(chunk.map(fetchOne));
         }
         setAudioCache(cache);
         setPrefetching(false);
