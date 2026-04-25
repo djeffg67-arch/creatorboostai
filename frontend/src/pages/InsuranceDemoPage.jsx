@@ -462,8 +462,6 @@ export default function InsuranceDemoPage() {
                             </div>
                         </div>
 
-                        <SubtitleBar narration={current.narration} muted={muted} />
-
                         {(current.focus === "cta" || done) && (
                             <div className="mt-6"><ClosingCTA onReplay={handleRestart} /></div>
                         )}
@@ -1505,7 +1503,7 @@ const AvatarPanel = ({ narration, speaking, muted, paused, onMute }) => (
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">{paused ? "Paused" : speaking ? "Narrating…" : muted ? "Muted" : "Explaining demo"}</p>
             </div>
         </div>
-        <p className="mt-4 max-h-64 overflow-y-auto pr-1 text-sm leading-relaxed text-slate-200 scrollbar-cyan" key={narration}>
+        <p className="mt-4 max-h-64 overflow-y-auto pr-1 text-base font-medium leading-relaxed text-white scrollbar-cyan" key={narration}>
             <span className="fade-in-up inline-block">{narration}</span>
         </p>
         <div className="mt-4 flex items-center gap-2">
