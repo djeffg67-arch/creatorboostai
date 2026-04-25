@@ -164,9 +164,19 @@ const SCENES = [
             "Faster quote turnaround. Higher bind rate. More policies per producer per month. Cleaner renewals. Better cross-sell penetration. Lower acquisition cost. " +
             "Same team. More output. More revenue — without adding headcount, without ripping out tools, without disrupting the agency's day-to-day rhythm.",
     },
-    // Scene 12 — Command Center Dashboard (~90s)
+    // Scene 12 — National + Regional Command Center (~90s)
     {
-        id: "command-center", section: "Scene 12 · Command Center", title: "One screen. Full control.",
+        id: "national-cc", section: "Scene 12 · National & Regional Command", title: "Your nationwide command center.",
+        focus: "national-cc", image: IMG.cityNight, fallback_ms: 90000,
+        narration:
+            "This is your nationwide command center. " +
+            "Every region, every office, every agent — visible in real time, on one map. Revenue heat-mapped state by state. Policies sold per region. Conversion rates side by side. Compliance alerts pinpointed to the office that triggered them. Commission payouts traced to the agent who earned them. " +
+            "Drill from the United States, into a state, into an office, into an individual agent. Identify underperforming regions instantly. Reallocate marketing budget to the markets that are converting. Coach the offices that are slipping. Increase output without increasing headcount. " +
+            "You're no longer managing agents. You're managing an entire national operation — from one system.",
+    },
+    // Scene 13 — Command Center Dashboard (~90s)
+    {
+        id: "command-center", section: "Scene 13 · Command Center", title: "One screen. Full control.",
         focus: "command-dashboard", image: IMG.teamMeeting, fallback_ms: 90000,
         narration:
             "This is the command center. " +
@@ -174,18 +184,18 @@ const SCENES = [
             "Leadership opens this dashboard in the morning and instantly knows: what's binding, what's stuck, who needs help, and where the next dollar of revenue is coming from. " +
             "One screen. Full control over the entire agency.",
     },
-    // Scene 13 — Autonomous Mode (~60s)
+    // Scene 14 — Autonomous Mode (~60s)
     {
-        id: "autonomous", section: "Scene 13 · Autonomous Mode", title: "Execute automatically — or wait for approval.",
+        id: "autonomous", section: "Scene 14 · Autonomous Mode", title: "Execute automatically — or wait for approval.",
         focus: "autonomous-choice", image: IMG.advisorClient, fallback_ms: 60000,
         narration:
             "The most important question. " +
             "Would you like CreatorBoostAI to execute automatically — sending follow-ups, advancing renewals, drafting policy documents, routing leads — or would you prefer the system to draft every action and wait for producer or compliance approval before it goes out? " +
             "You choose, by team, by line of business, by deal size. Fully autonomous, fully assisted, or anywhere in between. The system always defers to your control.",
     },
-    // Scene 14 — Enterprise Close (~45s)
+    // Scene 15 — Enterprise Close (~45s)
     {
-        id: "closing", section: "Scene 14 · Enterprise Close", title: "This is your insurance operating system.",
+        id: "closing", section: "Scene 15 · Enterprise Close", title: "This is your insurance operating system.",
         focus: "cta", image: IMG.handshake, fallback_ms: 45000,
         narration:
             "This is not another tool to bolt onto your stack. " +
@@ -366,9 +376,13 @@ export default function InsuranceDemoPage() {
 
     const handleStart = async () => {
         const cache = await prefetchAll();
+        // Optional QA deep-link: ?scene=N (1-indexed) jumps to that scene on start
+        const params = new URLSearchParams(window.location.search);
+        const sceneParam = parseInt(params.get("scene") || "1", 10);
+        const startIdx = Math.max(0, Math.min(SCENES.length - 1, sceneParam - 1));
         setStarted(true);
-        setScene(0); setDone(false); setPaused(false);
-        setTimeout(() => speakScene(0, cache), 200);
+        setScene(startIdx); setDone(false); setPaused(false);
+        setTimeout(() => speakScene(startIdx, cache), 200);
     };
     const handlePauseResume = () => {
         if (paused) {
@@ -488,9 +502,9 @@ const StartScreen = ({ onStart, prefetching, progress }) => (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Cinematic Demo Console</p>
-                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 14-scene insurance walkthrough.</h2>
+                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 15-scene insurance walkthrough.</h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                    A fully automated 14-scene cinematic walkthrough — narrated by Nova, an executive A.I. voice —
+                    A fully automated 15-scene cinematic walkthrough — narrated by Nova, an executive A.I. voice —
                     showing how CreatorBoostAI sits on top of your CRM, AMS, compliance, and communications stack
                     and turns them into a single insurance operating system. No clicks required.
                 </p>
@@ -514,7 +528,7 @@ const StartScreen = ({ onStart, prefetching, progress }) => (
                 </div>
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
                     {[
-                        "14 cinematic scenes",
+                        "15 cinematic scenes",
                         "100% auto-play · no clicks",
                         "Sits on top — never replaces",
                         "Subtitles + voice toggle",
@@ -637,6 +651,7 @@ const SceneStage = ({ scene }) => {
     if (f === "compliance-panel") return <CompliancePanel />;
     if (f === "connect") return <ConnectionDiagram />;
     if (f === "revenue-multiplier") return <RevenueMultiplierPanel />;
+    if (f === "national-cc") return <NationalCommandCenter />;
     if (f === "command-dashboard") return <CommandCenterDashboard />;
     if (f === "autonomous-choice") return <AutonomousChoice />;
     if (f === "cta") return <NarrativePanel scene={scene} />;
@@ -1071,6 +1086,176 @@ const RevenueMultiplierPanel = () => {
                     </div>
                 ))}
             </div>
+        </div>
+    );
+};
+
+// Scene 12 — National + Regional Command Center
+const NationalCommandCenter = () => {
+    // Stylized US map: 4 macro regions with state-level cells, color-coded by performance
+    // Performance tiers: hot (cyan-bright), strong (cyan), neutral (slate), weak (amber)
+    const regions = [
+        {
+            name: "WEST", revenue: "$72.4M", policies: 2840, conv: "11.8%", flag: "0", states: [
+                { ab: "WA", v: "$8.4M", t: "hot" }, { ab: "OR", v: "$3.2M", t: "strong" },
+                { ab: "CA", v: "$28.6M", t: "hot" }, { ab: "NV", v: "$2.1M", t: "neutral" },
+                { ab: "AZ", v: "$6.8M", t: "strong" }, { ab: "ID", v: "$1.4M", t: "neutral" },
+                { ab: "MT", v: "$0.9M", t: "neutral" }, { ab: "WY", v: "$0.7M", t: "weak" },
+                { ab: "UT", v: "$3.6M", t: "strong" }, { ab: "CO", v: "$8.2M", t: "hot" },
+                { ab: "NM", v: "$2.8M", t: "neutral" }, { ab: "AK", v: "$0.6M", t: "weak" },
+                { ab: "HI", v: "$1.1M", t: "neutral" },
+            ]
+        },
+        {
+            name: "MIDWEST", revenue: "$58.2M", policies: 2148, conv: "10.4%", flag: "1", states: [
+                { ab: "ND", v: "$0.8M", t: "weak" }, { ab: "SD", v: "$0.9M", t: "weak" },
+                { ab: "NE", v: "$2.1M", t: "neutral" }, { ab: "KS", v: "$3.4M", t: "strong" },
+                { ab: "MN", v: "$8.6M", t: "hot" }, { ab: "IA", v: "$3.8M", t: "strong" },
+                { ab: "MO", v: "$6.2M", t: "strong" }, { ab: "WI", v: "$5.4M", t: "strong" },
+                { ab: "IL", v: "$14.2M", t: "hot" }, { ab: "IN", v: "$4.8M", t: "strong" },
+                { ab: "MI", v: "$10.4M", t: "hot" }, { ab: "OH", v: "$11.2M", t: "hot" },
+            ]
+        },
+        {
+            name: "SOUTH", revenue: "$84.7M", policies: 3142, conv: "12.6%", flag: "0", states: [
+                { ab: "TX", v: "$26.4M", t: "hot" }, { ab: "OK", v: "$2.8M", t: "neutral" },
+                { ab: "AR", v: "$1.9M", t: "neutral" }, { ab: "LA", v: "$3.2M", t: "strong" },
+                { ab: "MS", v: "$1.6M", t: "neutral" }, { ab: "AL", v: "$3.4M", t: "strong" },
+                { ab: "TN", v: "$6.2M", t: "strong" }, { ab: "KY", v: "$3.1M", t: "neutral" },
+                { ab: "GA", v: "$9.8M", t: "hot" }, { ab: "FL", v: "$18.4M", t: "hot" },
+                { ab: "SC", v: "$3.4M", t: "strong" }, { ab: "NC", v: "$8.4M", t: "hot" },
+                { ab: "VA", v: "$5.8M", t: "strong" }, { ab: "WV", v: "$0.8M", t: "weak" },
+            ]
+        },
+        {
+            name: "NORTHEAST", revenue: "$68.9M", policies: 2362, conv: "13.4%", flag: "2", states: [
+                { ab: "PA", v: "$12.4M", t: "hot" }, { ab: "NY", v: "$24.6M", t: "hot" },
+                { ab: "NJ", v: "$10.2M", t: "hot" }, { ab: "CT", v: "$4.8M", t: "strong" },
+                { ab: "RI", v: "$1.4M", t: "neutral" }, { ab: "MA", v: "$8.6M", t: "hot" },
+                { ab: "VT", v: "$0.9M", t: "weak" }, { ab: "NH", v: "$1.6M", t: "neutral" },
+                { ab: "ME", v: "$1.4M", t: "neutral" }, { ab: "DE", v: "$1.2M", t: "neutral" },
+                { ab: "MD", v: "$1.8M", t: "neutral" },
+            ]
+        },
+    ];
+
+    // Auto-rotate drill-down focus every 8s: nation → state → office → agent → back
+    const drilldown = [
+        {
+            level: "NATIONAL", title: "United States · All Operations",
+            kpis: [["Revenue", "$284.2M"], ["Policies", "10,492"], ["Avg Conv.", "12.0%"], ["Compliance", "100%"]],
+            note: "All 50 states active. 312 offices. 2,847 producers.",
+        },
+        {
+            level: "STATE", title: "Texas · TX · Drill-down",
+            kpis: [["Revenue", "$26.4M"], ["Policies", "1,084"], ["Conversion", "13.2%"], ["Offices", "18"]],
+            note: "Top-performing state. Houston metro driving 41% of TX volume.",
+        },
+        {
+            level: "OFFICE", title: "Houston Galleria · Office #4-12",
+            kpis: [["Revenue", "$8.6M"], ["Policies", "342"], ["Conversion", "14.8%"], ["Producers", "12"]],
+            note: "Producer A. Lopez leads office at $1.84M GCI YTD.",
+        },
+        {
+            level: "AGENT", title: "Lopez, A. · Senior Producer",
+            kpis: [["GCI YTD", "$1.84M"], ["Policies", "47"], ["Bind Rate", "38%"], ["Renewal Ret.", "97%"]],
+            note: "Top performer · auto + commercial GL · 4-year tenure",
+        },
+    ];
+    const [drillIdx, setDrillIdx] = React.useState(0);
+    React.useEffect(() => {
+        const t = setInterval(() => setDrillIdx(p => (p + 1) % drilldown.length), 8000);
+        return () => clearInterval(t);
+    }, [drilldown.length]);
+    const drill = drilldown[drillIdx];
+
+    const tierColor = (t) =>
+        t === "hot" ? "border-cyan-400/60 bg-cyan-400/20 text-cyan-200 shadow-[0_0_8px_rgba(6,182,212,0.4)]" :
+        t === "strong" ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300" :
+        t === "weak" ? "border-amber-500/40 bg-amber-500/10 text-amber-300" :
+        "border-white/10 bg-ink-800 text-slate-300";
+
+    return (
+        <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="national-cc">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                    <Globe2 size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">National Command Center · 50 States</span>
+                </div>
+                <span className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300"><span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" /> LIVE</span>
+            </div>
+
+            {/* Top-level KPIs */}
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <KPI label="Total Revenue" value="$284.2M" trend="+14% YoY" />
+                <KPI label="Policies In-Force" value="10,492" trend="+412 mo" />
+                <KPI label="Avg Conversion" value="12.0%" trend="+1.8 pts" />
+                <KPI label="Compliance Alerts" value="3" trend="2 NE · 1 MW" />
+            </div>
+
+            {/* Heatmap-style regional grid */}
+            <div className="mt-5 rounded-sm border border-white/10 bg-ink-800 p-4">
+                <div className="flex items-center justify-between">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Revenue heatmap · click to drill (auto-rotating)</p>
+                    <div className="flex items-center gap-3 font-mono text-[8px] uppercase tracking-[0.2em] text-slate-500">
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-cyan-400/60 bg-cyan-400/20" /> Hot</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-cyan-500/40 bg-cyan-500/10" /> Strong</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-white/10 bg-ink-800" /> Neutral</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-amber-500/40 bg-amber-500/10" /> Weak</span>
+                    </div>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-4">
+                    {regions.map((r) => (
+                        <div key={r.name} className="rounded-sm border border-white/10 bg-ink-900 p-3">
+                            <div className="flex items-center justify-between">
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{r.name}</span>
+                                <span className="font-heading text-sm font-semibold text-white">{r.revenue}</span>
+                            </div>
+                            <div className="mt-1 flex items-center gap-3 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400">
+                                <span>{r.policies.toLocaleString()} pol</span>
+                                <span>conv {r.conv}</span>
+                                {r.flag !== "0" && <span className="text-amber-300">⚠ {r.flag} flag{r.flag !== "1" ? "s" : ""}</span>}
+                            </div>
+                            <div className="mt-3 grid grid-cols-4 gap-1">
+                                {r.states.map((s) => (
+                                    <div key={s.ab} className={`group relative rounded-sm border px-1.5 py-1 text-center transition-all ${tierColor(s.t)}`}>
+                                        <span className="font-mono text-[9px] font-semibold">{s.ab}</span>
+                                        <span className="absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-sm border border-white/10 bg-ink-900 px-2 py-0.5 font-mono text-[9px] text-cyan-300 group-hover:block">{s.v}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Auto-drilling focus panel */}
+            <div className="mt-4 rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-4">
+                <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+                    <div className="flex items-center gap-2">
+                        <span className="rounded-sm border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">DRILL · {drill.level}</span>
+                        <span className="font-heading text-sm font-semibold text-white">{drill.title}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        {drilldown.map((_, i) => (
+                            <span key={i} className={`h-1 w-6 rounded-full transition-all ${i === drillIdx ? "bg-cyan-400" : "bg-white/10"}`} />
+                        ))}
+                    </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 fade-in-up" key={drill.level}>
+                    {drill.kpis.map(([l, v]) => (
+                        <div key={l} className="rounded-sm border border-white/10 bg-ink-900 p-2">
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{l}</p>
+                            <p className="font-heading mt-1 text-base font-semibold text-cyan-300">{v}</p>
+                        </div>
+                    ))}
+                </div>
+                <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">{drill.note}</p>
+            </div>
+
+            <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
+                Nation → State → Office → Agent · drill any layer · reallocate resources from one screen
+            </p>
         </div>
     );
 };

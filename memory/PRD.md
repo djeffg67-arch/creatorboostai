@@ -44,7 +44,17 @@ Routes, premium navy/cyan design, multi-panel demo without proprietary definitio
 - Iter 2: 100% (visual only)
 - Iter 3: 34/34 backend + 100% frontend
 
-### Iter 5 (2026-04-25) — 13-Scene Cinematic Realtor Demo (Phase 1+2+3)
+### Iter 7 (2026-04-25) — Insurance Demo Scene 12 inserted (National Command Center)
+- Inserted new **Scene 12 · National & Regional Command** between Revenue Multiplier and Command Center
+- Total scenes: 14 → **15** (StartScreen, badges, narration count all updated)
+- New `NationalCommandCenter` visual:
+  - **Top KPI bar:** Total Revenue $284.2M · Policies 10,492 · Avg Conversion 12.0% · Compliance Alerts 3
+  - **Heatmap regional grid:** 4 macro regions (West / Midwest / South / Northeast) with 50+ states color-coded by revenue performance (hot cyan glow / strong cyan / neutral / weak amber), with hover tooltips showing $ values
+  - **Auto-rotating drill-down panel** cycling every 8s through: Nation → State (Texas) → Office (Houston Galleria) → Agent (Lopez, A.) → back. Distinct KPIs per zoom level + progress dots
+  - Color legend included
+- Narration to user spec: *"You're no longer managing agents. You're managing an entire national operation — from one system."*
+
+### Iter 6 (2026-04-25) — 14-Scene Insurance Demo (`/demo/insurance`)
 **New parallel route built** — same engine as realtor demo, insurance-specific content
 - **14 scenes · ~12 min runtime** matching user's exact spec:
   - 1 Hook · 2 Current Software Stack · 3 CB Positioning · 4 Lead Flow · 5 AI Risk + Underwriting · 6 Follow-Up + Sales Automation · 7 Policy + Client Mgmt · 8 Commission + Payroll · 9 Compliance + Audit · 10 Integration Layer · 11 Revenue Multiplier · 12 Command Center · 13 Autonomous Mode · 14 Enterprise Close
