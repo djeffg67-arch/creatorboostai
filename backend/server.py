@@ -35,6 +35,9 @@ from email_service import (
     send_lead_welcome, send_contact_ack, send_training_confirmation, send_forensic_confirmation
 )
 
+# ---------- TTS ----------
+from tts_service import generate_or_cache as tts_generate, ALLOWED_VOICES, DEFAULT_VOICE
+
 app = FastAPI(title="BodyIQ-AI API")
 api_router = APIRouter(prefix="/api")
 
@@ -114,6 +117,12 @@ class CheckoutStatusOut(BaseModel):
     product_key: Optional[str] = None
     product_name: Optional[str] = None
     email: Optional[str] = None
+
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: Optional[str] = DEFAULT_VOICE
+    model: Optional[str] = "tts-1"
 
 
 # ---------- Auth dependency ----------
@@ -405,7 +414,22 @@ async def stripe_webhook(request: Request):
     return {"received": True}
 
 
+# ---------- TTS ----------
+@api_router.post("/tts/speak")
+async def tts_speak(payload: TTSRequest):
+    voice = payload.voice if payload.voice in ALLOWED_VOICES else DEFAULT_VOICE
+    audio = await tts_generate(text=payload.text, voice=voice, model=payload.model or "tts-1")
+    if audio is None:
+        raise HTTPException(status_code=503, detail="TTS unavailable")
+    return Response(
+        content=audio,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 app.include_router(api_router)
+
 
 app.add_middleware(
     CORSMiddleware,
