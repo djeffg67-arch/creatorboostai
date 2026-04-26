@@ -52,8 +52,8 @@ const INDUSTRIES = [
             "Brand-deal pipeline auto-built and auto-pitched",
             "Revenue scaling across storefront, paid tiers, and partnerships",
         ],
-        href: "/preview",
-        cta: "Open Creator preview",
+        href: "/demo/creator",
+        cta: "Watch Creator demo",
         live: true,
         highlight: true,
     },
@@ -117,6 +117,50 @@ const INTEGRATIONS = [
     "kvCORE", "Slack", "Twilio", "Zapier", "Stripe", "Shopify",
 ];
 
+const DEMO_SELECTOR = [
+    {
+        id: "realtor",
+        href: "/demo/realtor",
+        Icon: Building2,
+        kicker: "Real Estate",
+        title: "Brokerages, agents, property mgmt.",
+        runtime: "15 scenes · ~13 min",
+        tags: ["Yardi", "Salesforce", "FUB", "kvCORE"],
+        live: true,
+    },
+    {
+        id: "insurance",
+        href: "/demo/insurance",
+        Icon: ShieldCheck,
+        kicker: "Insurance",
+        title: "Agencies, MGAs, brokerages, carriers.",
+        runtime: "16 scenes · ~13 min",
+        tags: ["Catalyst", "Applied Epic", "AMS360", "EZLynx"],
+        live: true,
+    },
+    {
+        id: "creator",
+        href: "/demo/creator",
+        Icon: Mic,
+        kicker: "Influencers & Creators",
+        title: "Audience monetization & brand deals.",
+        runtime: "11 scenes · ~6.5 min",
+        tags: ["Instagram", "TikTok", "YouTube", "Stripe", "Shopify"],
+        live: true,
+        highlight: true,
+    },
+    {
+        id: "airports",
+        href: "/contact",
+        Icon: Plane,
+        kicker: "Airports & SITA",
+        title: "Operations, concessions, ground handling.",
+        runtime: "Pilot · Q3",
+        tags: ["SITA", "Sabre", "Amadeus"],
+        live: false,
+    },
+];
+
 export default function HomePage() {
     return (
         <Layout>
@@ -134,58 +178,66 @@ export default function HomePage() {
                 </div>
 
                 <div className="relative mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5 fade-in-up">
-                        <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Enterprise AI Operating System · Live</span>
-                    </div>
+                    <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-10">
+                        <div className="lg:col-span-7">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5 fade-in-up">
+                                <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Enterprise AI Operating System · Live</span>
+                            </div>
 
-                    <h1
-                        className="font-heading mt-6 max-w-5xl text-balance text-4xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-7xl fade-in-up"
-                        style={{ animationDelay: "80ms" }}
-                        data-testid="hero-headline"
-                    >
-                        Run Your Entire Business With AI That{" "}
-                        <span className="text-cyan-400">Thinks, Decides, and Executes.</span>
-                    </h1>
+                            <h1
+                                className="font-heading mt-6 text-balance text-4xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-6xl fade-in-up"
+                                style={{ animationDelay: "80ms" }}
+                                data-testid="hero-headline"
+                            >
+                                Run Your Entire Business With AI That{" "}
+                                <span className="text-cyan-400">Thinks, Decides, and Executes.</span>
+                            </h1>
 
-                    <p
-                        className="mt-6 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg fade-in-up"
-                        style={{ animationDelay: "160ms" }}
-                        data-testid="hero-sub"
-                    >
-                        CreatorBoostAI™ combined with BodyIQ-AI™ increases revenue, reduces costs, and scales operations
-                        across every revenue-driven industry — through real-time automation, business intelligence, and
-                        execution on top of the systems you already use.
-                    </p>
+                            <p
+                                className="mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg fade-in-up"
+                                style={{ animationDelay: "160ms" }}
+                                data-testid="hero-sub"
+                            >
+                                CreatorBoostAI™ combined with BodyIQ-AI™ increases revenue, reduces costs, and scales operations
+                                across every revenue-driven industry — through real-time automation, business intelligence, and
+                                execution on top of the systems you already use.
+                            </p>
 
-                    <CountrySelector />
+                            <CountrySelector />
 
-                    <div
-                        className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap fade-in-up"
-                        style={{ animationDelay: "240ms" }}
-                        data-testid="hero-ctas"
-                    >
-                        <Link
-                            to="/demo"
-                            data-testid="hero-cta-watch-demo"
-                            className="inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-6 py-3.5 text-sm font-semibold text-ink-900 shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_40px_rgba(6,182,212,0.6)]"
-                        >
-                            <Play size={14} fill="currentColor" /> Watch Demo
-                        </Link>
-                        <a
-                            href="#industries"
-                            data-testid="hero-cta-see-industry"
-                            className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-6 py-3.5 text-sm font-semibold text-cyan-300 transition-all hover:bg-cyan-500 hover:text-ink-900"
-                        >
-                            See Your Industry <ArrowRight size={14} />
-                        </a>
-                        <Link
-                            to="/apply/strategy"
-                            data-testid="hero-cta-request-access"
-                            className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-transparent px-6 py-3.5 text-sm font-semibold text-white transition-all hover:border-cyan-500/50 hover:text-cyan-400"
-                        >
-                            Request Access
-                        </Link>
+                            <div
+                                className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap fade-in-up"
+                                style={{ animationDelay: "240ms" }}
+                                data-testid="hero-ctas"
+                            >
+                                <Link
+                                    to="/demo"
+                                    data-testid="hero-cta-watch-demo"
+                                    className="inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-6 py-3.5 text-sm font-semibold text-ink-900 shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_40px_rgba(6,182,212,0.6)]"
+                                >
+                                    <Play size={14} fill="currentColor" /> Watch Demo
+                                </Link>
+                                <a
+                                    href="#industries"
+                                    data-testid="hero-cta-see-industry"
+                                    className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-6 py-3.5 text-sm font-semibold text-cyan-300 transition-all hover:bg-cyan-500 hover:text-ink-900"
+                                >
+                                    See Your Industry <ArrowRight size={14} />
+                                </a>
+                                <Link
+                                    to="/apply/strategy"
+                                    data-testid="hero-cta-request-access"
+                                    className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-transparent px-6 py-3.5 text-sm font-semibold text-white transition-all hover:border-cyan-500/50 hover:text-cyan-400"
+                                >
+                                    Request Access
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-5">
+                            <AnimatedHeroDashboard />
+                        </div>
                     </div>
 
                     {/* Trust strip */}
@@ -288,6 +340,38 @@ export default function HomePage() {
                 </div>
             </section>
 
+            {/* DEMO SELECTOR */}
+            <section id="demo-selector" className="border-b border-white/5 py-20" data-testid="demo-selector-section">
+                <div className="mx-auto max-w-7xl px-5 lg:px-8">
+                    <div className="flex items-end justify-between flex-wrap gap-4">
+                        <div className="max-w-3xl">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">04 / Cinematic Demos</p>
+                            <h2 className="font-heading mt-3 text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl">
+                                Pick a vertical. <span className="text-cyan-400">Watch it run itself.</span>
+                            </h2>
+                            <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-300">
+                                Every demo is auto-played, narrated by Nova (female · American), and engineered to take you
+                                from "what does this do?" to "we need this" in under 13 minutes. No clicks. No demos that
+                                stall. Just cinematic walkthroughs.
+                            </p>
+                        </div>
+                        <Link
+                            to="/demo"
+                            data-testid="demo-selector-all-link"
+                            className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300 hover:text-cyan-200"
+                        >
+                            All demos <ArrowRight size={12} />
+                        </Link>
+                    </div>
+
+                    <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+                        {DEMO_SELECTOR.map((d) => (
+                            <DemoCard key={d.id} demo={d} />
+                        ))}
+                    </div>
+                </div>
+            </section>
+
             {/* CTA STRIP */}
             <section className="py-16" data-testid="home-cta-strip">
                 <div className="mx-auto max-w-5xl px-5 text-center lg:px-8">
@@ -379,5 +463,125 @@ const Capability = ({ Icon, label, body }) => (
             <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">{label}</span>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-slate-300">{body}</p>
+    </div>
+);
+
+const DemoCard = ({ demo }) => (
+    <Link
+        to={demo.href}
+        data-testid={`demo-card-${demo.id}`}
+        className={`group relative flex flex-col overflow-hidden rounded-md border p-5 transition-all hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(6,182,212,0.18)] ${
+            demo.highlight
+                ? "border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-transparent"
+                : "border-white/10 bg-ink-700/40 hover:border-cyan-500/40"
+        }`}
+    >
+        <div className="flex items-center justify-between">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-cyan-500/30 bg-cyan-500/5">
+                <demo.Icon size={17} className="text-cyan-300" />
+            </div>
+            {demo.live ? (
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-300">Live</span>
+            ) : (
+                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">Pilot</span>
+            )}
+        </div>
+        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">{demo.kicker}</p>
+        <h3 className="font-heading mt-2 text-lg font-semibold leading-snug text-white">{demo.title}</h3>
+        <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">{demo.runtime}</p>
+        <div className="mt-4 flex flex-wrap gap-1.5">
+            {demo.tags.map((t) => (
+                <span key={t} className="rounded-sm border border-white/10 bg-ink-900 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300">
+                    {t}
+                </span>
+            ))}
+        </div>
+        <div className="mt-5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300 group-hover:text-cyan-200">
+            <Play size={11} fill="currentColor" /> {demo.live ? "Watch demo" : "Request brief"}
+            <ArrowRight size={12} className="ml-auto transition-transform group-hover:translate-x-0.5" />
+        </div>
+    </Link>
+);
+
+// Compact animated dashboard preview shown to the right of the hero copy.
+// Pure CSS/SVG — no external libraries, no audio. Lightweight, ambient motion.
+const AnimatedHeroDashboard = () => {
+    const bars = [62, 78, 54, 88, 71, 94, 82, 96];
+    const sparkPath = "M 0 36 L 16 30 L 32 22 L 48 25 L 64 18 L 80 22 L 96 12 L 112 16 L 128 6 L 144 10 L 160 4";
+    return (
+        <div
+            data-testid="hero-dashboard-preview"
+            className="relative rounded-md border border-white/10 bg-ink-700/50 p-4 shadow-[0_0_60px_rgba(6,182,212,0.18)] backdrop-blur-md fade-in-up"
+            style={{ animationDelay: "300ms" }}
+        >
+            {/* Window chrome */}
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.7)] animate-pulse" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Command Center · LIVE</span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+            </div>
+
+            {/* KPI row */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+                <MiniKPI label="Revenue MTD" value="$1.84M" trend="+22%" />
+                <MiniKPI label="Pipeline" value="$6.2M" trend="open" />
+                <MiniKPI label="Active Leads" value="2,140" trend="hot 312" />
+                <MiniKPI label="Conv. Rate" value="14.6%" trend="+3.1pt" />
+            </div>
+
+            {/* Spark + bars */}
+            <div className="mt-4 rounded-sm border border-white/10 bg-ink-900 p-3">
+                <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">30-day revenue</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">+34% lift</span>
+                </div>
+                <svg viewBox="0 0 160 40" className="mt-2 h-12 w-full">
+                    <defs>
+                        <linearGradient id="hero-spark-grad" x1="0" x2="0" y1="0" y2="1">
+                            <stop offset="0" stopColor="#06b6d4" stopOpacity="0.4" />
+                            <stop offset="1" stopColor="#06b6d4" stopOpacity="0" />
+                        </linearGradient>
+                    </defs>
+                    <path d={`${sparkPath} L 160 40 L 0 40 Z`} fill="url(#hero-spark-grad)" />
+                    <path d={sparkPath} fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <div className="mt-3 flex h-12 items-end gap-1.5">
+                    {bars.map((b, i) => (
+                        <div
+                            key={i}
+                            className="flex-1 rounded-sm bg-gradient-to-t from-cyan-500/30 to-cyan-400 fade-in-up"
+                            style={{ height: `${b}%`, animationDelay: `${300 + i * 80}ms` }}
+                        />
+                    ))}
+                </div>
+            </div>
+
+            {/* Action ticker */}
+            <div className="mt-4 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3">
+                <div className="flex items-center gap-2">
+                    <Activity size={11} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Auto-executed · last 60s</span>
+                </div>
+                <ul className="mt-2 space-y-1.5 text-[12px] text-slate-200">
+                    <li className="flex items-center gap-2"><CheckCircle2 size={11} className="text-cyan-400" /> Routed 14 high-intent leads</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 size={11} className="text-cyan-400" /> Drafted 6 brand-deal pitches</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 size={11} className="text-cyan-400" /> Synced 3 CRMs · audit logged</li>
+                </ul>
+            </div>
+
+            {/* Floating accent */}
+            <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-cyan-400/30 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-8 -left-6 h-24 w-24 rounded-full bg-blue-500/20 blur-3xl" />
+        </div>
+    );
+};
+
+const MiniKPI = ({ label, value, trend }) => (
+    <div className="rounded-sm border border-white/10 bg-ink-900 p-2.5">
+        <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{label}</p>
+        <p className="font-heading mt-0.5 text-base font-semibold text-cyan-300">{value}</p>
+        <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">{trend}</p>
     </div>
 );

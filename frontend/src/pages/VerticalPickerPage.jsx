@@ -43,20 +43,20 @@ const VERTICALS = [
     },
     {
         id: "creators",
-        href: "/preview",
+        href: "/demo/creator",
         Icon: Brain,
-        kicker: "Creators & Influencers",
+        kicker: "Influencers & Creators",
         title: "Audience monetization · brand-deal automation.",
-        copy: "Open the read-only Command Center preview built around the Creator economy — audience intelligence, brand-deal pipeline, revenue projections across storefront, paid tiers, and partnerships.",
+        copy: "CreatorBoostAI overlays Instagram, TikTok, YouTube, Stripe, Shopify, Patreon, and your brand inbox — and BodyIQ-AI adds frame-by-frame behavioral intelligence on every video — to monetize the audience you already have.",
         bullets: [
-            { Icon: TrendingUp, text: "Audience intelligence — surface buyer-intent signals from across your channels" },
+            { Icon: TrendingUp, text: "Audience intelligence — surface buyer-intent signals across every channel" },
             { Icon: Layers, text: "Brand-deal pipeline auto-built and auto-pitched on your behalf" },
-            { Icon: Globe2, text: "Revenue scaling across storefront, paid tiers, and sponsorships" },
+            { Icon: Globe2, text: "Storefront, paid tiers, sponsorships — one revenue line, one screen" },
         ],
-        runtime: "Preview · interactive",
+        runtime: "11 scenes · ~6.5 min",
         highlight: "from-cyan-500/20 via-purple-500/10",
         ringClass: "hover:ring-cyan-400/50",
-        badge: "Live preview",
+        badge: "New",
     },
     {
         id: "airports",
@@ -179,7 +179,7 @@ export default function VerticalPickerPage() {
                                     data-testid={`watch-demo-${v.id}`}
                                     className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.35)] transition-all group-hover:bg-cyan-400 group-hover:shadow-[0_0_25px_rgba(6,182,212,0.55)]"
                                 >
-                                    <Play size={14} fill="currentColor" /> {v.id === "creators" ? "Open Creator Preview" : v.id === "airports" ? "Request Airport Brief" : `Watch the ${v.runtime.split("·")[1].trim()} demo`}
+                                    <Play size={14} fill="currentColor" /> {v.id === "airports" ? "Request Airport Brief" : `Watch the ${v.runtime.split("·")[1].trim()} demo`}
                                 </span>
                                 <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400 group-hover:text-cyan-300">
                                     No clicks · auto-plays

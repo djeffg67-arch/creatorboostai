@@ -12,6 +12,7 @@ import ContactPage from "@/pages/ContactPage";
 import AdminPage from "@/pages/AdminPage";
 import RealtorDemoPage from "@/pages/RealtorDemoPage";
 import InsuranceDemoPage from "@/pages/InsuranceDemoPage";
+import CreatorDemoPage from "@/pages/CreatorDemoPage";
 import VerticalPickerPage from "@/pages/VerticalPickerPage";
 import PressPage from "@/pages/PressPage";
 import ApplyPage from "@/pages/ApplyPage";
@@ -29,6 +30,8 @@ function App() {
                     <Route path="/demo" element={<VerticalPickerPage />} />
                     <Route path="/demo/realtor" element={<RealtorDemoPage />} />
                     <Route path="/demo/insurance" element={<InsuranceDemoPage />} />
+                    <Route path="/demo/creator" element={<CreatorDemoPage />} />
+                    <Route path="/demo/influencer" element={<CreatorDemoPage />} />
                     <Route path="/demo/:variant" element={<DemoPage />} />
                     <Route path="/press" element={<PressPage />} />
                     <Route path="/training" element={<TrainingPage />} />
