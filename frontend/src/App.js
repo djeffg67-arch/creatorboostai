@@ -17,6 +17,8 @@ import PressPage from "@/pages/PressPage";
 import ApplyPage from "@/pages/ApplyPage";
 import PricingPage from "@/pages/PricingPage";
 import PortalPage from "@/pages/PortalPage";
+import FounderPage from "@/pages/FounderPage";
+import PreviewPage from "@/pages/PreviewPage";
 
 function App() {
     return (
@@ -33,6 +35,9 @@ function App() {
                     <Route path="/apply/:program" element={<ApplyPage />} />
                     <Route path="/pricing" element={<PricingPage />} />
                     <Route path="/portal" element={<PortalPage />} />
+                    <Route path="/founder" element={<FounderPage />} />
+                    <Route path="/preview" element={<PreviewPage />} />
+                    <Route path="/cb-preview" element={<PreviewPage />} />
                     <Route path="/thank-you" element={<ThankYouPage />} />
                     <Route path="/forensic-library" element={<ForensicLibraryPage />} />
                     <Route path="/contact" element={<ContactPage />} />

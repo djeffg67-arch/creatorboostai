@@ -118,10 +118,10 @@ export const DemoConversionCTA = ({
                     testid="conversion-secondary-training"
                 />
                 <SecondaryCTA
-                    to="/portal"
+                    to="/preview"
                     Icon={LayoutDashboard}
                     label="Open Command Center"
-                    sub="Customer portal preview"
+                    sub="Preview · sample data"
                     testid="conversion-secondary-portal"
                 />
                 <button

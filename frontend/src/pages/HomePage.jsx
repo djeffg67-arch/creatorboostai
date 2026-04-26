@@ -57,13 +57,20 @@ export default function HomePage() {
                             recommendations for high-stakes interactions.
                         </p>
 
-                        <div className="mt-10 flex flex-col gap-3 sm:flex-row fade-in-up" style={{ animationDelay: "240ms" }}>
+                        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap fade-in-up" style={{ animationDelay: "240ms" }}>
                             <Link
                                 to="/demo"
                                 data-testid="hero-cta-demo"
                                 className="inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-6 py-3.5 text-sm font-semibold text-ink-900 shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_30px_rgba(6,182,212,0.55)]"
                             >
                                 Experience the Demo <ArrowRight size={16} />
+                            </Link>
+                            <Link
+                                to="/preview"
+                                data-testid="hero-cta-command-center"
+                                className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-6 py-3.5 text-sm font-semibold text-cyan-300 transition-all hover:bg-cyan-500 hover:text-ink-900"
+                            >
+                                View Command Center
                             </Link>
                             <Link
                                 to="/demo/realtor"

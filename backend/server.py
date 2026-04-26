@@ -25,6 +25,7 @@ db = client[os.environ['DB_NAME']]
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'bodyiq-admin-2026')
 STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', '').strip()
+FOUNDER_KEY = os.environ.get('FOUNDER_KEY', '').strip()
 
 # ---------- Stripe ----------
 from emergentintegrations.payments.stripe.checkout import (
@@ -706,6 +707,88 @@ async def admin_list_demo_shares(
         query["timestamp"] = {"$gte": cutoff}
     docs = await db.demo_shares.find(query, {"_id": 0}).sort("timestamp", -1).to_list(2000)
     return docs
+
+
+# ---------- Founder bypass (master access) ----------
+class FounderAuthRequest(BaseModel):
+    key: str
+
+
+@api_router.post("/founder/auth")
+async def founder_auth(payload: FounderAuthRequest):
+    """One-shot founder bypass. Validates the secret FOUNDER_KEY, then auto-creates
+    (or refreshes) a master user with every entitlement granted. Returns the
+    portal_token so the frontend can drop the user into /portal as a fully
+    paid customer with full subscription access — no Stripe call required.
+
+    Security:
+      - 401 unless `key` exactly matches `FOUNDER_KEY` env var (constant-time compare)
+      - 503 if FOUNDER_KEY env var is empty (fail-shut, never wide-open)
+      - The route is intentionally not linked from any nav. Access via /founder?key=...
+    """
+    if not FOUNDER_KEY:
+        raise HTTPException(status_code=503, detail="Founder access not configured (FOUNDER_KEY missing).")
+    if not secrets.compare_digest(payload.key, FOUNDER_KEY):
+        raise HTTPException(status_code=401, detail="Invalid founder key")
+
+    founder_email = os.environ.get("FOUNDER_EMAIL", "jeffrey@creatorboostai.com").strip()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Build a master entitlement covering every product + every subscription tier
+    entitlements = []
+    for k, v in PRODUCTS.items():
+        entitlements.append({
+            "product_key": k, "product_name": v["name"], "kind": "one_time",
+            "tier": "founder", "interval": None,
+            "granted_at": now_iso, "session_id": f"founder_{k}",
+            "status": "active",
+        })
+    for k, v in SUBSCRIPTIONS.items():
+        entitlements.append({
+            "product_key": k, "product_name": v["name"], "kind": "subscription",
+            "tier": v["tier"], "interval": v["interval"],
+            "granted_at": now_iso, "session_id": f"founder_{k}",
+            "status": "active",
+        })
+    for k, v in HIGH_TICKET_PROGRAMS.items():
+        entitlements.append({
+            "product_key": k, "product_name": v["name"], "kind": "high_ticket",
+            "tier": "founder", "interval": None,
+            "granted_at": now_iso, "session_id": f"founder_{k}",
+            "status": "active",
+        })
+
+    existing = await db.users.find_one({"email": founder_email}, {"_id": 0})
+    if existing:
+        portal_token = existing.get("portal_token") or secrets.token_urlsafe(32)
+        await db.users.update_one(
+            {"email": founder_email},
+            {"$set": {
+                "portal_token": portal_token,
+                "role": "founder",
+                "entitlements": entitlements,
+                "updated_at": now_iso,
+            }},
+        )
+    else:
+        portal_token = secrets.token_urlsafe(32)
+        await db.users.insert_one({
+            "id": str(uuid.uuid4()),
+            "email": founder_email,
+            "portal_token": portal_token,
+            "role": "founder",
+            "entitlements": entitlements,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+            "source": "founder_bypass",
+        })
+
+    return {
+        "email": founder_email,
+        "token": portal_token,
+        "role": "founder",
+        "entitlements": entitlements,
+    }
 
 
 @api_router.get("/admin/subscriptions")
