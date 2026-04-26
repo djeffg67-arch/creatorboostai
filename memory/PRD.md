@@ -1,9 +1,44 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-27 (Iter 11 — Creator demo + 2-col hero + Demo Selector shipped)
-**Project status:** 🟢 Code-complete + repositioned + Creator demo live. Awaiting 7 environment variables.
+**Last update:** 2026-02-27 (Iter 12 — site-wide imagery layer added)
+**Project status:** 🟢 Code-complete + repositioned + Creator demo live + imagery throughout. Awaiting 7 environment variables.
 **Site URL:** https://bodyiq-training.preview.emergentagent.com
 **Supervisor:** backend + frontend RUNNING. 111/111 backend tests passing. Iter 11 frontend tests 12/12.
+
+---
+
+## 🆕 ITER 12 (2026-02-27) — Site-wide Imagery Layer
+
+User asked for "pictures in home page and all pages and demos and background pictures". Added a coherent imagery system without touching any business logic.
+
+**New shared assets**
+- `/app/frontend/src/lib/images.js` — curated Unsplash CDN catalog with 3 maps: `PAGE_HERO` (10 page hero bgs), `INDUSTRY_IMG` (7 industry tiles), `DEMO_IMG` (4 demo cards), `SECTION_BG` (4 homepage section bgs).
+- `/app/frontend/src/components/site/PageHero.jsx` — reusable `<PageHero>` component with bg image + dark gradient mask + ambient grid + glow orbs (created for future pages; not yet retrofitted into existing pages since they each have custom layouts).
+
+**HomePage.jsx — image upgrades**
+- Industry tiles now show 16:9 photo headers (modern home, contract signing, creator-with-camera, grocery store, airplane runway, construction crew, boardroom). Icon + Live/In-production badge overlaid on top of each photo. Cards converted to `overflow-hidden` with image header above the body.
+- Demo Selector cards now show 16:9 photo headers (open house, policy desk, creator studio, airport tarmac).
+- Industries / Integrations / Demo-Selector / CTA-Strip sections now have subtle (10–15% opacity) full-bleed background images with dark gradient masks, providing visual depth without competing with content.
+
+**VerticalPickerPage.jsx — image upgrades**
+- Hero now has a city-skyline background image at 15% opacity behind the existing ambient grid.
+- Each vertical card now has a 16:8 image header above the existing copy block (luxury home / contract signing / creator camera / airplane).
+
+**Per-page hero backgrounds (all gracefully overlaid with dark gradients)**
+- PricingPage — financial / charts photo
+- ContactPage — Mac keyboard photo
+- ApplyPage — team meeting photo
+- PortalPage (logged-out) — workspace photo
+- ThankYouPage — celebration crowd photo
+- PressPage — corporate office photo
+- PreviewPage — analytics dashboard photo
+
+**Demos** — already image-rich pre-existing (Realtor 12 imgs, Insurance 12+ imgs, Creator 8 imgs across cinematic bands per scene). No changes needed.
+
+**Verification (Iter 12)**
+- Lint: 10/10 files pass
+- Smoke tests: HomePage hero ✓, Industries section with 7 image tiles ✓, Demo Selector with 4 image cards ✓, VerticalPicker with 4 image cards ✓, Pricing hero ✓, Contact hero (keyboard bg visible) ✓
+- Zero functional/behavioural changes — pure visual layer
 
 ---
 

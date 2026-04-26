@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { listSubscriptions, createSubscriptionSession } from "@/lib/api";
+import { PAGE_HERO } from "@/lib/images";
 import { toast } from "sonner";
 import {
     Sparkles, Check, ArrowRight, Zap, Building2, ShieldCheck, Crown,
@@ -88,6 +89,8 @@ export default function PricingPage() {
         <Layout>
             <div className="relative mx-auto max-w-[1280px] px-4 py-12 lg:px-8 lg:py-20" data-testid="pricing-page">
                 <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                    <img src={PAGE_HERO.pricing} alt="" className="absolute inset-0 h-[55%] w-full object-cover opacity-15" loading="eager" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/55 via-ink-900/85 to-ink-900" />
                     <div className="absolute inset-0 ambient-grid opacity-40" />
                     <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 520, height: 520, top: -180, left: -120 }} />
                 </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { portalLogin, portalBillingSession } from "@/lib/api";
+import { PAGE_HERO } from "@/lib/images";
 import { toast } from "sonner";
 import { Lock, ArrowRight, Check, Sparkles, BookOpen, Mail, CreditCard } from "lucide-react";
 
@@ -171,7 +172,13 @@ export default function PortalPage() {
     // Not logged in, no session_id
     return (
         <Layout>
-            <div className="mx-auto max-w-3xl px-4 py-20 lg:py-28" data-testid="portal-login">
+            <div className="relative mx-auto max-w-3xl px-4 py-20 lg:py-28" data-testid="portal-login">
+                <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                    <img src={PAGE_HERO.portal} alt="" className="absolute inset-0 h-full w-full object-cover opacity-15" loading="eager" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/80 via-ink-900/85 to-ink-900" />
+                    <div className="absolute inset-0 ambient-grid opacity-40" />
+                    <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 360, height: 360, top: -120, right: -80 }} />
+                </div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5">
                     <Lock size={11} className="text-cyan-400" />
                     <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Customer Portal</span>

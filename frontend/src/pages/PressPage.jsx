@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Layout } from "@/components/site/Layout";
+import { PAGE_HERO } from "@/lib/images";
 import {
     Sparkles, Cpu, Brain, Target, Zap, ShieldCheck, Mail, Download,
     ArrowRight, FileImage, Lock, Award, Send,
@@ -217,6 +218,8 @@ export default function PressPage() {
         <Layout hideFooter>
             <div className="relative mx-auto max-w-[1280px] px-4 py-12 lg:px-8 lg:py-20" data-testid="press-page">
                 <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                    <img src={PAGE_HERO.press} alt="" className="absolute inset-0 h-[55%] w-full object-cover opacity-15" loading="eager" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/55 via-ink-900/85 to-ink-900" />
                     <div className="absolute inset-0 ambient-grid opacity-40" />
                     <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 480, height: 480, top: -160, left: -100 }} />
                     <div className="glow-orb glow-orb--blue" style={{ width: 420, height: 420, bottom: -180, right: -80 }} />

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
 import { CountrySelector } from "@/components/site/CountrySelector";
+import { INDUSTRY_IMG, DEMO_IMG, SECTION_BG } from "@/lib/images";
 import {
     ArrowRight, Play, Building2, ShieldCheck, Mic, ShoppingBag, Plane,
     HardHat, Briefcase, Layers, Brain, TrendingUp, DollarSign, Target,
@@ -251,7 +252,11 @@ export default function HomePage() {
             </section>
 
             {/* INDUSTRIES */}
-            <section id="industries" className="border-b border-white/5 py-20" data-testid="industries-section">
+            <section id="industries" className="relative isolate border-b border-white/5 py-20" data-testid="industries-section">
+                <div className="absolute inset-0 -z-10">
+                    <img src={SECTION_BG.industries} alt="" className="absolute inset-0 h-full w-full object-cover opacity-10" loading="lazy" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/95 via-ink-900/85 to-ink-900" />
+                </div>
                 <div className="mx-auto max-w-7xl px-5 lg:px-8">
                     <div className="max-w-3xl">
                         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">01 / Verticals</p>
@@ -303,7 +308,11 @@ export default function HomePage() {
             </section>
 
             {/* INTEGRATIONS */}
-            <section className="border-b border-white/5 py-20" data-testid="integrations-section">
+            <section className="relative isolate border-b border-white/5 py-20" data-testid="integrations-section">
+                <div className="absolute inset-0 -z-10">
+                    <img src={SECTION_BG.integrations} alt="" className="absolute inset-0 h-full w-full object-cover opacity-10" loading="lazy" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/95 via-ink-900/85 to-ink-900" />
+                </div>
                 <div className="mx-auto max-w-7xl px-5 lg:px-8">
                     <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">03 / Compatibility</p>
                     <h2 className="font-heading mt-3 max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl">
@@ -341,7 +350,11 @@ export default function HomePage() {
             </section>
 
             {/* DEMO SELECTOR */}
-            <section id="demo-selector" className="border-b border-white/5 py-20" data-testid="demo-selector-section">
+            <section id="demo-selector" className="relative isolate border-b border-white/5 py-20" data-testid="demo-selector-section">
+                <div className="absolute inset-0 -z-10">
+                    <img src={SECTION_BG.demoSelector} alt="" className="absolute inset-0 h-full w-full object-cover opacity-15" loading="lazy" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/95 via-ink-900/80 to-ink-900" />
+                </div>
                 <div className="mx-auto max-w-7xl px-5 lg:px-8">
                     <div className="flex items-end justify-between flex-wrap gap-4">
                         <div className="max-w-3xl">
@@ -373,7 +386,11 @@ export default function HomePage() {
             </section>
 
             {/* CTA STRIP */}
-            <section className="py-16" data-testid="home-cta-strip">
+            <section className="relative isolate py-16" data-testid="home-cta-strip">
+                <div className="absolute inset-0 -z-10">
+                    <img src={SECTION_BG.cta} alt="" className="absolute inset-0 h-full w-full object-cover opacity-15" loading="lazy" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/95 via-ink-900/80 to-ink-900" />
+                </div>
                 <div className="mx-auto max-w-5xl px-5 text-center lg:px-8">
                     <h2 className="font-heading text-3xl font-semibold leading-tight text-white sm:text-4xl">
                         Ready to <span className="text-cyan-400">execute?</span>
@@ -414,34 +431,47 @@ const IndustryTile = ({ ind }) => (
     <Link
         to={ind.href}
         data-testid={`industry-tile-${ind.id}`}
-        className={`group relative flex flex-col rounded-md border p-6 transition-all hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(6,182,212,0.18)] ${
+        className={`group relative flex flex-col overflow-hidden rounded-md border transition-all hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(6,182,212,0.18)] ${
             ind.highlight
                 ? "border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-transparent"
                 : "border-white/10 bg-ink-700/40 hover:border-cyan-500/40"
         }`}
     >
-        <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-cyan-500/30 bg-cyan-500/5">
-                <ind.Icon size={17} className="text-cyan-300" />
+        {INDUSTRY_IMG[ind.id] && (
+            <div className="relative aspect-[16/9] w-full overflow-hidden">
+                <img
+                    src={INDUSTRY_IMG[ind.id]}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover opacity-70 transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/60 to-transparent" />
+                <div className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-md border border-cyan-500/40 bg-ink-900/80 backdrop-blur-sm">
+                    <ind.Icon size={17} className="text-cyan-300" />
+                </div>
+                <div className="absolute right-4 top-4">
+                    {ind.live ? (
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-300 backdrop-blur-sm">Live</span>
+                    ) : (
+                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300 backdrop-blur-sm">In production</span>
+                    )}
+                </div>
             </div>
-            {ind.live ? (
-                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-300">Live</span>
-            ) : (
-                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">In production</span>
-            )}
-        </div>
-        <h3 className="font-heading mt-5 text-xl font-semibold text-white">{ind.title}</h3>
-        <p className="mt-1 text-xs font-mono uppercase tracking-[0.18em] text-slate-400">{ind.sub}</p>
-        <ul className="mt-5 space-y-2.5">
-            {ind.outcomes.map((o) => (
-                <li key={o} className="flex items-start gap-2 text-sm text-slate-300">
-                    <CheckCircle2 size={13} className="mt-1 flex-shrink-0 text-cyan-400" />
-                    <span className="leading-relaxed">{o}</span>
-                </li>
-            ))}
-        </ul>
-        <div className="mt-6 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300 group-hover:text-cyan-200">
-            {ind.cta} <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+        )}
+        <div className="flex flex-1 flex-col p-6">
+            <h3 className="font-heading text-xl font-semibold text-white">{ind.title}</h3>
+            <p className="mt-1 text-xs font-mono uppercase tracking-[0.18em] text-slate-400">{ind.sub}</p>
+            <ul className="mt-5 space-y-2.5">
+                {ind.outcomes.map((o) => (
+                    <li key={o} className="flex items-start gap-2 text-sm text-slate-300">
+                        <CheckCircle2 size={13} className="mt-1 flex-shrink-0 text-cyan-400" />
+                        <span className="leading-relaxed">{o}</span>
+                    </li>
+                ))}
+            </ul>
+            <div className="mt-6 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300 group-hover:text-cyan-200">
+                {ind.cta} <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+            </div>
         </div>
     </Link>
 );
@@ -470,35 +500,48 @@ const DemoCard = ({ demo }) => (
     <Link
         to={demo.href}
         data-testid={`demo-card-${demo.id}`}
-        className={`group relative flex flex-col overflow-hidden rounded-md border p-5 transition-all hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(6,182,212,0.18)] ${
+        className={`group relative flex flex-col overflow-hidden rounded-md border transition-all hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(6,182,212,0.18)] ${
             demo.highlight
                 ? "border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-transparent"
                 : "border-white/10 bg-ink-700/40 hover:border-cyan-500/40"
         }`}
     >
-        <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-cyan-500/30 bg-cyan-500/5">
-                <demo.Icon size={17} className="text-cyan-300" />
+        {DEMO_IMG[demo.id] && (
+            <div className="relative aspect-[16/9] w-full overflow-hidden">
+                <img
+                    src={DEMO_IMG[demo.id]}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover opacity-70 transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/50 to-transparent" />
+                <div className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-md border border-cyan-500/40 bg-ink-900/80 backdrop-blur-sm">
+                    <demo.Icon size={15} className="text-cyan-300" />
+                </div>
+                <div className="absolute right-3 top-3">
+                    {demo.live ? (
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-300 backdrop-blur-sm">Live</span>
+                    ) : (
+                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300 backdrop-blur-sm">Pilot</span>
+                    )}
+                </div>
             </div>
-            {demo.live ? (
-                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-300">Live</span>
-            ) : (
-                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">Pilot</span>
-            )}
-        </div>
-        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">{demo.kicker}</p>
-        <h3 className="font-heading mt-2 text-lg font-semibold leading-snug text-white">{demo.title}</h3>
-        <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">{demo.runtime}</p>
-        <div className="mt-4 flex flex-wrap gap-1.5">
-            {demo.tags.map((t) => (
-                <span key={t} className="rounded-sm border border-white/10 bg-ink-900 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300">
-                    {t}
-                </span>
-            ))}
-        </div>
-        <div className="mt-5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300 group-hover:text-cyan-200">
-            <Play size={11} fill="currentColor" /> {demo.live ? "Watch demo" : "Request brief"}
-            <ArrowRight size={12} className="ml-auto transition-transform group-hover:translate-x-0.5" />
+        )}
+        <div className="flex flex-1 flex-col p-5">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">{demo.kicker}</p>
+            <h3 className="font-heading mt-2 text-lg font-semibold leading-snug text-white">{demo.title}</h3>
+            <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">{demo.runtime}</p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+                {demo.tags.map((t) => (
+                    <span key={t} className="rounded-sm border border-white/10 bg-ink-900 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300">
+                        {t}
+                    </span>
+                ))}
+            </div>
+            <div className="mt-auto pt-5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300 group-hover:text-cyan-200">
+                <Play size={11} fill="currentColor" /> {demo.live ? "Watch demo" : "Request brief"}
+                <ArrowRight size={12} className="ml-auto transition-transform group-hover:translate-x-0.5" />
+            </div>
         </div>
     </Link>
 );

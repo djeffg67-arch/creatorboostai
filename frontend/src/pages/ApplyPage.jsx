@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { listHighTicket, submitApplication } from "@/lib/api";
+import { PAGE_HERO } from "@/lib/images";
 import { toast } from "sonner";
 import {
     Lock, ArrowRight, Check, ShieldCheck, Calendar,
@@ -154,6 +155,8 @@ export default function ApplyPage() {
         <Layout>
             <div className="relative mx-auto max-w-4xl px-4 py-12 lg:px-8 lg:py-20" data-testid="apply-page">
                 <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                    <img src={PAGE_HERO.apply} alt="" className="absolute inset-0 h-[55%] w-full object-cover opacity-15" loading="eager" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/55 via-ink-900/85 to-ink-900" />
                     <div className="absolute inset-0 ambient-grid opacity-40" />
                     <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 420, height: 420, top: -160, right: -80 }} />
                 </div>

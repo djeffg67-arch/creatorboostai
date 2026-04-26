@@ -3,6 +3,7 @@ import { Layout } from "@/components/site/Layout";
 import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Mail, Calendar, ArrowRight, Loader2, XCircle } from "lucide-react";
 import { getCheckoutStatus } from "@/lib/api";
+import { PAGE_HERO } from "@/lib/images";
 
 const POLL_INTERVAL_MS = 2500;
 const MAX_ATTEMPTS = 10;
@@ -47,6 +48,8 @@ export default function ThankYouPage() {
     return (
         <Layout>
             <section className="relative overflow-hidden py-24 lg:py-36" data-testid="thankyou-page">
+                <img src={PAGE_HERO.thankyou} alt="" className="absolute inset-0 h-full w-full object-cover opacity-15" loading="eager" />
+                <div className="absolute inset-0 bg-gradient-to-b from-ink-900/85 via-ink-900/90 to-ink-900" />
                 <div className="absolute inset-0 ambient-grid" />
                 <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 500, height: 500, top: -160, left: "50%", transform: "translateX(-50%)" }} />
                 <div className="glow-orb glow-orb--blue" style={{ width: 340, height: 340, bottom: -140, right: -60 }} />

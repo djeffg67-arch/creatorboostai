@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Layout } from "@/components/site/Layout";
 import { captureLead } from "@/lib/api";
+import { PAGE_HERO } from "@/lib/images";
 import { toast } from "sonner";
 import { Send, Loader2, Mail, MapPin, Shield } from "lucide-react";
 
@@ -40,6 +41,8 @@ export default function ContactPage() {
         <Layout>
             <section className="relative py-20 lg:py-28" data-testid="contact-page">
                 <div className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
+                    <img src={PAGE_HERO.contact} alt="" className="absolute inset-0 h-full w-full object-cover opacity-15" loading="eager" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/80 via-ink-900/85 to-ink-900" />
                     <div className="absolute inset-0 ambient-grid opacity-50" />
                     <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 360, height: 360, top: -140, right: -80 }} />
                     <div className="glow-orb glow-orb--blue" style={{ width: 320, height: 320, bottom: -140, left: -80 }} />

@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
+import { PAGE_HERO, DEMO_IMG } from "@/lib/images";
 import {
     Sparkles, Play, ArrowRight, Building2, ShieldCheck, Brain, Globe2,
     Layers, TrendingUp, Lock, Zap
@@ -108,6 +109,13 @@ export default function VerticalPickerPage() {
         <Layout>
             <div className="relative mx-auto max-w-[1400px] px-4 py-12 lg:px-8 lg:py-20" data-testid="vertical-picker">
                 <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                    <img
+                        src={PAGE_HERO.verticalPicker}
+                        alt=""
+                        className="absolute inset-0 h-[70%] w-full object-cover opacity-15"
+                        loading="eager"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/60 via-ink-900/85 to-ink-900" />
                     <div className="absolute inset-0 ambient-grid opacity-40" />
                     <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 520, height: 520, top: -180, left: -120 }} />
                     <div className="glow-orb glow-orb--blue" style={{ width: 460, height: 460, bottom: -200, right: -80 }} />
@@ -137,11 +145,22 @@ export default function VerticalPickerPage() {
                             to={v.href}
                             onClick={() => trackClick(v.id)}
                             data-testid={`vertical-card-${v.id}`}
-                            className={`group relative overflow-hidden rounded-md border border-white/10 bg-ink-700/40 p-6 transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_60px_rgba(6,182,212,0.18)] hover:-translate-y-1 lg:p-8 ${v.ringClass}`}
+                            className={`group relative overflow-hidden rounded-md border border-white/10 bg-ink-700/40 transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_60px_rgba(6,182,212,0.18)] hover:-translate-y-1 ${v.ringClass}`}
                         >
-                            <div className={`pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br ${v.highlight} to-transparent opacity-40 group-hover:opacity-70 transition-opacity`} />
-
-                            <div className="flex items-start justify-between flex-wrap gap-3">
+                            {DEMO_IMG[v.id] && (
+                                <div className="relative aspect-[16/8] w-full overflow-hidden">
+                                    <img
+                                        src={DEMO_IMG[v.id]}
+                                        alt=""
+                                        loading="lazy"
+                                        className="h-full w-full object-cover opacity-70 transition-all duration-500 group-hover:scale-105 group-hover:opacity-90"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-ink-700 via-ink-700/50 to-transparent" />
+                                    <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${v.highlight} to-transparent opacity-30 group-hover:opacity-50 transition-opacity`} />
+                                </div>
+                            )}
+                            <div className="relative p-6 lg:p-8">
+                                <div className="flex items-start justify-between flex-wrap gap-3">
                                 <div className="flex items-center gap-3">
                                     <div className="flex h-12 w-12 items-center justify-center rounded-md border border-cyan-500/40 bg-cyan-500/10 shadow-[0_0_15px_rgba(6,182,212,0.25)]">
                                         <v.Icon size={20} className="text-cyan-300" />
@@ -185,6 +204,7 @@ export default function VerticalPickerPage() {
                                     No clicks · auto-plays
                                     <ArrowRight size={12} className="transition-transform group-hover:translate-x-1" />
                                 </span>
+                            </div>
                             </div>
                         </Link>
                     ))}
