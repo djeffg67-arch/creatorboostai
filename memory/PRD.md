@@ -1,9 +1,54 @@
-# BodyIQ-AI + CreatorBoostAI — Master PRD & Handoff
+# CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-26 (full enterprise repositioning shipped — user returning with launch keys)
-**Project status:** 🟢 Code-complete + repositioned. Awaiting 7 environment variables.
+**Last update:** 2026-02-27 (Iter 11 — Creator demo + 2-col hero + Demo Selector shipped)
+**Project status:** 🟢 Code-complete + repositioned + Creator demo live. Awaiting 7 environment variables.
 **Site URL:** https://bodyiq-training.preview.emergentagent.com
-**Supervisor:** backend + frontend RUNNING. 111/111 backend tests passing.
+**Supervisor:** backend + frontend RUNNING. 111/111 backend tests passing. Iter 11 frontend tests 12/12.
+
+---
+
+## 🆕 ITER 11 (2026-02-27) — Creator Demo + Homepage UI Rebuild
+
+User asked for unified rebuild (not refactor) including a brand-new Influencer/Creator cinematic demo and final homepage UI.
+
+**HomePage.jsx — hero rebuilt to 2-column**
+- Left col: Enterprise badge → headline → sub → CountrySelector → 3 CTAs (Watch Demo · See Your Industry · Request Access)
+- Right col: NEW `<AnimatedHeroDashboard>` mini Command Center preview — KPIs, 30-day revenue spark + bars, "Auto-executed · last 60s" ticker, ambient glow blurs
+- Trust strip moved below the 2-col grid (still 4 stats)
+- NEW `<DemoCard>` and DEMO_SELECTOR array; new section `data-testid="demo-selector-section"` after Integrations and before CTA strip with 4 cards: Realtor (15 scenes / ~13 min), Insurance (16 scenes / ~13 min), **Creator (11 scenes / ~6.5 min — highlighted)**, Airports (Pilot Q3)
+- Creator industry tile in Industries section now points to `/demo/creator` (was `/preview`)
+
+**CreatorDemoPage.jsx (NEW · /demo/creator + /demo/influencer)**
+- 11 scenes · ~6.5 min auto-play · Nova voice (female · American)
+- Scene set: Hook → CB-on-top → Audience Intelligence → BodyIQ-AI behavioral overlay → Revenue engine → Brand-deal pipeline → Content scoring → Command Center → Autonomous-mode prompt → Scale-without-hiring → Closing
+- SceneStage focus types each have a dedicated visual mock (BodyIQ frame-by-frame conviction bars, brand-deal pipeline table, revenue-mix bars, audience cluster bars, command-center KPI grid, automation-prompt 3-card selector with "Full Autonomy / Review & Approve / Mixed by Channel")
+- Creator-stack overlay panel on start screen: IG · TT · YT · Stripe · Shopify · Patreon · Substack · Gmail
+- Same architecture as Realtor/Insurance demos: TTS prefetch via `/api/tts/speak` voice=nova → blob URLs → `audio.ended` advances + `fallback_ms` cap (36–50s/scene)
+- Pause / Resume / Mute / Replay controls + sticky scene header + global timeline bar
+- DemoConversionCTA appended (`demoType="creator"`)
+
+**VerticalPickerPage.jsx**
+- Creator card href now `/demo/creator` (was `/preview`)
+- Runtime label "11 scenes · ~6.5 min", badge "New"
+- CTA label resolved: creator → "Watch the ~6.5 min demo"
+
+**App.js**
+- Added routes: `/demo/creator` and `/demo/influencer` → `CreatorDemoPage`
+
+**Verification (Iter 8 frontend test report)**
+- 12/12 review-request items passing — 100% success on backend + frontend probes
+- Creator demo: Scene 1 → Scene 2 auto-advanced in 22s (no manual click)
+- Realtor regression: Scene 1 → Scene 2 in 24s (architecture unaffected)
+- TTS endpoint: 200 + audio/mpeg + non-zero body
+- Zero orphan "BodyIQ" (without -AI) anywhere
+
+**Backlog noted by reviewer (non-blocking)**
+- `CreatorDemoPage.jsx` is ~1100 lines — split stage components into `/components/demo/creator/` later
+- Auto-play architecture is now triplicated across Realtor / Insurance / Creator — extract `useCinematicDemo()` hook + shared SceneHeader/NarrationPanel during P3 refactor pass
+
+---
+
+## 📋 PREVIOUS ITERATIONS
 
 ---
 
