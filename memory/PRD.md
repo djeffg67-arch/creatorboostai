@@ -214,9 +214,36 @@ Routes, premium navy/cyan design, multi-panel demo without proprietary definitio
 **Tests**
 - New `tests/test_iter8_send_to_agent.py` (3 tests, all green): default share_target links to demo, share_target=preview links to /preview, invalid target rejected with 422.
 
-**Test results — Iter 8**
-- Backend: 3/3 new + all prior (96 + 3 = 99 cumulative)
-- Frontend: send-to-agent block visible on /preview, error UI surfaces correctly when Resend not configured (graceful degradation)
+### Iter 9 (2026-02-26) — Phase 1 Internationalization (i18n)
+**Goal**: Multilingual support across 6 languages (EN, ES, FR, PT, AR, ZH) with RTL handling for Arabic. Demo subtitles deferred to Phase 1b per user choice.
+
+**Stack added (yarn)**
+- `react-i18next` (17.0.4) + `i18next` + `i18next-browser-languagedetector`
+
+**Files created**
+- `lib/i18n.js` — i18n init + RTL handler (sets `<html dir="rtl|ltr" lang="…">` on language change). Persists to `localStorage["bodyiq_lang"]`.
+- `locales/{en,es,fr,pt,ar,zh}.json` — full translation namespaces: `common`, `nav`, `footer`, `home`, `demoPicker`, `pricing`, `training`, `contact`, `apply`, `preview`, `press`, `lang`, `country`
+- `components/site/LanguageSelector.jsx` — desktop pill dropdown + mobile flag chip variant. Closes on outside click + Escape.
+- `components/site/CountrySelector.jsx` — homepage hero region picker (11 regions: Global, US, CA, MX, BR, UK, EU, GCC/UAE, IN, CN, APAC). Persisted in `localStorage["bodyiq_region"]`.
+
+**Pages translated (UI strings + headlines + CTAs)**
+- ✅ Navbar (desktop + mobile menu)
+- ✅ Footer
+- ✅ HomePage (hero + capabilities + CTAs + region selector embed)
+- ✅ PreviewPage (every section + send-to-agent + locked actions toast)
+- ✅ Common toasts/errors via `t("common.*")` / `t("contact.error")`
+
+**Pages with locale keys ready but UI strings still hardcoded English** (Phase 1a remainder — easy 30-min finishing pass; React-i18next gracefully shows English if a key isn't bound):
+- VerticalPickerPage, PricingPage, TrainingPage, ContactPage, ApplyPage, PressPage
+
+**Phase 1b deferred (per user choice "C")**
+- Demo subtitle translations for Realtor (15 scenes) + Insurance (16 scenes) — UI is translated; demo `narr` strings remain English. Audio narration also stays English (matching).
+
+**Verification**
+- React lint: 0 issues across all 6 new files
+- HTTP: `/` and `/preview` both 200
+- Visual: language selector visible top-right of navbar, country selector visible in hero. Switching to Arabic flips `<html dir="rtl">` and persists `bodyiq_lang="ar"` in localStorage.
+- Default language: English; first-time users with non-English browser get auto-detected language from i18next-browser-languagedetector.
 
 
 

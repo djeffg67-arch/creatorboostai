@@ -1,0 +1,189 @@
+{
+  "common": { "learn_more": "En savoir plus", "get_started": "Commencer", "back": "Retour", "next": "Suivant", "submit": "Envoyer", "send": "Envoyer", "copy": "Copier", "copied": "Copié", "close": "Fermer", "loading": "Chargement…", "open": "Ouvrir", "soon": "Bientôt", "live": "En direct", "sample_data": "Données d'exemple", "live_pulse": "Pouls en direct", "interactive": "Interactif · Données d'exemple", "read_only": "Lecture seule · Données d'exemple" },
+  "lang": { "label": "Langue", "select": "Choisir la langue" },
+  "country": { "label": "Région", "select": "Choisir la région", "global": "Global" },
+  "nav": { "home": "Accueil", "demo": "Démo", "training": "Formation", "pricing": "Tarifs", "apply": "Postuler", "library": "Bibliothèque", "contact": "Contact", "experience_demo": "Voir la démo", "menu_toggle": "Menu" },
+  "footer": {
+    "tagline": "Une plateforme d'intelligence IA qui lit les signaux humains, interprète les schémas comportementaux et produit des recommandations stratégiques pour les interactions réelles.",
+    "system_online": "SYSTÈME EN LIGNE · v1.0",
+    "platform": "Plateforme", "company": "Entreprise",
+    "rights": "© {{year}} BodyIQ-AI. Tous les signaux protégés.",
+    "links": { "demo": "Démo", "training": "Formation", "library": "Bibliothèque forensique", "contact": "Contact", "admin": "Admin" }
+  },
+  "home": {
+    "hero": {
+      "kicker": "Système d'intelligence · En direct",
+      "headline_1": "Lisez la salle.",
+      "headline_2": "Décidez avec intention.",
+      "sub": "BodyIQ-AI est une plateforme d'intelligence qui interprète les signaux humains — visuels, auditifs et comportementaux — et les transforme en recommandations stratégiques pour des interactions à fort enjeu.",
+      "cta_demo": "Voir la démo",
+      "cta_command_center": "Voir le Command Center",
+      "cta_realtor_demo": "Démo Immobilier",
+      "cta_training": "Voir les formations",
+      "stat_signal_channels": "Canaux de signal",
+      "stat_latency": "Latence d'interprétation",
+      "stat_cohorts": "Cohortes de formation"
+    },
+    "console": {
+      "label": "Console de signaux", "live": "EN DIRECT",
+      "channels": { "visual": "Visuel", "auditory": "Auditif", "behavioral": "Comportemental", "context": "Contexte" },
+      "strategy_label": "Stratégie",
+      "strategy_text": "Ancrer sur la préoccupation exprimée. Retenir la concession. Attendre 4 s."
+    },
+    "tape": { "title": "Bande de signaux en direct · Cadres auto-annotés", "streaming": "Diffusion" },
+    "what_it_does": {
+      "kicker": "01 / Le système",
+      "headline": "Une lecture structurée de chaque interaction.",
+      "sub": "BodyIQ-AI fusionne les canaux que la plupart traitent de façon inconsciente en une sortie unique et interprétable. Vous gardez la pleine conscience de la situation — nous fournissons l'ossature, le motif et le mouvement suivant.",
+      "frame_label": "Cadre en direct · B-07",
+      "frame_text": "Convergence posturale détectée · fenêtre de réceptivité s'ouvre"
+    },
+    "capabilities": {
+      "visual": { "title": "Lecture du signal visuel", "desc": "Micro-expression, vecteur du regard, asymétrie posturale — traduits en intelligence structurée." },
+      "auditory": { "title": "Cartographie des motifs auditifs", "desc": "Cadence, densité des pauses, changements de prosodie et marqueurs verbaux décodés en temps réel." },
+      "behavioral": { "title": "Dérive comportementale", "desc": "Écart par rapport à la base, trajectoire d'éveil et suivi des micro-engagements." },
+      "context": { "title": "Reconnaissance du contexte", "desc": "Scène, relation et enjeux inférés pour calibrer l'interprétation." },
+      "strategy": { "title": "Sortie stratégique", "desc": "Mouvements actionnables classés par probabilité, risque et timing." },
+      "proprietary": { "title": "Couche propriétaire", "desc": "Les définitions des signaux restent protégées. Vous voyez les résultats, pas les formules." }
+    },
+    "scenario": {
+      "kicker": "Application terrain",
+      "headline": "Chaque réunion laisse une trace de signaux.",
+      "sub": "Que vous négociiez du capital, résolviez un conflit ou lisiez une salle d'entretien — les signaux sont déjà là. BodyIQ-AI vous donne le cadre pour les lire de façon cohérente."
+    },
+    "training_teaser": {
+      "kicker": "02 / Formation",
+      "headline": "Cohortes en direct. Profondeur opérationnelle.",
+      "sub": "Deux niveaux conçus pour les praticiens qui doivent lire les signaux en conditions réelles — des conseils d'administration aux négociations et au terrain.",
+      "cta": "Voir les programmes",
+      "tier1": "Niveau I", "tier2": "Niveau II",
+      "duration_2h": "Session live de 2 heures",
+      "duration_3h": "Session live de 2 à 3 heures",
+      "reserve": "Réserver une place"
+    },
+    "newsletter": {
+      "kicker": "03 / Captation de signal",
+      "headline": "Soyez le premier à lire la prochaine édition.",
+      "sub": "Notes de terrain occasionnelles, lancements de cohortes, études de cas. Zéro bruit.",
+      "join": "Rejoindre"
+    }
+  },
+  "demoPicker": {
+    "kicker": "Sélecteur vertical · En direct",
+    "headline_1": "Choisissez votre secteur.",
+    "headline_2": "Voyez l'exécution.",
+    "sub": "Chaque démo est une expérience auto-jouée de 13 minutes montrant la couche d'exécution de CreatorBoostAI superposée aux systèmes que votre équipe utilise déjà.",
+    "realtor_title": "Immobilier", "realtor_sub": "CRM · MLS · gestion locative · pipeline",
+    "insurance_title": "Assurance", "insurance_sub": "Catalyst · AMS · souscription · commissions",
+    "open_demo": "Ouvrir la démo", "coming_soon": "Bientôt disponible",
+    "verticals_more": { "mortgage": "Crédit immo", "healthcare": "Santé", "financial_advisor": "Conseiller financier", "hospitality": "Hôtellerie" }
+  },
+  "pricing": {
+    "kicker": "CreatorBoostAI · Abonnements",
+    "headline_1": "Des tarifs qui s'adaptent",
+    "headline_2": "à votre exécution.",
+    "sub": "Abonnements via Stripe. Annulable à tout moment. Enterprise passe par un appel stratégique.",
+    "monthly": "Mensuel", "annual": "Annuel · -17%",
+    "starter": { "name": "Starter", "tagline": "Pour les équipes de moins de 10 — couche d'exécution sur un seul stack.", "feature_1": "Intégration CRM / pipeline unique", "feature_2": "Qualification et scoring de leads par IA", "feature_3": "Séquences de relance automatisées", "feature_4": "Support standard", "cta": "Choisir Starter" },
+    "pro": { "name": "Pro", "tagline": "Pour les opérateurs multi-systèmes prêts à consolider l'exécution.", "feature_1": "Intégrations illimitées (CRM · AMS · facturation · communications)", "feature_2": "Moteur d'exécution + Command Center", "feature_3": "Panneau d'opportunités IA + heatmap", "feature_4": "Support prioritaire · onboarding live", "cta": "Choisir Pro", "popular": "Le plus choisi" },
+    "enterprise": { "name": "Enterprise", "tagline": "Déploiements personnalisés pour organisations multi-régions et secteurs régulés.", "feature_1": "Infrastructure dédiée + SOC2", "feature_2": "Intégrations & APIs personnalisées", "feature_3": "Command Center multi-tenant", "feature_4": "CSM nommé + sponsor exécutif", "cta": "Parler aux ventes" },
+    "footer_note": "Tous les plans incluent la couche d'exécution, l'aperçu en données d'exemple et le portail de formation."
+  },
+  "training": {
+    "kicker": "Programmes de Formation · 2026",
+    "headline_1": "Cohortes en direct.",
+    "headline_2": "Profondeur opérationnelle.",
+    "sub": "Quatre niveaux : des fondamentaux de 2 heures à la transformation entreprise. 400 $ et 1 500 $ en paiement direct. 7 K$ et 27 K$ via candidature + appel stratégique.",
+    "tier1": { "name": "Fondamentaux du Signal", "tag": "Niveau I · 400 $" },
+    "tier2": { "name": "Signaux Appliqués", "tag": "Niveau II · 1 500 $" },
+    "tier3": { "name": "Accélérateur Stratégique", "tag": "Niveau III · 7 000 $" },
+    "tier4": { "name": "Maîtrise Complète", "tag": "Niveau IV · 27 000 $" },
+    "buy_now": "Réserver", "apply_now": "Postuler",
+    "duration": "Durée", "cohort": "Prochaine cohorte",
+    "footer_note": "Les programmes supérieurs sont sur candidature — un nombre limité d'opérateurs par trimestre."
+  },
+  "contact": {
+    "kicker": "Contact",
+    "headline": "Parlez-nous de votre projet.",
+    "sub": "Conversations stratégiques, déploiements terrain, intégrations sur mesure, presse — écrivez-nous.",
+    "name": "Votre nom", "email": "E-mail", "company": "Entreprise (optionnel)", "message": "Comment pouvons-nous aider ?",
+    "submit": "Envoyer le message",
+    "success": "Message reçu. Nous reviendrons sous 1 jour ouvré.",
+    "error": "Envoi impossible. Veuillez réessayer."
+  },
+  "apply": {
+    "kicker": "Candidature · Programmes Premium",
+    "headline": "Postuler à {{program}}",
+    "sub": "Les programmes Stratégie et Maîtrise sont sur candidature. Décrivez votre opération — nous reviendrons sous 24 heures avec un lien d'appel stratégique.",
+    "fields": { "name": "Nom complet", "email": "E-mail professionnel", "phone": "Téléphone", "company": "Entreprise", "revenue_range": "Tranche de revenus annuels", "team_size": "Taille de l'équipe", "systems_used": "Systèmes actuellement utilisés", "biggest_challenge": "Plus grand défi actuel" },
+    "revenue": { "under_500k": "Moins de 500 K$", "500k_2m": "500 K$ – 2 M$", "2m_10m": "2 M$ – 10 M$", "over_10m": "10 M$+" },
+    "submit": "Envoyer la candidature",
+    "success_title": "Candidature reçue.",
+    "success_sub": "Nous l'examinons et revenons par e-mail sous 24 heures.",
+    "book_call": "Réservez votre appel stratégique maintenant",
+    "error": "Envoi impossible. Veuillez réessayer."
+  },
+  "preview": {
+    "kicker": "CreatorBoostAI · Command Center · Mode Aperçu",
+    "headline_1": "Votre business.",
+    "headline_2": "Exécuté.",
+    "sub": "CreatorBoostAI se place au-dessus de vos systèmes existants et exécute à travers eux. Cet aperçu utilise des données d'exemple. Les données et actions réelles s'activent après l'onboarding.",
+    "cta_activate": "Activer le système live",
+    "section": { "command_center": "Command Center · Pouls en direct", "national_view": "Vue Nationale & Régionale", "ai_panel": "Panneau d'opportunités IA", "creator_view": "Vue Créateur & Influenceur", "execution_actions": "Actions d'exécution" },
+    "stats": { "revenue": "Revenu généré", "active_leads": "Leads actifs", "opportunities": "Opportunités détectées", "forecast": "Prévision pipeline", "audience_growth": "Croissance d'audience", "brand_deals": "Opportunités de marque", "revenue_proj": "Projection de revenu", "engagement": "Qualité d'engagement" },
+    "stats_delta": { "mom_up": "+12,4 % MoM", "new_today": "194 nouveaux aujourd'hui", "combined_value": "320 K$ combinés", "next_90": "90 prochains jours", "last_30": "30 derniers jours", "deal_value": "84 K$ valeur totale", "q2": "conservateur · T2", "tier_a": "top 4 % des créateurs" },
+    "integrations": { "title": "Systèmes intégrés", "stack_label": "3 actifs · stack d'exemple", "salesforce_domain": "CRM · pipeline ventes", "hubspot_domain": "Automation marketing", "quickbooks_domain": "Revenu · facturation", "syncing": "synchronisation", "footer": "CreatorBoostAI se place au-dessus de vos systèmes existants et exécute à travers eux." },
+    "creator": {
+      "intro": "CreatorBoostAI identifie et exécute automatiquement les opportunités de monétisation pour les créateurs et influenceurs.",
+      "actions": {
+        "launch": { "title": "Lancer la campagne", "body": "Brief partenaire auto-rédigé pour le profil d'audience actuel." },
+        "optimize": { "title": "Optimiser le contenu", "body": "3 contenus sous-performants signalés · recommandations de re-cut prêtes." },
+        "monetize": { "title": "Monétiser l'audience", "body": "Boutique + niveau payant projettent 11 K$ de MRR additionnel." }
+      }
+    },
+    "insights": {
+      "label": "Insight",
+      "i1": { "title": "12 leads à forte valeur détectés", "sub": "Probabilité de closing ≥ 78 % · ARV combiné 186 K$" },
+      "i2": { "title": "Opportunité de revenu de 320 000 $ identifiée", "sub": "Cross-sell + fenêtre de renouvellement dans 14 jours" },
+      "i3": { "title": "Trous de relance détectés dans le pipeline", "sub": "9 deals bloqués · dernier contact > 7 jours · auto-récupération disponible" },
+      "i4": { "title": "3 comptes en risque de churn", "sub": "Engagement -38 % MoM · play de rétention recommandé" },
+      "i5": { "title": "11 événements déclencheurs en 24 h", "sub": "Auto-tagués par type d'opportunité · en attente d'approbation" },
+      "i6": { "title": "2 propositions rédigées par IA prêtes", "sub": "Personnalisées · alignées à la marque · envoi en 1 clic" }
+    },
+    "locked": {
+      "label": "Verrouillé en aperçu", "available": "Disponible après activation",
+      "run_campaign": { "label": "Lancer la campagne", "sub": "Lancement multicanal automatique" },
+      "execute_followup": { "label": "Exécuter la relance", "sub": "Personnalisée · en file · approuvée" },
+      "optimize_revenue": { "label": "Optimiser le revenu", "sub": "Prix · pack · timing recommandés" },
+      "footer": "Toutes les voies d'exécution se débloquent dès que votre stack est connecté.",
+      "footer_link": "Réserver l'activation →"
+    },
+    "map": { "title": "Drill : Région → Ville → Bureau", "cities": "villes", "offices": "bureaux", "leads": "leads" },
+    "send_to_agent": {
+      "kicker": "Envoyer à mon agent",
+      "headline": "Montrez-le à votre manager, agent ou partenaire.",
+      "sub": "Envoyez le Command Center en lecture seule directement à ceux qui décident de la monétisation. Un tap. Pas de connexion pour eux.",
+      "name_ph": "Votre nom *", "email_ph": "E-mail du destinataire *", "message_ph": "Note personnelle (optionnel)",
+      "send": "Envoyer l'aperçu", "copy_link": "Copier le lien",
+      "preview_link": "Lien de l'aperçu",
+      "no_signup": "Le destinataire voit le même Command Center en lecture seule. Pas de signup, pas de fuite de données.",
+      "sent_ok": "Envoyé · vérifiez la boîte", "send_failed": "Échec d'envoi",
+      "sent_msg": "Aperçu envoyé à {{email}}.",
+      "missing": "Votre nom et l'e-mail du destinataire sont requis",
+      "could_not_send": "Envoi impossible. Copiez le lien comme alternative."
+    }
+  },
+  "press": {
+    "kicker": "Kit Investisseurs & Presse",
+    "headline_1": "BodyIQ-AI", "headline_2": "+ CreatorBoostAI",
+    "sub": "Un OS d'exécution pour les opérations d'intelligence humaine. Ce kit s'adresse aux journalistes, analystes et partenaires potentiels.",
+    "section": { "what": "Ce que c'est", "what_does": "Ce que ça fait", "defensible": "Pourquoi c'est défendable", "founder": "Fondateur", "request_demo": "Demander une démo" },
+    "what_text": "CreatorBoostAI est un système d'exploitation d'exécution placé au-dessus des stacks existants CRM, AMS, MLS, marketing et communications. BodyIQ-AI est la couche d'intelligence des signaux humains qui propulse la stratégie en interactions à fort enjeu.",
+    "what_does_text": "Il analyse les signaux à travers les canaux visuels, auditifs et comportementaux — puis exécute la prochaine action recommandée dans les logiciels existants du client. Qualification de leads, relance, pipeline, commissions, audit — tout unifié.",
+    "defensible_text": "Bibliothèque propriétaire de définitions de signaux + moteur d'exécution avec brevets en attente + données privées de cohortes. Distribution via les logiciels existants (sans remplacement) crée une adoption rapide ; plus il exécute, plus il accumule d'intelligence.",
+    "founder_text": "Jeffrey Garcia · Fondateur, BodyIQ-AI / CreatorBoostAI. Opérateur depuis plusieurs décennies en négociation à fort enjeu, analyse de signaux comportementaux et automatisation d'exécution.",
+    "request": { "name": "Nom", "email": "E-mail", "outlet": "Média / cabinet", "message": "Sujet de votre recherche", "submit": "Demander une démo" },
+    "download": "Télécharger le visuel"
+  },
+  "rtl_label": "Disposition de droite à gauche active"
+}

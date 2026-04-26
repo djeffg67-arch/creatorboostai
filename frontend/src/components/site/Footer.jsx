@@ -1,7 +1,9 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 export const Footer = () => {
+    const { t } = useTranslation();
     return (
         <footer
             data-testid="site-footer"
@@ -18,33 +20,32 @@ export const Footer = () => {
                         </span>
                     </div>
                     <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-400">
-                        An AI intelligence platform that reads human signals, interprets behavioral
-                        patterns, and produces strategic recommendations for real-world interactions.
+                        {t("footer.tagline")}
                     </p>
                     <p className="mt-6 font-mono text-xs uppercase tracking-[0.2em] text-slate-500">
-                        SYSTEM ONLINE · v1.0
+                        {t("footer.system_online")}
                     </p>
                 </div>
 
                 <div>
-                    <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">Platform</p>
+                    <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">{t("footer.platform")}</p>
                     <ul className="mt-4 space-y-2.5 text-sm">
-                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/demo">Demo</Link></li>
-                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/training">Training</Link></li>
-                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/forensic-library">Forensic Library</Link></li>
+                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/demo">{t("footer.links.demo")}</Link></li>
+                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/training">{t("footer.links.training")}</Link></li>
+                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/forensic-library">{t("footer.links.library")}</Link></li>
                     </ul>
                 </div>
 
                 <div>
-                    <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">Company</p>
+                    <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">{t("footer.company")}</p>
                     <ul className="mt-4 space-y-2.5 text-sm">
-                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/contact">Contact</Link></li>
-                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/admin">Admin</Link></li>
+                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/contact">{t("footer.links.contact")}</Link></li>
+                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/admin">{t("footer.links.admin")}</Link></li>
                     </ul>
                 </div>
             </div>
             <div className="mx-auto mt-10 max-w-7xl border-t border-white/5 px-5 pt-6 lg:px-8">
-                <p className="text-xs text-slate-500">© {new Date().getFullYear()} BodyIQ-AI. All signals protected.</p>
+                <p className="text-xs text-slate-500">{t("footer.rights", { year: new Date().getFullYear() })}</p>
             </div>
         </footer>
     );

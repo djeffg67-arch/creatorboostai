@@ -1,19 +1,22 @@
 import React, { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Menu, X } from "lucide-react";
-
-const links = [
-    { to: "/", label: "Home", testid: "nav-home" },
-    { to: "/demo", label: "Demo", testid: "nav-demo" },
-    { to: "/training", label: "Training", testid: "nav-training" },
-    { to: "/pricing", label: "Pricing", testid: "nav-pricing" },
-    { to: "/apply/strategy", label: "Apply", testid: "nav-apply" },
-    { to: "/forensic-library", label: "Library", testid: "nav-library" },
-    { to: "/contact", label: "Contact", testid: "nav-contact" },
-];
+import { LanguageSelector } from "@/components/site/LanguageSelector";
 
 export const Navbar = () => {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
+
+    const links = [
+        { to: "/", label: t("nav.home"), testid: "nav-home" },
+        { to: "/demo", label: t("nav.demo"), testid: "nav-demo" },
+        { to: "/training", label: t("nav.training"), testid: "nav-training" },
+        { to: "/pricing", label: t("nav.pricing"), testid: "nav-pricing" },
+        { to: "/apply/strategy", label: t("nav.apply"), testid: "nav-apply" },
+        { to: "/forensic-library", label: t("nav.library"), testid: "nav-library" },
+        { to: "/contact", label: t("nav.contact"), testid: "nav-contact" },
+    ];
 
     return (
         <header
@@ -51,13 +54,14 @@ export const Navbar = () => {
                     ))}
                 </nav>
 
-                <div className="hidden md:block">
+                <div className="hidden md:flex md:items-center md:gap-3">
+                    <LanguageSelector />
                     <Link
                         to="/demo"
                         data-testid="nav-cta-demo"
                         className="inline-flex items-center rounded-md bg-cyan-500 px-4 py-2 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_25px_rgba(6,182,212,0.55)]"
                     >
-                        Experience Demo
+                        {t("nav.experience_demo")}
                     </Link>
                 </div>
 
@@ -65,7 +69,7 @@ export const Navbar = () => {
                     data-testid="nav-mobile-toggle"
                     className="md:hidden p-2 text-slate-200"
                     onClick={() => setOpen(!open)}
-                    aria-label="Toggle menu"
+                    aria-label={t("nav.menu_toggle")}
                 >
                     {open ? <X size={20} /> : <Menu size={20} />}
                 </button>
@@ -94,8 +98,9 @@ export const Navbar = () => {
                             data-testid="nav-cta-demo-mobile"
                             className="mt-3 inline-flex items-center justify-center rounded-md bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-ink-900"
                         >
-                            Experience Demo
+                            {t("nav.experience_demo")}
                         </Link>
+                        <LanguageSelector variant="mobile" />
                     </nav>
                 </div>
             )}

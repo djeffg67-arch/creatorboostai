@@ -1,0 +1,189 @@
+{
+  "common": { "learn_more": "了解更多", "get_started": "立即开始", "back": "返回", "next": "下一步", "submit": "提交", "send": "发送", "copy": "复制", "copied": "已复制", "close": "关闭", "loading": "加载中…", "open": "打开", "soon": "即将推出", "live": "实时", "sample_data": "示例数据", "live_pulse": "实时脉搏", "interactive": "可交互 · 示例数据", "read_only": "只读 · 示例数据" },
+  "lang": { "label": "语言", "select": "选择语言" },
+  "country": { "label": "区域", "select": "选择区域", "global": "全球" },
+  "nav": { "home": "首页", "demo": "演示", "training": "培训", "pricing": "定价", "apply": "申请", "library": "图书馆", "contact": "联系我们", "experience_demo": "体验演示", "menu_toggle": "切换菜单" },
+  "footer": {
+    "tagline": "一个读取人类信号、解读行为模式并为现实交互输出战略建议的 AI 智能平台。",
+    "system_online": "系统在线 · v1.0",
+    "platform": "平台", "company": "公司",
+    "rights": "© {{year}} BodyIQ-AI 版权所有。所有信号均受保护。",
+    "links": { "demo": "演示", "training": "培训", "library": "证据库", "contact": "联系", "admin": "管理" }
+  },
+  "home": {
+    "hero": {
+      "kicker": "智能系统 · 实时",
+      "headline_1": "读懂全场。",
+      "headline_2": "果断决策。",
+      "sub": "BodyIQ-AI 是一个智能平台,解读视觉、听觉与行为等人类信号,并将其转化为高风险交互的战略建议。",
+      "cta_demo": "体验演示",
+      "cta_command_center": "查看指挥中心",
+      "cta_realtor_demo": "查看房地产演示",
+      "cta_training": "查看培训",
+      "stat_signal_channels": "信号通道",
+      "stat_latency": "解读延迟",
+      "stat_cohorts": "培训班次"
+    },
+    "console": {
+      "label": "信号控制台", "live": "实时",
+      "channels": { "visual": "视觉", "auditory": "听觉", "behavioral": "行为", "context": "情境" },
+      "strategy_label": "策略",
+      "strategy_text": "锚定对方所述的关切。先不让步。等待 4 秒。"
+    },
+    "tape": { "title": "实时信号带 · 自动注释帧", "streaming": "流播中" },
+    "what_it_does": {
+      "kicker": "01 / 系统",
+      "headline": "对每一次互动的结构化解读。",
+      "sub": "BodyIQ-AI 将多数人潜意识处理的通道融合为一个可解释的输出。你保持完整的情境感知 — 我们提供框架、模式和下一步行动。",
+      "frame_label": "实时帧 · B-07",
+      "frame_text": "检测到姿态趋同 · 接受度窗口正在打开"
+    },
+    "capabilities": {
+      "visual": { "title": "视觉信号读取", "desc": "微表情、视线方向、姿态不对称 — 转化为结构化情报。" },
+      "auditory": { "title": "听觉模式映射", "desc": "实时解码节奏、停顿密度、韵律变化与言语标记。" },
+      "behavioral": { "title": "行为偏移", "desc": "基线偏离、唤起轨迹与微承诺追踪。" },
+      "context": { "title": "情境识别", "desc": "推断场景、关系与利害以校准解读。" },
+      "strategy": { "title": "战略输出", "desc": "按概率、风险与时机排序的可执行动作。" },
+      "proprietary": { "title": "专有层", "desc": "信号定义保持受保护。你看到的是结果,而非公式。" }
+    },
+    "scenario": {
+      "kicker": "现场应用",
+      "headline": "每一次会面都留下信号轨迹。",
+      "sub": "无论是谈判资本、化解冲突,还是解读面试场景 — 信号本就存在。BodyIQ-AI 让你能持续地解读它们。"
+    },
+    "training_teaser": {
+      "kicker": "02 / 培训",
+      "headline": "实时班次。运营深度。",
+      "sub": "为需要在真实环境中读懂信号的从业者打造的两个层级 — 从董事会到谈判到外勤。",
+      "cta": "查看课程",
+      "tier1": "一级", "tier2": "二级",
+      "duration_2h": "2 小时实时课程",
+      "duration_3h": "2–3 小时实时课程",
+      "reserve": "预订名额"
+    },
+    "newsletter": {
+      "kicker": "03 / 信号接收",
+      "headline": "抢先阅读下一期。",
+      "sub": "偶尔的现场笔记、班次发布与案例研究。零噪音。",
+      "join": "加入"
+    }
+  },
+  "demoPicker": {
+    "kicker": "行业选择 · 实时",
+    "headline_1": "选择你的行业。",
+    "headline_2": "看见执行。",
+    "sub": "每个演示都是 13 分钟自动播放的体验,展示 CreatorBoostAI 的执行层叠加在你团队已在使用的系统之上。",
+    "realtor_title": "房地产", "realtor_sub": "CRM · MLS · 物业管理 · 销售管线",
+    "insurance_title": "保险", "insurance_sub": "Catalyst · AMS · 核保 · 佣金",
+    "open_demo": "打开演示", "coming_soon": "即将推出",
+    "verticals_more": { "mortgage": "按揭", "healthcare": "医疗", "financial_advisor": "理财顾问", "hospitality": "酒店餐饮" }
+  },
+  "pricing": {
+    "kicker": "CreatorBoostAI · 订阅",
+    "headline_1": "随你的执行",
+    "headline_2": "弹性扩展的定价。",
+    "sub": "Stripe 驱动的订阅。可随时取消。Enterprise 通过战略沟通会进行。",
+    "monthly": "按月", "annual": "按年 · 节省 17%",
+    "starter": { "name": "Starter", "tagline": "适合 10 人以下团队 — 在单一技术栈上叠加执行层。", "feature_1": "单一 CRM / pipeline 集成", "feature_2": "AI 线索资格审核与评分", "feature_3": "自动化跟进序列", "feature_4": "标准支持", "cta": "选择 Starter" },
+    "pro": { "name": "Pro", "tagline": "面向准备整合执行的多系统运营者。", "feature_1": "无限集成(CRM · AMS · 计费 · 通讯)", "feature_2": "执行引擎 + 指挥中心", "feature_3": "AI 机会面板 + 热力图下钻", "feature_4": "优先支持 · 实时 onboarding", "cta": "选择 Pro", "popular": "最多人选择" },
+    "enterprise": { "name": "Enterprise", "tagline": "面向多区域组织和受监管行业的定制部署。", "feature_1": "专属基础设施 + SOC2", "feature_2": "定制集成与 API", "feature_3": "多租户指挥中心", "feature_4": "专属 CSM + 高管赞助人", "cta": "联系销售" },
+    "footer_note": "所有方案均含执行层、示例数据预览和培训门户。"
+  },
+  "training": {
+    "kicker": "培训项目 · 2026",
+    "headline_1": "实时班次。",
+    "headline_2": "运营深度。",
+    "sub": "从 2 小时基础到企业级转型的四个层级。$400 与 $1,500 直接付款。$7K 与 $27K 通过申请 + 战略沟通进行。",
+    "tier1": { "name": "信号基础", "tag": "一级 · $400" },
+    "tier2": { "name": "信号应用", "tag": "二级 · $1,500" },
+    "tier3": { "name": "战略加速", "tag": "三级 · $7,000" },
+    "tier4": { "name": "完整精通", "tag": "四级 · $27,000" },
+    "buy_now": "预订名额", "apply_now": "立即申请",
+    "duration": "时长", "cohort": "下一班次",
+    "footer_note": "高级课程仅限申请 — 我们每季度仅邀请少量从业者。"
+  },
+  "contact": {
+    "kicker": "联系我们",
+    "headline": "告诉我们你正在做的事。",
+    "sub": "战略对话、现场部署、定制集成、媒体询问 — 给我们写信。",
+    "name": "你的姓名", "email": "邮箱", "company": "公司(可选)", "message": "我们能怎么帮你?",
+    "submit": "发送消息",
+    "success": "消息已收到。我们将在 1 个工作日内联系你。",
+    "error": "无法发送。请重试。"
+  },
+  "apply": {
+    "kicker": "高端项目申请",
+    "headline": "申请 {{program}}",
+    "sub": "战略与精通课程仅限申请。介绍你的运营 — 我们将在 24 小时内回复战略沟通会链接。",
+    "fields": { "name": "全名", "email": "公司邮箱", "phone": "电话", "company": "公司", "revenue_range": "年营收范围", "team_size": "团队规模", "systems_used": "目前使用的系统", "biggest_challenge": "当前最大挑战" },
+    "revenue": { "under_500k": "低于 $500K", "500k_2m": "$500K – $2M", "2m_10m": "$2M – $10M", "over_10m": "$10M+" },
+    "submit": "提交申请",
+    "success_title": "申请已收到。",
+    "success_sub": "我们将在 24 小时内审阅并发邮件给你。",
+    "book_call": "立即预约你的战略沟通会",
+    "error": "无法提交。请重试。"
+  },
+  "preview": {
+    "kicker": "CreatorBoostAI · 指挥中心 · 预览模式",
+    "headline_1": "你的业务。",
+    "headline_2": "已执行。",
+    "sub": "CreatorBoostAI 叠加在你现有的系统之上并在它们之间执行。本预览展示示例数据。真实数据与真实操作将在 onboarding 后启用。",
+    "cta_activate": "激活实时系统",
+    "section": { "command_center": "指挥中心 · 实时脉搏", "national_view": "全国与地区视图", "ai_panel": "AI 机会面板", "creator_view": "创作者与影响者视图", "execution_actions": "执行操作" },
+    "stats": { "revenue": "已生成营收", "active_leads": "活跃线索", "opportunities": "已发现机会", "forecast": "管线预测", "audience_growth": "受众增长", "brand_deals": "品牌合作机会", "revenue_proj": "营收预测", "engagement": "互动质量" },
+    "stats_delta": { "mom_up": "环比 +12.4%", "new_today": "今日新增 194", "combined_value": "合计 $320K", "next_90": "未来 90 天", "last_30": "最近 30 天", "deal_value": "$84K 总价值", "q2": "保守 · Q2", "tier_a": "前 4% 创作者" },
+    "integrations": { "title": "已集成系统", "stack_label": "3 个活跃 · 示例栈", "salesforce_domain": "CRM · 销售管线", "hubspot_domain": "营销自动化", "quickbooks_domain": "营收 · 开票", "syncing": "同步中", "footer": "CreatorBoostAI 叠加在你现有的系统之上并在它们之间执行。" },
+    "creator": {
+      "intro": "CreatorBoostAI 自动识别并执行创作者与影响者的变现机会。",
+      "actions": {
+        "launch": { "title": "启动活动", "body": "为当前受众画像自动撰写合作伙伴简报。" },
+        "optimize": { "title": "优化内容", "body": "标记 3 条表现不佳的内容 · 重新剪辑建议已就绪。" },
+        "monetize": { "title": "受众变现", "body": "店铺 + 付费层级预计带来 $11K 增量 MRR。" }
+      }
+    },
+    "insights": {
+      "label": "洞察",
+      "i1": { "title": "检测到 12 条高价值线索", "sub": "成交概率 ≥ 78% · 合计 ARV $186K" },
+      "i2": { "title": "识别出 $320,000 营收机会", "sub": "交叉销售 + 续约窗口 14 天内开启" },
+      "i3": { "title": "管线中存在跟进缺口", "sub": "9 个停滞交易 · 上次接触 > 7 天 · 自动恢复可用" },
+      "i4": { "title": "3 个账户有流失趋势", "sub": "互动环比下降 38% · 建议挽留" },
+      "i5": { "title": "过去 24 小时触发 11 起事件", "sub": "按机会类型自动打标 · 等待批准" },
+      "i6": { "title": "2 份 AI 起草的提案已就绪", "sub": "个性化 · 品牌一致 · 一键发送" }
+    },
+    "locked": {
+      "label": "预览中已锁定", "available": "激活后可用",
+      "run_campaign": { "label": "运行活动", "sub": "多渠道自动启动" },
+      "execute_followup": { "label": "执行跟进", "sub": "个性化 · 排队 · 已批准" },
+      "optimize_revenue": { "label": "优化营收", "sub": "推荐价格 · 套餐 · 时机" },
+      "footer": "你的技术栈连接的瞬间,所有执行路径解锁。",
+      "footer_link": "预约激活 →"
+    },
+    "map": { "title": "下钻:地区 → 城市 → 办公室", "cities": "城市", "offices": "办公室", "leads": "线索" },
+    "send_to_agent": {
+      "kicker": "发送给我的代理",
+      "headline": "发给你的经纪、签约方或合作伙伴。",
+      "sub": "把只读的指挥中心直接发给做变现决策的人。一键完成。他们无需登录。",
+      "name_ph": "你的姓名 *", "email_ph": "收件人邮箱 *", "message_ph": "个人备注(可选)",
+      "send": "发送预览", "copy_link": "复制链接",
+      "preview_link": "预览链接",
+      "no_signup": "收件人看到同样的只读指挥中心。无需注册,数据零泄漏。",
+      "sent_ok": "已发送 · 请查收", "send_failed": "发送失败",
+      "sent_msg": "预览已发送至 {{email}}。",
+      "missing": "你的姓名和收件人邮箱必填",
+      "could_not_send": "无法发送。请改用复制链接。"
+    }
+  },
+  "press": {
+    "kicker": "投资者 & 媒体资料包",
+    "headline_1": "BodyIQ-AI", "headline_2": "+ CreatorBoostAI",
+    "sub": "面向人类智能运营的执行操作系统。本资料包面向记者、分析师和潜在合作伙伴。",
+    "section": { "what": "是什么", "what_does": "做什么", "defensible": "为何具备护城河", "founder": "创始人", "request_demo": "申请演示" },
+    "what_text": "CreatorBoostAI 是一个执行操作系统,叠加在现有的 CRM、AMS、MLS、营销与通讯技术栈之上。BodyIQ-AI 是为高风险交互战略提供动力的人类信号智能层。",
+    "what_does_text": "它跨视觉、听觉与行为通道分析信号 — 然后在客户现有的软件中执行下一步推荐操作。线索资格审核、跟进、管线推动、佣金、审计 — 全部统一。",
+    "defensible_text": "专有信号定义库 + 待批专利的执行引擎 + 私有班次训练数据。通过现有软件分发(无需替换)带来快速嵌入;执行越多,智能积累越多。",
+    "founder_text": "Jeffrey Garcia · BodyIQ-AI / CreatorBoostAI 创始人。在高风险谈判、行为信号分析与执行自动化领域有数十年运营经验。",
+    "request": { "name": "姓名", "email": "邮箱", "outlet": "媒体 / 公司", "message": "你正在调研的方向", "submit": "申请演示" },
+    "download": "下载视觉资料"
+  },
+  "rtl_label": "右到左布局已启用"
+}

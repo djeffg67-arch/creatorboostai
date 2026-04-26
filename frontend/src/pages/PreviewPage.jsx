@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Layout } from "@/components/site/Layout";
 import { toast } from "sonner";
 import { shareDemo } from "@/lib/api";
@@ -21,6 +22,7 @@ import {
  * Influencer/Creator View · Locked Actions.
  */
 export default function PreviewPage() {
+    const { t } = useTranslation();
     return (
         <Layout>
             <div className="relative mx-auto max-w-[1320px] px-4 py-10 lg:px-8 lg:py-16" data-testid="preview-page">
@@ -34,91 +36,86 @@ export default function PreviewPage() {
                 <header className="border-b border-white/5 pb-6">
                     <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5">
                         <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">CreatorBoostAI · Command Center · Preview Mode</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{t("preview.kicker")}</span>
                     </div>
                     <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <h1 className="font-heading text-3xl font-semibold text-white sm:text-4xl lg:text-5xl">
-                                Your business. <span className="text-cyan-400">Executed.</span>
+                                {t("preview.headline_1")} <span className="text-cyan-400">{t("preview.headline_2")}</span>
                             </h1>
-                            <p className="mt-3 max-w-2xl text-sm text-slate-300 sm:text-base">
-                                CreatorBoostAI sits on top of your existing systems and executes across them.
-                                This preview shows sample data. Real data, real actions activate after onboarding.
-                            </p>
+                            <p className="mt-3 max-w-2xl text-sm text-slate-300 sm:text-base">{t("preview.sub")}</p>
                         </div>
                         <div className="flex flex-col gap-2 sm:items-end">
                             <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300 inline-flex items-center gap-1.5">
-                                <Lock size={11} /> Read-only · Sample data
+                                <Lock size={11} /> {t("common.read_only")}
                             </span>
                             <Link
                                 to="/apply/strategy"
                                 data-testid="preview-cta-activate"
                                 className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_18px_rgba(6,182,212,0.35)] hover:bg-cyan-400"
                             >
-                                Activate the live system <ArrowRight size={14} />
+                                {t("preview.cta_activate")} <ArrowRight size={14} />
                             </Link>
                         </div>
                     </div>
                 </header>
 
                 {/* A. Command Center — sample stats */}
-                <Section icon={BarChart3} label="Command Center · Live Pulse">
+                <Section icon={BarChart3} label={t("preview.section.command_center")}>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="preview-command-center">
-                        <Stat label="Revenue generated" value="$1.84M" delta="+12.4% MoM" Icon={DollarSign} accent="emerald" />
-                        <Stat label="Active leads" value="2,317" delta="194 new today" Icon={Users} accent="cyan" />
-                        <Stat label="Opportunities detected" value="48" delta="$320K combined" Icon={Target} accent="amber" />
-                        <Stat label="Pipeline forecast" value="$4.2M" delta="next 90 days" Icon={TrendingUp} accent="cyan" />
+                        <Stat label={t("preview.stats.revenue")} value="$1.84M" delta={t("preview.stats_delta.mom_up")} Icon={DollarSign} accent="emerald" />
+                        <Stat label={t("preview.stats.active_leads")} value="2,317" delta={t("preview.stats_delta.new_today")} Icon={Users} accent="cyan" />
+                        <Stat label={t("preview.stats.opportunities")} value="48" delta={t("preview.stats_delta.combined_value")} Icon={Target} accent="amber" />
+                        <Stat label={t("preview.stats.forecast")} value="$4.2M" delta={t("preview.stats_delta.next_90")} Icon={TrendingUp} accent="cyan" />
                     </div>
                     <div className="mt-6 rounded-md border border-white/10 bg-ink-800 p-5" data-testid="preview-integrations">
                         <div className="flex items-center gap-2 border-b border-white/5 pb-3">
                             <Layers size={13} className="text-cyan-400" />
-                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Systems integrated</span>
-                            <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">3 active · sample stack</span>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">{t("preview.integrations.title")}</span>
+                            <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{t("preview.integrations.stack_label")}</span>
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <IntegrationTile name="Salesforce" domain="CRM · sales pipeline" status="syncing" />
-                            <IntegrationTile name="HubSpot" domain="Marketing automation" status="syncing" />
-                            <IntegrationTile name="QuickBooks" domain="Revenue · invoicing" status="syncing" />
+                            <IntegrationTile name="Salesforce" domain={t("preview.integrations.salesforce_domain")} status={t("preview.integrations.syncing")} />
+                            <IntegrationTile name="HubSpot" domain={t("preview.integrations.hubspot_domain")} status={t("preview.integrations.syncing")} />
+                            <IntegrationTile name="QuickBooks" domain={t("preview.integrations.quickbooks_domain")} status={t("preview.integrations.syncing")} />
                         </div>
                         <p className="mt-4 text-xs text-slate-400">
-                            <span className="text-cyan-300">CreatorBoostAI sits on top of your existing systems</span> and executes across them.
+                            <span className="text-cyan-300">{t("preview.integrations.footer")}</span>
                         </p>
                     </div>
                 </Section>
 
                 {/* B. National / Regional View — sample drill */}
-                <Section icon={Globe2} label="National & Regional View">
+                <Section icon={Globe2} label={t("preview.section.national_view")}>
                     <NationalMap />
                 </Section>
 
                 {/* C. AI Opportunity Panel */}
-                <Section icon={Brain} label="AI Opportunity Panel">
+                <Section icon={Brain} label={t("preview.section.ai_panel")}>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="preview-ai-panel">
-                        <Insight Icon={Target} title="12 high-value leads detected" sub="Closing probability ≥ 78% · combined ARV $186K" />
-                        <Insight Icon={DollarSign} title="$320,000 revenue opportunity identified" sub="Cross-sell + renewal window opens in 14 days" accent="emerald" />
-                        <Insight Icon={Activity} title="Follow-up gaps found in pipeline" sub="9 stalled deals · last touch > 7 days · auto-recovery available" accent="amber" />
-                        <Insight Icon={TrendingUp} title="3 accounts trending toward churn" sub="Engagement down 38% MoM · save-play recommended" accent="amber" />
-                        <Insight Icon={Zap} title="11 trigger events fired in last 24h" sub="Auto-tagged to opportunity type · awaiting approval" />
-                        <Insight Icon={Sparkles} title="2 AI-drafted proposals ready" sub="Personalized · brand-matched · 1-click send" />
+                        <Insight Icon={Target} title={t("preview.insights.i1.title")} sub={t("preview.insights.i1.sub")} />
+                        <Insight Icon={DollarSign} title={t("preview.insights.i2.title")} sub={t("preview.insights.i2.sub")} accent="emerald" />
+                        <Insight Icon={Activity} title={t("preview.insights.i3.title")} sub={t("preview.insights.i3.sub")} accent="amber" />
+                        <Insight Icon={TrendingUp} title={t("preview.insights.i4.title")} sub={t("preview.insights.i4.sub")} accent="amber" />
+                        <Insight Icon={Zap} title={t("preview.insights.i5.title")} sub={t("preview.insights.i5.sub")} />
+                        <Insight Icon={Sparkles} title={t("preview.insights.i6.title")} sub={t("preview.insights.i6.sub")} />
                     </div>
                 </Section>
 
                 {/* D. Influencer / Creator View */}
-                <Section icon={Mic} label="Creator & Influencer View" badge="Sample data">
+                <Section icon={Mic} label={t("preview.section.creator_view")} badge={t("common.sample_data")}>
                     <div data-testid="preview-influencer">
-                        <p className="max-w-2xl text-sm text-slate-300">
-                            CreatorBoostAI identifies and executes monetization opportunities for creators and influencers automatically.
-                        </p>
+                        <p className="max-w-2xl text-sm text-slate-300">{t("preview.creator.intro")}</p>
                         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                            <Stat label="Audience growth" value="+18.6%" delta="last 30 days" Icon={Users} accent="cyan" />
-                            <Stat label="Brand-deal opportunities" value="7 active" delta="$84K total value" Icon={Briefcase} accent="emerald" />
-                            <Stat label="Revenue projection" value="$42K / mo" delta="conservative · Q2" Icon={DollarSign} accent="cyan" />
-                            <Stat label="Engagement quality" value="A-tier" delta="top 4% creators" Icon={Eye} accent="amber" />
+                            <Stat label={t("preview.stats.audience_growth")} value="+18.6%" delta={t("preview.stats_delta.last_30")} Icon={Users} accent="cyan" />
+                            <Stat label={t("preview.stats.brand_deals")} value="7" delta={t("preview.stats_delta.deal_value")} Icon={Briefcase} accent="emerald" />
+                            <Stat label={t("preview.stats.revenue_proj")} value="$42K" delta={t("preview.stats_delta.q2")} Icon={DollarSign} accent="cyan" />
+                            <Stat label={t("preview.stats.engagement")} value="A-tier" delta={t("preview.stats_delta.tier_a")} Icon={Eye} accent="amber" />
                         </div>
                         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <SuggestedAction Icon={Megaphone} title="Launch campaign" body="Sample partner brief auto-drafted for current audience profile." />
-                            <SuggestedAction Icon={Sparkles} title="Optimize content" body="3 underperforming pieces flagged · re-cut recommendations ready." />
-                            <SuggestedAction Icon={Rocket} title="Monetize audience" body="Storefront + paid tier unlock projected $11K incremental MRR." />
+                            <SuggestedAction Icon={Megaphone} title={t("preview.creator.actions.launch.title")} body={t("preview.creator.actions.launch.body")} />
+                            <SuggestedAction Icon={Sparkles} title={t("preview.creator.actions.optimize.title")} body={t("preview.creator.actions.optimize.body")} />
+                            <SuggestedAction Icon={Rocket} title={t("preview.creator.actions.monetize.title")} body={t("preview.creator.actions.monetize.body")} />
                         </div>
                     </div>
 
@@ -127,14 +124,14 @@ export default function PreviewPage() {
                 </Section>
 
                 {/* E. Locked Actions */}
-                <Section icon={Lock} label="Execution Actions" badge="Locked in preview">
+                <Section icon={Lock} label={t("preview.section.execution_actions")} badge={t("preview.locked.label")}>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" data-testid="preview-locked-actions">
-                        <LockedAction id="run-campaign" label="Run Campaign" sub="Multichannel auto-launch" />
-                        <LockedAction id="execute-followup" label="Execute Follow-Up" sub="Personalized · queued · approved" />
-                        <LockedAction id="optimize-revenue" label="Optimize Revenue" sub="Recommended price · package · timing" />
+                        <LockedAction id="run-campaign" label={t("preview.locked.run_campaign.label")} sub={t("preview.locked.run_campaign.sub")} />
+                        <LockedAction id="execute-followup" label={t("preview.locked.execute_followup.label")} sub={t("preview.locked.execute_followup.sub")} />
+                        <LockedAction id="optimize-revenue" label={t("preview.locked.optimize_revenue.label")} sub={t("preview.locked.optimize_revenue.sub")} />
                     </div>
                     <p className="mt-4 text-xs text-slate-500">
-                        All execution paths unlock the moment your stack is connected. <Link to="/apply/strategy" className="text-cyan-300 hover:text-cyan-200">Book activation →</Link>
+                        {t("preview.locked.footer")} <Link to="/apply/strategy" className="text-cyan-300 hover:text-cyan-200">{t("preview.locked.footer_link")}</Link>
                     </p>
                 </Section>
             </div>
@@ -146,42 +143,43 @@ export default function PreviewPage() {
 
 // ---------- Send-to-my-agent share form (preview link) ----------
 const SendToAgent = () => {
+    const { t } = useTranslation();
     const [form, setForm] = useState({ name: "", email: "", message: "" });
     const [sending, setSending] = useState(false);
-    const [result, setResult] = useState(null); // {ok, msg}
+    const [result, setResult] = useState(null);
     const handle = (k) => (e) => setForm({ ...form, [k]: e.target.value });
     const previewLink = typeof window !== "undefined" ? `${window.location.origin}/preview` : "/preview";
 
     const send = async () => {
-        if (!form.name || !form.email) { toast.error("Your name and recipient email are required"); return; }
+        if (!form.name || !form.email) { toast.error(t("preview.send_to_agent.missing")); return; }
         setSending(true); setResult(null);
         try {
             const res = await shareDemo({
                 recipient_email: form.email,
                 sender_name: form.name,
                 message: form.message || undefined,
-                demo_type: "realtor",       // required by backend; ignored when share_target=preview
+                demo_type: "realtor",
                 share_target: "preview",
                 origin_url: typeof window !== "undefined" ? window.location.origin : undefined,
             });
             if (res.sent) {
-                setResult({ ok: true, msg: `Preview link sent to ${form.email}.` });
-                toast.success("Preview link sent");
+                setResult({ ok: true, msg: t("preview.send_to_agent.sent_msg", { email: form.email }) });
+                toast.success(t("preview.send_to_agent.sent_ok"));
             } else {
-                setResult({ ok: false, msg: res.reason || "Email service unavailable. Use Copy link instead." });
-                toast.error("Could not send. Copy link as a fallback.");
+                setResult({ ok: false, msg: res.reason || t("preview.send_to_agent.could_not_send") });
+                toast.error(t("preview.send_to_agent.could_not_send"));
             }
         } catch (err) {
             const detail = err?.response?.data?.detail;
-            const msg = typeof detail === "string" ? detail : "Network error. Try again.";
+            const msg = typeof detail === "string" ? detail : t("contact.error");
             setResult({ ok: false, msg });
             toast.error(msg);
         } finally { setSending(false); }
     };
 
     const copyLink = async () => {
-        try { await navigator.clipboard.writeText(previewLink); toast.success("Preview link copied"); }
-        catch { toast.error("Copy failed"); }
+        try { await navigator.clipboard.writeText(previewLink); toast.success(t("common.copied")); }
+        catch { toast.error(t("contact.error")); }
     };
 
     return (
@@ -191,71 +189,41 @@ const SendToAgent = () => {
         >
             <div className="flex items-center gap-2">
                 <Send size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Send to my agent</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">{t("preview.send_to_agent.kicker")}</span>
             </div>
-            <h3 className="font-heading mt-2 text-xl font-semibold text-white sm:text-2xl">
-                Show this to your manager, booking agent, or partner.
-            </h3>
-            <p className="mt-1 max-w-2xl text-sm text-slate-300">
-                Send the read-only Command Center directly to the people who decide on monetization. One tap. No login on their end.
-            </p>
+            <h3 className="font-heading mt-2 text-xl font-semibold text-white sm:text-2xl">{t("preview.send_to_agent.headline")}</h3>
+            <p className="mt-1 max-w-2xl text-sm text-slate-300">{t("preview.send_to_agent.sub")}</p>
 
             <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-12">
                 <div className="lg:col-span-7 space-y-3">
-                    <input
-                        data-testid="agent-share-name"
-                        type="text" value={form.name} onChange={handle("name")}
-                        placeholder="Your name *"
-                        className="w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
-                    />
-                    <input
-                        data-testid="agent-share-email"
-                        type="email" value={form.email} onChange={handle("email")}
-                        placeholder="Recipient email *"
-                        className="w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
-                    />
-                    <textarea
-                        data-testid="agent-share-message"
-                        rows={2} value={form.message} onChange={handle("message")}
-                        placeholder="Personal note (optional)"
-                        className="w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
-                    />
+                    <input data-testid="agent-share-name" type="text" value={form.name} onChange={handle("name")} placeholder={t("preview.send_to_agent.name_ph")} className="w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" />
+                    <input data-testid="agent-share-email" type="email" value={form.email} onChange={handle("email")} placeholder={t("preview.send_to_agent.email_ph")} className="w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" />
+                    <textarea data-testid="agent-share-message" rows={2} value={form.message} onChange={handle("message")} placeholder={t("preview.send_to_agent.message_ph")} className="w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" />
                     <div className="flex flex-wrap gap-2">
-                        <button
-                            data-testid="agent-share-send"
-                            onClick={send} disabled={sending}
-                            className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-400 disabled:opacity-60"
-                        >
-                            {sending ? "Sending…" : <><Send size={14} /> Send preview</>}
+                        <button data-testid="agent-share-send" onClick={send} disabled={sending} className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-400 disabled:opacity-60">
+                            {sending ? t("common.loading") : <><Send size={14} /> {t("preview.send_to_agent.send")}</>}
                         </button>
-                        <button
-                            data-testid="agent-share-copy-link"
-                            onClick={copyLink}
-                            className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-4 py-3 text-sm font-semibold text-cyan-300 hover:bg-cyan-500 hover:text-ink-900"
-                        >
-                            <Copy size={13} /> Copy link
+                        <button data-testid="agent-share-copy-link" onClick={copyLink} className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-4 py-3 text-sm font-semibold text-cyan-300 hover:bg-cyan-500 hover:text-ink-900">
+                            <Copy size={13} /> {t("preview.send_to_agent.copy_link")}
                         </button>
                     </div>
                 </div>
                 <div className="lg:col-span-5">
                     {result ? (
-                        <div
-                            data-testid={result.ok ? "agent-share-success" : "agent-share-error"}
-                            className={`rounded-md border p-4 ${result.ok ? "border-emerald-500/40 bg-emerald-500/5" : "border-red-500/40 bg-red-500/5"}`}
-                        >
+                        <div data-testid={result.ok ? "agent-share-success" : "agent-share-error"} className={`rounded-md border p-4 ${result.ok ? "border-emerald-500/40 bg-emerald-500/5" : "border-red-500/40 bg-red-500/5"}`}>
                             <div className="flex items-center gap-2">
                                 <span className={`h-2 w-2 rounded-full ${result.ok ? "bg-emerald-400" : "bg-red-400"}`} />
                                 <span className={`font-mono text-[10px] uppercase tracking-[0.22em] ${result.ok ? "text-emerald-300" : "text-red-300"}`}>
-                                    {result.ok ? "Sent · check inbox" : "Send failed"}
+                                    {result.ok ? t("preview.send_to_agent.sent_ok") : t("preview.send_to_agent.send_failed")}
                                 </span>
                             </div>
                             <p className="mt-1.5 text-sm text-slate-200">{result.msg}</p>
                         </div>
                     ) : (
                         <div className="rounded-md border border-white/10 bg-ink-800 p-4">
-                            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Preview link</p>
+                            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">{t("preview.send_to_agent.preview_link")}</p>
                             <p className="mt-2 break-all font-mono text-xs text-cyan-300">{previewLink}</p>
-                            <p className="mt-3 text-xs text-slate-500">Recipient sees the same read-only Command Center. No signup, no data leakage.</p>
+                            <p className="mt-3 text-xs text-slate-500">{t("preview.send_to_agent.no_signup")}</p>
                         </div>
                     )}
                 </div>
@@ -336,7 +304,8 @@ const SuggestedAction = ({ Icon, title, body }) => (
 );
 
 const LockedAction = ({ id, label, sub }) => {
-    const onClick = () => toast.message("Available after activation", { description: "Connect your stack to unlock execution.", duration: 3000 });
+    const { t } = useTranslation();
+    const onClick = () => toast.message(t("preview.locked.available"), { description: t("common.live") + " · " + label, duration: 3000 });
     return (
         <button
             type="button"
@@ -350,7 +319,7 @@ const LockedAction = ({ id, label, sub }) => {
             <div>
                 <p className="font-heading text-base font-semibold text-white">{label}</p>
                 <p className="mt-0.5 text-xs text-slate-400">{sub}</p>
-                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">Available after activation</p>
+                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">{t("preview.locked.available")}</p>
             </div>
         </button>
     );

@@ -1,9 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
 import { SignalTape } from "@/components/site/SignalTape";
 import { FounderBio } from "@/components/site/FounderBio";
+import { CountrySelector } from "@/components/site/CountrySelector";
 import { ArrowRight, Eye, Ear, Activity, Brain, Target, ShieldCheck } from "lucide-react";
 
 // Curated, optimized imagery (Unsplash CDN with width/quality params)
@@ -12,16 +14,16 @@ const MEETING_IMG = "https://images.unsplash.com/photo-1600880292203-757bb62b4ba
 const CONVERSATION_IMG = "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1200&q=75";
 const TRAINING_BG = "https://images.unsplash.com/photo-1579567761406-4684ee0c75b6?auto=format&fit=crop&w=1600&q=75";
 
-const capabilities = [
-    { icon: Eye, title: "Visual Signal Read", desc: "Microexpression, gaze vector, posture asymmetry — translated into structured intelligence." },
-    { icon: Ear, title: "Auditory Pattern Map", desc: "Cadence, pause density, prosody shifts, and verbal markers decoded in real time." },
-    { icon: Activity, title: "Behavioral Drift", desc: "Baseline deviation, arousal trajectory, and micro-commitment tracking." },
-    { icon: Brain, title: "Context Recognition", desc: "Scene, relationship, and stakes inferred to calibrate interpretation." },
-    { icon: Target, title: "Strategy Output", desc: "Actionable moves ranked by probability, risk, and timing." },
-    { icon: ShieldCheck, title: "Proprietary Layer", desc: "Signal definitions remain protected. You see outcomes, not formulas." },
-];
-
 export default function HomePage() {
+    const { t } = useTranslation();
+    const capabilities = [
+        { icon: Eye, key: "visual" },
+        { icon: Ear, key: "auditory" },
+        { icon: Activity, key: "behavioral" },
+        { icon: Brain, key: "context" },
+        { icon: Target, key: "strategy" },
+        { icon: ShieldCheck, key: "proprietary" },
+    ];
     return (
         <Layout>
             {/* Hero */}
@@ -43,19 +45,19 @@ export default function HomePage() {
                     <div className="lg:col-span-8">
                         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5 fade-in-up">
                             <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Intelligence System · Live</span>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{t("home.hero.kicker")}</span>
                         </div>
 
                         <h1 className="font-heading mt-6 text-balance text-4xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-7xl fade-in-up" style={{ animationDelay: "80ms" }}>
-                            Read the room.{" "}
-                            <span className="text-cyan-400">Decide with intent.</span>
+                            {t("home.hero.headline_1")}{" "}
+                            <span className="text-cyan-400">{t("home.hero.headline_2")}</span>
                         </h1>
 
                         <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg fade-in-up" style={{ animationDelay: "160ms" }}>
-                            BodyIQ-AI is an intelligence platform that interprets human signals —
-                            visual, auditory, and behavioral — and converts them into strategic
-                            recommendations for high-stakes interactions.
+                            {t("home.hero.sub")}
                         </p>
+
+                        <CountrySelector />
 
                         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap fade-in-up" style={{ animationDelay: "240ms" }}>
                             <Link
@@ -63,28 +65,28 @@ export default function HomePage() {
                                 data-testid="hero-cta-demo"
                                 className="inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-6 py-3.5 text-sm font-semibold text-ink-900 shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_30px_rgba(6,182,212,0.55)]"
                             >
-                                Experience the Demo <ArrowRight size={16} />
+                                {t("home.hero.cta_demo")} <ArrowRight size={16} />
                             </Link>
                             <Link
                                 to="/preview"
                                 data-testid="hero-cta-command-center"
                                 className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-6 py-3.5 text-sm font-semibold text-cyan-300 transition-all hover:bg-cyan-500 hover:text-ink-900"
                             >
-                                View Command Center
+                                {t("home.hero.cta_command_center")}
                             </Link>
                             <Link
                                 to="/demo/realtor"
                                 data-testid="hero-cta-realtor-demo"
                                 className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-6 py-3.5 text-sm font-semibold text-cyan-300 transition-all hover:bg-cyan-500 hover:text-ink-900"
                             >
-                                View Realtor Demo
+                                {t("home.hero.cta_realtor_demo")}
                             </Link>
                             <Link
                                 to="/training"
                                 data-testid="hero-cta-training"
                                 className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-transparent px-6 py-3.5 text-sm font-semibold text-white transition-all hover:border-cyan-500/50 hover:text-cyan-400"
                             >
-                                View Training
+                                {t("home.hero.cta_training")}
                             </Link>
                         </div>
 
@@ -192,12 +194,12 @@ export default function HomePage() {
                         <div className="lg:col-span-7">
                             <div className="grid grid-cols-1 gap-px rounded-md border border-white/5 bg-white/5 sm:grid-cols-2">
                                 {capabilities.map((c) => (
-                                    <div key={c.title} className="bg-ink-800 p-7 transition-colors hover:bg-ink-700/50">
+                                    <div key={c.key} className="bg-ink-800 p-7 transition-colors hover:bg-ink-700/50">
                                         <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-cyan-500/30 bg-cyan-500/5">
                                             <c.icon size={18} className="text-cyan-400" />
                                         </div>
-                                        <h3 className="font-heading mt-5 text-lg font-semibold text-white">{c.title}</h3>
-                                        <p className="mt-2 text-sm leading-relaxed text-slate-400">{c.desc}</p>
+                                        <h3 className="font-heading mt-5 text-lg font-semibold text-white">{t(`home.capabilities.${c.key}.title`)}</h3>
+                                        <p className="mt-2 text-sm leading-relaxed text-slate-400">{t(`home.capabilities.${c.key}.desc`)}</p>
                                     </div>
                                 ))}
                             </div>
