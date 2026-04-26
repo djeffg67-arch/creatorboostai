@@ -93,6 +93,132 @@ PROMPTS = [
      "An aircraft taxiing on a dusk runway with terminal lights in the distance; "
      "a translucent operational dashboard floats showing gate utilization, dwell "
      "time, and concession revenue — cinematic atmospheric depth."),
+
+    # ---------------------------------------------- REALTOR DEMO SCENE BACKDROPS
+    ("scene-realtor-corporate-office",
+     "A modern enterprise real-estate corporate office at night: glass-walled "
+     "executive suite, dim cyan accent lighting, an open laptop on a long table, "
+     "city lights bleeding in from the windows, atmospheric depth."),
+    ("scene-realtor-conference-room",
+     "A leadership conference room with a floating live wall-display: pipeline "
+     "rollup KPIs, agent leaderboard, and revenue forecasts glowing in cyan and "
+     "white. Empty leather chairs, 4 a.m. decision-making vibe."),
+    ("scene-realtor-team-working",
+     "A diverse top-producing real-estate team working late at a long desk: "
+     "multiple monitors showing CRM kanban, listing photos, and showing schedules. "
+     "Warm task lighting + cyan ambient light. Silhouettes from behind."),
+    ("scene-realtor-agent-client",
+     "An agent presenting a tablet to a couple in a beautifully staged "
+     "kitchen / open house. Cinematic golden-hour window light + cyan accent "
+     "glow from the tablet. Backs of figures, no faces."),
+    ("scene-realtor-agent-phone",
+     "A real-estate agent on the phone walking through a property hallway, late "
+     "afternoon, holding their phone with a glowing AI assistant overlay showing "
+     "a recommended next message and an intent score. Backlit silhouette."),
+    ("scene-realtor-property-exterior",
+     "A high-end suburban home exterior at dusk: manicured front lawn, warm "
+     "interior lights through panoramic windows, listing-photo vibe. Subtle cyan "
+     "rim-light on the roofline. No people, no signs of text."),
+    ("scene-realtor-luxury-home",
+     "A luxury contemporary home interior: open floor plan, double-height ceiling, "
+     "minimal furniture, sweeping window onto a city or coastline. Cinematic warm "
+     "interior + cool cyan window light. No people."),
+    ("scene-realtor-city-skyline",
+     "A nighttime city skyline panorama from a high-rise window: dense urban "
+     "glow with cyan accent reflections in the glass. Foreground slightly out of "
+     "focus suggesting an observer at a desk. Cinematic, no text."),
+    ("scene-realtor-open-house",
+     "A bright open-house front: tasteful staging, neutral palette, sunlight "
+     "filtering through sheer curtains, an open door inviting the viewer in. "
+     "Subtle cyan smart-home accent light. No realtor sign, no text."),
+    ("scene-realtor-walkthrough",
+     "A first-person walkthrough perspective inside a beautifully designed home: "
+     "polished wood floors leading toward a brightly-lit living area. Cinematic "
+     "depth, gentle cyan ambient light from connected smart fixtures."),
+    ("scene-realtor-desk-monitors",
+     "A cinematic office workstation: 3 ultrawide monitors showing CRM pipeline, "
+     "live listing analytics, and a national heatmap. Mechanical keyboard, "
+     "ambient cyan key-light, late-night work vibe. No visible text legible."),
+    ("scene-realtor-handshake",
+     "Close-up of a closing handshake at a polished wood desk: pen, contract "
+     "paper, blurred signed deal. Warm side-light + cyan glow from a partly visible "
+     "screen. Cinematic, no faces, no readable text."),
+
+    # ------------------------------------------- INSURANCE DEMO SCENE BACKDROPS
+    ("scene-insurance-agent-desk",
+     "An insurance producer's executive desk: clean policy folio, fountain pen, "
+     "open laptop showing a translucent risk-score panel, soft afternoon window "
+     "light + cyan accent glow. Premium agency feel."),
+    ("scene-insurance-call-center",
+     "A modern insurance call-center floor: rows of agent stations softly out of "
+     "focus, headset highlights, ambient cyan task-lighting on monitors showing "
+     "underwriting queues. Cinematic depth, professional."),
+    ("scene-insurance-team-meeting",
+     "An insurance leadership huddle around a wall display: floating compliance "
+     "dashboard with SOC-2 status, audit trails, and commission rollups in cyan. "
+     "Minimal modern conference room. Backs of executives, no faces."),
+    ("scene-insurance-advisor-client",
+     "A producer reviewing a coverage proposal on a tablet across a polished "
+     "table from a client; subtle holographic risk-score and policy-options panel "
+     "floats above the tablet. Warm light + cyan accent. Hands and shoulders only."),
+    ("scene-insurance-handshake",
+     "A confident handshake closing an insurance bind: a Catalyst-style CRM "
+     "screen visible in the background, compliance check-marks glowing cyan. "
+     "Cinematic close-up, no faces, no readable text."),
+    ("scene-insurance-desk-monitors",
+     "A senior underwriter's workstation at dusk: dual ultrawide monitors with "
+     "AI risk-scoring, AML/KYC verification panels, and an audit trail timeline "
+     "in cyan. Coffee cup, warm desk lamp, premium agency feel."),
+    ("scene-insurance-corporate-office",
+     "A modern insurance brokerage corporate office at night: long glass corridor, "
+     "open suites visible, soft cyan ambient lighting, late-shift workstation glow. "
+     "Cinematic depth, no people in foreground."),
+    ("scene-insurance-laptop-woman",
+     "Over-the-shoulder of a senior producer reviewing a digital policy quote "
+     "on her laptop at a clean home office. Backlit by a window, cyan keyboard "
+     "ambient, focused expression. Back of head, no face."),
+    ("scene-insurance-documents",
+     "Cinematic close-up of policy documents and a fountain pen on a polished "
+     "wood desk; corner of a laptop visible, glowing cyan AI underwriting panel "
+     "overlay. Soft window light. No readable text."),
+    ("scene-insurance-city-night",
+     "A high-rise insurance HQ skyline view at night: corporate towers with "
+     "selective lit windows, cyan light strips on a tall building, blurred city "
+     "below. Premium enterprise feel. No text, no logos."),
+
+    # --------------------------------------------- CREATOR DEMO SCENE BACKDROPS
+    ("scene-creator-studio",
+     "A modern content-creator home studio: ring light, RGB strip behind the "
+     "desk, dual monitors showing audience analytics and a brand-deal Kanban. "
+     "Cinematic, warm + cyan ambient mix. No people."),
+    ("scene-creator-phone-filming",
+     "A creator's hand holding a phone on a tripod filming a vlog frame: "
+     "a translucent BodyIQ-AI conviction-score overlay floats above the screen "
+     "in cyan. Soft golden-hour window light. Hand only, no face."),
+    ("scene-creator-podcast-mic",
+     "A premium podcast / streaming setup: large condenser microphone in "
+     "foreground, RGB-lit audio interface, blurred monitors showing waveform and "
+     "audience charts in cyan. Atmospheric depth, no people."),
+    ("scene-creator-audience-crowd",
+     "A glowing concert / live-event crowd shot from the stage perspective: "
+     "thousands of phone lights raised, cyan stage uplighting, blurred faces — "
+     "the visual translation of 'audience'. Cinematic, no text."),
+    ("scene-creator-laptop-creator",
+     "A creator working at a laptop on an aesthetically minimal desk: floating "
+     "revenue-growth chart, paid-tier subscriber count, and storefront orders "
+     "visualized in cyan above the screen. Warm + cyan mix, hands only."),
+    ("scene-creator-social-feed",
+     "A cinematic over-the-shoulder of a phone showing a stylized social grid "
+     "feed of content thumbnails; subtle cyan engagement-rate overlays on each. "
+     "Hand only, blurred bedroom desk background. No readable text or usernames."),
+    ("scene-creator-city-night",
+     "A creator's view from a high-rise apartment over the city at night: "
+     "cyan accent light from a desk monitor reflecting in the glass, creator's "
+     "silhouette suggested. Cinematic, atmospheric, no faces, no text."),
+    ("scene-creator-handshake",
+     "A polished close-up handshake closing a brand-deal: brand pitch deck "
+     "papers blurred on a desk, a translucent contract-tracker UI in cyan above. "
+     "Cinematic, no faces, no readable text."),
 ]
 
 

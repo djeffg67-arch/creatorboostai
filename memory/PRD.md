@@ -1,9 +1,40 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-27 (Iter 13 — AI-generated brand illustrations replace stock imagery)
-**Project status:** 🟢 Code-complete + repositioned + Creator demo + brand-illustrated. Awaiting 7 environment variables.
+**Last update:** 2026-02-27 (Iter 14 — every demo scene now uses brand-illustrated AI imagery)
+**Project status:** 🟢 Code-complete + repositioned + Creator demo + fully brand-illustrated end-to-end. Awaiting 7 environment variables.
 **Site URL:** https://bodyiq-training.preview.emergentagent.com
-**Supervisor:** backend + frontend RUNNING. 111/111 backend tests passing.
+**Supervisor:** backend + frontend RUNNING.
+
+---
+
+## 🆕 ITER 14 (2026-02-27) — Demo Scene Backdrops
+
+User asked to extend AI-generated illustrations into every demo scene. 30 additional brand-consistent illustrations generated and wired in.
+
+**Generation**
+- Extended `/app/backend/scripts/generate_brand_images.py` from 11 → 41 prompts.
+- 12 Realtor scene backdrops (corporate office, conference room, team working, agent client, agent phone, property exterior, luxury home, city skyline, open house, walkthrough, desk monitors, handshake)
+- 10 Insurance scene backdrops (agent desk, call center, team meeting, advisor client, handshake, desk monitors, corporate office, laptop woman, documents, city night)
+- 8 Creator scene backdrops (creator studio, phone filming, podcast mic, audience crowd, laptop creator, social feed, city night, handshake)
+- All saved to `/app/frontend/public/generated/scene-{demo}-{name}.jpg` (~600–750 KB each, 27 MB total for all 41 images).
+- One image hit a transient credit budget limit during the first run; idempotent re-run picked it up. Final result: **41/41 generated**.
+
+**Wiring**
+- `RealtorDemoPage.jsx` `IMG` constant — 12 keys swapped from Unsplash CDN URLs to local `/generated/scene-realtor-*.jpg`.
+- `InsuranceDemoPage.jsx` `IMG` constant — 10 keys swapped.
+- `CreatorDemoPage.jsx` `IMG` constant — 8 keys swapped.
+- Lint clean across all three demo files.
+
+**Visual verification**
+- Creator demo Scene 1: cinematic ring-light + dual-monitor creator studio with audience-analytics + brand-deal Kanban dashboards visible in monitors ✓
+- Realtor demo Scene 1: silhouetted operator at multi-screen command center (CRM Pipeline / Live Listing Analytics / Outbound Mailings / US heatmap) — perfectly matches narration ✓
+- All scene transitions still auto-advance via existing `audio.ended` + `fallback_ms` timer architecture (no functional changes)
+
+**Scope total — entire platform now AI-illustrated**
+- 7 industry tiles (HomePage)
+- 4 demo cards (HomePage Demo Selector + VerticalPicker)
+- 30 scene backdrops (3 demos)
+- = **41 brand-consistent AI illustrations**, each unique, none stock
 
 ---
 

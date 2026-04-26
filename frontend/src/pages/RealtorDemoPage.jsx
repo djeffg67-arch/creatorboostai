@@ -13,21 +13,21 @@ import {
 } from "lucide-react";
 
 // =================================================================
-// Cinematic imagery (Unsplash CDN, optimized)
+// Cinematic imagery (AI-generated brand illustrations, served from /public)
 // =================================================================
 const IMG = {
-    corporateOffice: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1600&q=70",
-    conferenceRoom: "https://images.unsplash.com/photo-1497215842964-222b430dc094?auto=format&fit=crop&w=1600&q=70",
-    teamWorking: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1600&q=70",
-    agentClient: "https://images.unsplash.com/photo-1560520653-9e0e4c89eb11?auto=format&fit=crop&w=1600&q=70",
-    agentPhone: "https://images.unsplash.com/photo-1573497019418-b400bb3ab074?auto=format&fit=crop&w=1600&q=70",
-    propertyExterior: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1600&q=70",
-    luxuryHome: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=70",
-    citySkyline: "https://images.unsplash.com/photo-1496564203457-11bb12075d90?auto=format&fit=crop&w=1600&q=70",
-    openHouse: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1600&q=70",
-    walkthrough: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1600&q=70",
-    deskMonitors: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1600&q=70",
-    handshake: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1600&q=70",
+    corporateOffice:  "/generated/scene-realtor-corporate-office.jpg",
+    conferenceRoom:   "/generated/scene-realtor-conference-room.jpg",
+    teamWorking:      "/generated/scene-realtor-team-working.jpg",
+    agentClient:      "/generated/scene-realtor-agent-client.jpg",
+    agentPhone:       "/generated/scene-realtor-agent-phone.jpg",
+    propertyExterior: "/generated/scene-realtor-property-exterior.jpg",
+    luxuryHome:       "/generated/scene-realtor-luxury-home.jpg",
+    citySkyline:      "/generated/scene-realtor-city-skyline.jpg",
+    openHouse:        "/generated/scene-realtor-open-house.jpg",
+    walkthrough:      "/generated/scene-realtor-walkthrough.jpg",
+    deskMonitors:     "/generated/scene-realtor-desk-monitors.jpg",
+    handshake:        "/generated/scene-realtor-handshake.jpg",
 };
 
 // Enterprise + Field software brand catalog

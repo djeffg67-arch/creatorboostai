@@ -16,16 +16,16 @@ import {
 // Cinematic imagery
 // =================================================================
 const IMG = {
-    agentDesk: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1600&q=70",
-    callCenter: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1600&q=70",
-    teamMeeting: "https://images.unsplash.com/photo-1497215842964-222b430dc094?auto=format&fit=crop&w=1600&q=70",
-    advisorClient: "https://images.unsplash.com/photo-1573497019418-b400bb3ab074?auto=format&fit=crop&w=1600&q=70",
-    handshake: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1600&q=70",
-    deskMonitors: "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1600&q=70",
-    corporateOffice: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1600&q=70",
-    laptopWoman: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1600&q=70",
-    documents: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1600&q=70",
-    cityNight: "https://images.unsplash.com/photo-1496564203457-11bb12075d90?auto=format&fit=crop&w=1600&q=70",
+    agentDesk:       "/generated/scene-insurance-agent-desk.jpg",
+    callCenter:      "/generated/scene-insurance-call-center.jpg",
+    teamMeeting:     "/generated/scene-insurance-team-meeting.jpg",
+    advisorClient:   "/generated/scene-insurance-advisor-client.jpg",
+    handshake:       "/generated/scene-insurance-handshake.jpg",
+    deskMonitors:    "/generated/scene-insurance-desk-monitors.jpg",
+    corporateOffice: "/generated/scene-insurance-corporate-office.jpg",
+    laptopWoman:     "/generated/scene-insurance-laptop-woman.jpg",
+    documents:       "/generated/scene-insurance-documents.jpg",
+    cityNight:       "/generated/scene-insurance-city-night.jpg",
 };
 
 // Insurance software stacks

@@ -9,17 +9,17 @@ import {
 } from "lucide-react";
 
 // =================================================================
-// Cinematic imagery — creator economy lifestyle (Unsplash CDN)
+// Cinematic imagery (AI-generated brand illustrations, served from /public)
 // =================================================================
 const IMG = {
-    creatorStudio: "https://images.unsplash.com/photo-1598550476439-6847785fcea6?auto=format&fit=crop&w=1600&q=70",
-    phoneFilming: "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=1600&q=70",
-    podcastMic: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=1600&q=70",
-    audienceCrowd: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1600&q=70",
-    laptopCreator: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?auto=format&fit=crop&w=1600&q=70",
-    socialFeed: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=1600&q=70",
-    cityNight: "https://images.unsplash.com/photo-1496564203457-11bb12075d90?auto=format&fit=crop&w=1600&q=70",
-    handshake: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1600&q=70",
+    creatorStudio:  "/generated/scene-creator-studio.jpg",
+    phoneFilming:   "/generated/scene-creator-phone-filming.jpg",
+    podcastMic:     "/generated/scene-creator-podcast-mic.jpg",
+    audienceCrowd:  "/generated/scene-creator-audience-crowd.jpg",
+    laptopCreator:  "/generated/scene-creator-laptop-creator.jpg",
+    socialFeed:     "/generated/scene-creator-social-feed.jpg",
+    cityNight:      "/generated/scene-creator-city-night.jpg",
+    handshake:      "/generated/scene-creator-handshake.jpg",
 };
 
 // Creator-economy stack the system overlays
