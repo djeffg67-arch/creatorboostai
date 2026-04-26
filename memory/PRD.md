@@ -149,9 +149,41 @@ Routes, premium navy/cyan design, multi-panel demo without proprietary definitio
 - 76/76 backend tests passing
 - Pricing UI verified rendering on desktop (1920×800)
 
-### Test Results — Iter 5
-- Backend: 76/76 (all prior + 9 new subscription tests)
-- Frontend: rendering verified, no regressions
+### Iter 6 (2026-02-26) — Final Launch Finishing Pass
+**Goal**: Wire monetization, conversion, share, and billing-portal surfaces using existing pages — NO redesign, NO rebuild.
+
+**Backend (`server.py` + `email_service.py`)**
+- `POST /api/share-demo` — sends personalized demo email via Resend (recipient_email, sender_name, demo_type=realtor|insurance, optional company/message). Always logs to `demo_shares` collection (audit trail) regardless of email outcome. Graceful degradation: `sent=false` + clear `reason` when `RESEND_API_KEY` is empty.
+- `POST /api/portal/billing-session` — Stripe Customer Portal. Uses official `stripe` SDK (via `asyncio.to_thread`) to mint a one-time portal session URL. Returns 401 invalid creds, 409 if no `stripe_customer_id` on file (until live subscription webhook lands).
+- `GET /api/admin/demo-shares?range=7d|30d|all` — admin demo-share log with date filter
+- `GET /api/admin/transactions?range=` — date filter added (was no-filter)
+- `GET /api/admin/subscriptions?range=` — date filter added
+- `_handle_checkout_completed` — now retrieves Stripe Checkout Session via official SDK to cache `stripe_customer_id` + `stripe_subscription_id` on payment_transactions + subscriptions rows (so billing portal will work as soon as live keys land)
+- `email_service.send_demo_share()` — branded HTML template w/ subject + body, demo URL, optional personal note quoted block
+
+**Frontend**
+- New shared component `components/site/DemoConversionCTA.jsx` injected at end of both demo pages:
+  - Primary CTA: "Book a Live Demo" → `/apply/strategy`
+  - 4 secondary CTAs: View Pricing, Start Training, Open Command Center, Email This Demo
+  - `autoScroll` prop: smooth-scrolls into view when `done=true` (final scene ends)
+  - `autoRedirect` prop: optional 8s redirect to `/apply/strategy` (currently disabled, ready to flip on)
+- Both demo share sections (`CustomerEmailSection` + `DemoEmailSection`) refactored:
+  - Primary: "Send Demo" button → `POST /api/share-demo` with success/error UI banners
+  - Secondary: "Copy link" button (preserved)
+  - Email preview pane unchanged (gives users a peek of what's being sent)
+- `Navbar.jsx` — added `Pricing` + `Apply` links (now 7 links + Experience Demo CTA, gap tightened to fit)
+- `ApplyPage.jsx` — `PROGRAM_ALIAS` map: `/apply/strategy` → `accelerator_7k` ($7K), `/apply/mastery` → `mastery_27k` ($27K). Keeps the original `/apply/accelerator_7k` URLs working.
+- `PortalPage.jsx` — new "Manage Subscription" button calling `/api/portal/billing-session`, opens Stripe portal in new tab
+- `AdminPage.jsx` — added date range toggle (7d / 30d / All-time), Subscriptions table, Payment Transactions table. Existing leads UI preserved.
+- `lib/api.js` — new helpers: `shareDemo`, `portalBillingSession`, `adminListSubscriptions`, `adminListTransactions`, `adminListDemoShares`
+
+**New collections**
+- `demo_shares` — `{id, recipient_email, sender_name, company, message, demo_type, demo_url, ip, ua, timestamp, sent, error}`
+
+**Test results — Iter 6**
+- Backend: 20/21 (1 skipped — magic-link portal/login can't extract token in headless test; UI flow seeded user directly to verify 409 path)
+- Frontend: 100% — all new testids verified on desktop (1920×1080) + mobile (390×844). 0px horizontal overflow.
+- Regression: existing one-time checkout, applications, admin leads, subscription 503-safety-rail all still green
 
 
 
