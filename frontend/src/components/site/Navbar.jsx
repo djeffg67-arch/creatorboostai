@@ -4,6 +4,11 @@ import { useTranslation } from "react-i18next";
 import { Menu, X } from "lucide-react";
 import { LanguageSelector } from "@/components/site/LanguageSelector";
 
+/**
+ * Global header for the unified CreatorBoostAI™ + BodyIQ-AI™ enterprise platform.
+ * Always shows BOTH brand names. Tagline strip below the bar reinforces
+ * positioning across every page.
+ */
 export const Navbar = () => {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
@@ -11,10 +16,10 @@ export const Navbar = () => {
     const links = [
         { to: "/", label: t("nav.home"), testid: "nav-home" },
         { to: "/demo", label: t("nav.demo"), testid: "nav-demo" },
+        { to: "/preview", label: "Command Center", testid: "nav-preview" },
         { to: "/training", label: t("nav.training"), testid: "nav-training" },
         { to: "/pricing", label: t("nav.pricing"), testid: "nav-pricing" },
         { to: "/apply/strategy", label: t("nav.apply"), testid: "nav-apply" },
-        { to: "/forensic-library", label: t("nav.library"), testid: "nav-library" },
         { to: "/contact", label: t("nav.contact"), testid: "nav-contact" },
     ];
 
@@ -23,20 +28,29 @@ export const Navbar = () => {
             data-testid="site-navbar"
             className="sticky top-0 z-50 w-full border-b border-white/5 bg-ink-800/80 backdrop-blur-xl"
         >
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
+            <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3.5 lg:px-8">
                 <Link to="/" className="flex items-center gap-2.5 group" data-testid="brand-logo">
                     <div className="relative h-7 w-7">
                         <div className="absolute inset-0 rounded-sm bg-cyan-500/20 blur-md group-hover:bg-cyan-400/40 transition-all" />
                         <div className="relative flex h-7 w-7 items-center justify-center rounded-sm border border-cyan-500/40 bg-ink-900">
-                            <span className="font-mono text-[10px] font-semibold text-cyan-400">B.IQ</span>
+                            <span className="font-mono text-[10px] font-semibold text-cyan-400">CB</span>
                         </div>
                     </div>
-                    <span className="font-heading text-lg font-semibold tracking-tight text-white">
-                        BodyIQ<span className="text-cyan-400">-AI</span>
+                    <div className="hidden sm:flex items-baseline gap-1.5 leading-none">
+                        <span className="font-heading text-[15px] font-semibold text-white">
+                            CreatorBoost<span className="text-cyan-400">AI</span><sup className="text-[8px] text-slate-400">™</sup>
+                        </span>
+                        <span className="text-slate-500 text-sm">+</span>
+                        <span className="font-heading text-[15px] font-semibold text-white">
+                            BodyIQ<span className="text-cyan-400">-AI</span><sup className="text-[8px] text-slate-400">™</sup>
+                        </span>
+                    </div>
+                    <span className="sm:hidden font-heading text-sm font-semibold text-white">
+                        CB<span className="text-cyan-400">AI</span> + BodyIQ<span className="text-cyan-400">-AI</span>
                     </span>
                 </Link>
 
-                <nav className="hidden items-center gap-5 lg:gap-7 md:flex">
+                <nav className="hidden items-center gap-4 lg:gap-6 md:flex">
                     {links.map((l) => (
                         <NavLink
                             key={l.to}
@@ -61,7 +75,7 @@ export const Navbar = () => {
                         data-testid="nav-cta-demo"
                         className="inline-flex items-center rounded-md bg-cyan-500 px-4 py-2 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_25px_rgba(6,182,212,0.55)]"
                     >
-                        {t("nav.experience_demo")}
+                        Watch Demo
                     </Link>
                 </div>
 
@@ -73,6 +87,15 @@ export const Navbar = () => {
                 >
                     {open ? <X size={20} /> : <Menu size={20} />}
                 </button>
+            </div>
+
+            {/* Tagline strip — appears site-wide directly under header */}
+            <div className="border-t border-white/5 bg-ink-900/60" data-testid="tagline-strip">
+                <div className="mx-auto max-w-7xl px-5 py-2 lg:px-8">
+                    <p className="text-center font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300/90 sm:text-[11px]">
+                        The AI Operating System That Runs and Grows Your Business · Powered by Real-Time Human Intelligence
+                    </p>
+                </div>
             </div>
 
             {open && (
@@ -98,7 +121,7 @@ export const Navbar = () => {
                             data-testid="nav-cta-demo-mobile"
                             className="mt-3 inline-flex items-center justify-center rounded-md bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-ink-900"
                         >
-                            {t("nav.experience_demo")}
+                            Watch Demo
                         </Link>
                         <LanguageSelector variant="mobile" />
                     </nav>

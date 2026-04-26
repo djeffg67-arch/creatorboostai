@@ -1,9 +1,58 @@
 # BodyIQ-AI + CreatorBoostAI — Master PRD & Handoff
 
-**Last update:** 2026-02-26 (end of day — user returning tomorrow with launch keys)
-**Project status:** 🟢 Code-complete for launch. Awaiting 7 environment variables.
+**Last update:** 2026-02-26 (full enterprise repositioning shipped — user returning with launch keys)
+**Project status:** 🟢 Code-complete + repositioned. Awaiting 7 environment variables.
 **Site URL:** https://bodyiq-training.preview.emergentagent.com
 **Supervisor:** backend + frontend RUNNING. 111/111 backend tests passing.
+
+---
+
+## 🆕 ITER 10 (2026-02-26) — Full Enterprise Repositioning
+
+User asked for "full positioning and structure correction" presenting platform as unified `CreatorBoostAI™ + BodyIQ-AI™` enterprise AI operating system.
+
+**Header (Navbar.jsx — overwritten)**
+- Both brand names always visible: "CreatorBoostAI™ + BodyIQ-AI™" (mobile collapses to "CBAI + BodyIQ-AI")
+- Sticky tagline strip below header: "THE AI OPERATING SYSTEM THAT RUNS AND GROWS YOUR BUSINESS · POWERED BY REAL-TIME HUMAN INTELLIGENCE"
+- Nav: Home · Demo · Command Center · Training · Pricing · Apply · Contact + "Watch Demo" CTA
+- Mobile menu mirrors all 7 links + LanguageSelector
+- BodyIQ always rendered as "BodyIQ-AI", never alone
+
+**HomePage.jsx — full rewrite**
+- Hero headline: "Run Your Entire Business With AI That Thinks, Decides, and Executes."
+- Subheadline mentions both products by TM, revenue/cost/scale outcomes
+- 3 CTAs: Watch Demo (→ /demo) · See Your Industry (anchor scroll) · Request Access (→ /apply/strategy)
+- Country/region selector embedded in hero
+- Trust stat strip: +34% revenue / -22% cost / 40+ systems / 7 industries
+- Section "Built for Every Revenue-Driven Industry" with 7 tiles:
+  - Real Estate (live, → /demo/realtor)
+  - Insurance (live, → /demo/insurance)
+  - Influencers & Creators (live, highlighted, → /preview) — monetization, audience intel, brand-deal automation
+  - Retail & Grocery (in production, → /contact)
+  - Airports & SITA Systems (in production, → /contact)
+  - Contractors & Service Businesses (in production, → /contact)
+  - Enterprise (→ /pricing)
+  - Each tile: icon + outcomes (3 bullets) + Live/In-production badge + CTA arrow
+- Section "This Is Not Body Language. This Is Business Intelligence." — explicit positioning correction with 4 pillars: Intent Detection · Closing Performance · Communication Lift · Revenue Outcomes
+- Section "Works With the Systems You Already Use" — 16 integrations grid (Salesforce, HubSpot, Yardi, AppFolio, QuickBooks, RealPage, MRI, Catalyst, Applied Epic, FUB, kvCORE, Slack, Twilio, Zapier, Stripe, Shopify) + 3 capabilities (Oversee · Connect · Execute)
+- Closing CTA strip with 3 buttons (Watch Demo · Open Command Center · Request Access)
+- Real-world business imagery (Unsplash CDN) — diverse team office + executive boardroom
+
+**VerticalPickerPage.jsx — extended**
+- Now 4 vertical demos (was 2): Realtor, Insurance, Creators (→ /preview), Airports/SITA (→ /contact for brief)
+- Hero rewritten: "See your industry executed." references both brand names
+- COMING_SOON updated: Retail, Contractors, Mortgage, Healthcare
+- Layout: 2×2 grid on desktop, single-column on mobile
+
+**i18n status**
+- Existing locale files still load (graceful EN fallback for new copy that hasn't been keyed)
+- Region selector + LanguageSelector unchanged
+- Phase 1 finishing pass for the 6 remaining unbound pages still queued
+
+**Verification**
+- Lint: 0 issues (HomePage, Navbar, VerticalPicker)
+- Visual screenshot: every required element confirmed (header, tagline strip, headline, sub, 3 CTAs, region, trust strip, industries section visible on scroll)
+- Backend: 111/111 tests still green (no backend changes in this iter)
 
 ---
 

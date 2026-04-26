@@ -41,13 +41,47 @@ const VERTICALS = [
         ringClass: "hover:ring-cyan-400/50",
         badge: "New",
     },
+    {
+        id: "creators",
+        href: "/preview",
+        Icon: Brain,
+        kicker: "Creators & Influencers",
+        title: "Audience monetization · brand-deal automation.",
+        copy: "Open the read-only Command Center preview built around the Creator economy — audience intelligence, brand-deal pipeline, revenue projections across storefront, paid tiers, and partnerships.",
+        bullets: [
+            { Icon: TrendingUp, text: "Audience intelligence — surface buyer-intent signals from across your channels" },
+            { Icon: Layers, text: "Brand-deal pipeline auto-built and auto-pitched on your behalf" },
+            { Icon: Globe2, text: "Revenue scaling across storefront, paid tiers, and sponsorships" },
+        ],
+        runtime: "Preview · interactive",
+        highlight: "from-cyan-500/20 via-purple-500/10",
+        ringClass: "hover:ring-cyan-400/50",
+        badge: "Live preview",
+    },
+    {
+        id: "airports",
+        href: "/contact",
+        Icon: Globe2,
+        kicker: "Airports & SITA Systems",
+        title: "Operations, concessions, ground handling.",
+        copy: "CreatorBoostAI overlays SITA, airline operational systems, and concession data into one terminal-wide command center. Throughput, dwell time, revenue per square foot — live.",
+        bullets: [
+            { Icon: Layers, text: "SITA + airline + concession + retail data overlaid in one view" },
+            { Icon: TrendingUp, text: "Throughput, dwell time, RPSF live · per-terminal and rollup" },
+            { Icon: Lock, text: "Compliance + audit-ready reporting across every gate, lounge, and concourse" },
+        ],
+        runtime: "In production · pilot Q3",
+        highlight: "from-cyan-500/20 via-amber-500/10",
+        ringClass: "hover:ring-cyan-400/50",
+        badge: "Request brief",
+    },
 ];
 
 const COMING_SOON = [
-    { name: "Mortgage", note: "Loan origination + servicing" },
+    { name: "Retail & Grocery", note: "Multi-store · POS · scheduling" },
+    { name: "Contractors", note: "Trades · dispatch · billing" },
+    { name: "Mortgage", note: "Origination + servicing" },
     { name: "Healthcare", note: "Clinics + RCM + scheduling" },
-    { name: "Financial Advisors", note: "Practice management + compliance" },
-    { name: "Hospitality", note: "Properties + revenue management" },
 ];
 
 export default function VerticalPickerPage() {
@@ -83,22 +117,20 @@ export default function VerticalPickerPage() {
                 <section className="text-center" data-testid="picker-hero">
                     <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5">
                         <Sparkles size={12} className="text-cyan-400" />
-                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">CreatorBoostAI · Cinematic Demos</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Industry Demos · Proof of Capability</span>
                     </div>
                     <h1 className="font-heading mx-auto mt-6 max-w-4xl text-balance text-3xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
-                        Choose your{" "}
-                        <span className="text-cyan-400">operating system.</span>
+                        See your industry{" "}
+                        <span className="text-cyan-400">executed.</span>
                     </h1>
                     <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base lg:text-lg">
-                        Pick the industry walkthrough you want to watch. Each demo is a fully automated 12-minute
-                        cinematic experience narrated by Nova, our executive A.I. voice — showing how
-                        CreatorBoostAI sits on top of the systems you already use and turns them into one
-                        command center.
+                        Pick the vertical you operate in. Each walkthrough — auto-playing, narrated, ~5–13 minutes — shows how
+                        CreatorBoostAI™ + BodyIQ-AI™ overlay your existing stack and turn it into one revenue-driven command center.
                     </p>
                 </section>
 
                 {/* Vertical cards */}
-                <section className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8" data-testid="vertical-cards">
+                <section className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-8" data-testid="vertical-cards">
                     {VERTICALS.map((v) => (
                         <Link
                             key={v.id}
@@ -147,7 +179,7 @@ export default function VerticalPickerPage() {
                                     data-testid={`watch-demo-${v.id}`}
                                     className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.35)] transition-all group-hover:bg-cyan-400 group-hover:shadow-[0_0_25px_rgba(6,182,212,0.55)]"
                                 >
-                                    <Play size={14} fill="currentColor" /> Watch the {v.runtime.split("·")[1].trim()} demo
+                                    <Play size={14} fill="currentColor" /> {v.id === "creators" ? "Open Creator Preview" : v.id === "airports" ? "Request Airport Brief" : `Watch the ${v.runtime.split("·")[1].trim()} demo`}
                                 </span>
                                 <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400 group-hover:text-cyan-300">
                                     No clicks · auto-plays
