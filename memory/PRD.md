@@ -1,9 +1,36 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-27 (Iter 12 — site-wide imagery layer added)
-**Project status:** 🟢 Code-complete + repositioned + Creator demo live + imagery throughout. Awaiting 7 environment variables.
+**Last update:** 2026-02-27 (Iter 13 — AI-generated brand illustrations replace stock imagery)
+**Project status:** 🟢 Code-complete + repositioned + Creator demo + brand-illustrated. Awaiting 7 environment variables.
 **Site URL:** https://bodyiq-training.preview.emergentagent.com
-**Supervisor:** backend + frontend RUNNING. 111/111 backend tests passing. Iter 11 frontend tests 12/12.
+**Supervisor:** backend + frontend RUNNING. 111/111 backend tests passing.
+
+---
+
+## 🆕 ITER 13 (2026-02-27) — AI-Generated Brand Illustrations
+
+User asked for distinctive, brand-consistent imagery instead of generic stock. Generated 11 custom illustrations with Gemini Nano Banana (`gemini-3.1-flash-image-preview`) via Emergent LLM Key.
+
+**Pipeline**
+- New `/app/backend/scripts/generate_brand_images.py` — standalone Python script with 11 hand-crafted prompts, all sharing a common style prefix (deep navy `#07101e`, electric cyan `#06b6d4` accents, ambient grid texture, atmospheric volumetric light, no text/logos/faces). Saves to `/app/frontend/public/generated/<name>.jpg` so the frontend dev server serves them as `/generated/*.jpg`.
+- Idempotent — re-running the script skips already-generated files. To regenerate, delete the file first.
+- Each image: ~650–720 KB JPEG, 16:9 cinematic composition.
+
+**11 illustrations generated**
+- 7 industry tiles: real-estate, insurance, creators, retail, airports, contractors, enterprise
+- 4 demo cards: realtor, insurance, creator, airports
+
+**`/app/frontend/src/lib/images.js`**
+- `INDUSTRY_IMG` and `DEMO_IMG` swapped from Unsplash CDN URLs to local `/generated/*.jpg` paths.
+- `PAGE_HERO` and `SECTION_BG` still use Unsplash CDN (subtle background usage; not worth regenerating).
+
+**Visual verification (smoke screenshots)**
+- HomePage Industries section: 7 cohesive AI illustrations rendering with dark-navy + cyan aesthetic ✓
+- HomePage Demo Selector: 4 cinematic AI illustrations rendering ✓
+- Lint clean: `images.js` (JS) and `generate_brand_images.py` (Python) pass ✓
+
+**Cost note**
+- Gemini Nano Banana via Emergent LLM Key. 11 generations consumed credits on the universal key — usage visible in Profile → Universal Key. No per-render cost going forward (images are static files now).
 
 ---
 
