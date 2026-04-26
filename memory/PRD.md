@@ -180,10 +180,31 @@ Routes, premium navy/cyan design, multi-panel demo without proprietary definitio
 **New collections**
 - `demo_shares` — `{id, recipient_email, sender_name, company, message, demo_type, demo_url, ip, ua, timestamp, sent, error}`
 
-**Test results — Iter 6**
-- Backend: 20/21 (1 skipped — magic-link portal/login can't extract token in headless test; UI flow seeded user directly to verify 409 path)
-- Frontend: 100% — all new testids verified on desktop (1920×1080) + mobile (390×844). 0px horizontal overflow.
-- Regression: existing one-time checkout, applications, admin leads, subscription 503-safety-rail all still green
+### Iter 7 (2026-02-26) — Founder Bypass + CB Preview Mode
+**Goal**: Activate founder master access + read-only Command Center preview. Demos and UI structure remain frozen.
+
+**Backend (`server.py`)**
+- `POST /api/founder/auth` — validates `FOUNDER_KEY` env (constant-time compare via `secrets.compare_digest`), 503 fail-shut when env empty, 401 on bad key. On success, idempotently creates/refreshes user `jeffrey@creatorboostai.com` with `role:"founder"` and seeds 9 entitlements (3 one-time + 4 subscription tiers + 2 high-ticket). Returns `{email, token, role, entitlements}`.
+- New env var: `FOUNDER_KEY=jeffrey-2026-bodyiq-founder-master` (in `backend/.env`)
+
+**Frontend**
+- `pages/FounderPage.jsx` — new `/founder?key=…` route. POSTs to `/api/founder/auth`, strips `?key=` from URL via `history.replaceState`, persists user to localStorage, redirects to `/portal` (auto-login, full entitlement view).
+- `pages/PreviewPage.jsx` — new `/preview` (alias `/cb-preview`) read-only Command Center:
+  - Header + "Activate the live system" CTA → `/apply/strategy`
+  - Section A · Command Center sample stats (revenue $1.84M, leads 2,317, opportunities 48, forecast $4.2M) + Salesforce/HubSpot/QuickBooks integration tiles
+  - Section B · National & Regional drill-down (4 regions × cities × offices, fully interactive but sample data)
+  - Section C · AI Opportunity Panel (6 insights: high-value leads, $320K revenue, follow-up gaps, churn risk, trigger events, AI-drafted proposals)
+  - Section D · Creator/Influencer view (audience growth, brand-deal opportunities, revenue projection, engagement quality + 3 suggested actions: Launch Campaign / Optimize Content / Monetize Audience)
+  - Section E · Locked execution actions (Run Campaign, Execute Follow-Up, Optimize Revenue) — clicking shows toast "Available after activation"
+- `App.js` — registered `/founder`, `/preview`, `/cb-preview` routes
+- `HomePage.jsx` — added `hero-cta-command-center` button → `/preview`
+- `DemoConversionCTA.jsx` — secondary CTA "Open Command Center" now links to `/preview` (was `/portal`)
+
+**Test results — Iter 7**
+- Backend: 12/12 (founder auth: empty/wrong key 401, correct 200 with 9 entitlements, idempotent token stability, 422 missing field, integration with /api/portal/login)
+- Frontend: 100% — all preview testids verified, founder flow end-to-end validated (key strip + redirect + portal render), DemoConversionCTA portal link confirmed switched to `/preview`
+- Mobile (390×844): 0px overflow on `/preview`; 3px cosmetic on `/founder` card (no UX impact)
+- Regression: existing share-demo, admin login, checkout, applications, portal login all green
 
 
 
