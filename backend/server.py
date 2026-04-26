@@ -642,18 +642,28 @@ class ShareDemoRequest(BaseModel):
     company: Optional[str] = Field(None, max_length=120)
     message: Optional[str] = Field(None, max_length=1000)
     origin_url: Optional[str] = None
+    # "demo" → links to /demo/{demo_type}; "preview" → links to /preview
+    # Used by /preview's "Send to my agent" button to share the read-only
+    # Command Center with managers/booking agents/decision-makers.
+    share_target: str = Field("demo", pattern=r"^(demo|preview)$")
 
 
 @api_router.post("/share-demo", status_code=202)
 async def share_demo(payload: ShareDemoRequest, http_request: Request):
-    """Sends a personalized demo-share email via Resend.
+    """Sends a personalized share email via Resend.
+
+    `share_target="demo"` (default) → routes recipient to /demo/{realtor|insurance}.
+    `share_target="preview"` → routes recipient to /preview (CB Command Center).
 
     Always logs to the `demo_shares` collection so we get a usage trail even
     when RESEND_API_KEY is empty (graceful degradation). Returns 202 with
     `{sent: bool, reason}` so the client can show success/error UI.
     """
     base = (payload.origin_url or os.environ.get("SITE_URL") or str(http_request.base_url)).rstrip("/")
-    demo_url = f"{base}/demo/{payload.demo_type}"
+    if payload.share_target == "preview":
+        demo_url = f"{base}/preview"
+    else:
+        demo_url = f"{base}/demo/{payload.demo_type}"
 
     log_doc = {
         "id": str(uuid.uuid4()),
@@ -662,6 +672,7 @@ async def share_demo(payload: ShareDemoRequest, http_request: Request):
         "company": payload.company,
         "message": payload.message,
         "demo_type": payload.demo_type,
+        "share_target": payload.share_target,
         "demo_url": demo_url,
         "ip": http_request.client.host if http_request.client else None,
         "ua": (http_request.headers.get("user-agent", "") or "")[:200],
@@ -680,6 +691,7 @@ async def share_demo(payload: ShareDemoRequest, http_request: Request):
             demo_type=payload.demo_type,
             company=(payload.company.strip() if payload.company else None),
             message=(payload.message.strip() if payload.message else None),
+            kind=payload.share_target,
         )
         if not sent:
             error_msg = "Email service unavailable (RESEND_API_KEY not configured)."

@@ -200,11 +200,23 @@ Routes, premium navy/cyan design, multi-panel demo without proprietary definitio
 - `HomePage.jsx` — added `hero-cta-command-center` button → `/preview`
 - `DemoConversionCTA.jsx` — secondary CTA "Open Command Center" now links to `/preview` (was `/portal`)
 
-**Test results — Iter 7**
-- Backend: 12/12 (founder auth: empty/wrong key 401, correct 200 with 9 entitlements, idempotent token stability, 422 missing field, integration with /api/portal/login)
-- Frontend: 100% — all preview testids verified, founder flow end-to-end validated (key strip + redirect + portal render), DemoConversionCTA portal link confirmed switched to `/preview`
-- Mobile (390×844): 0px overflow on `/preview`; 3px cosmetic on `/founder` card (no UX impact)
-- Regression: existing share-demo, admin login, checkout, applications, portal login all green
+### Iter 8 (2026-02-26) — Send-to-Agent (Preview Sharing)
+**Goal**: Turn the read-only `/preview` Command Center into its own viral channel — let creators/influencers send the preview link to their managers, booking agents, or partners in one click.
+
+**Backend**
+- `ShareDemoRequest` extended with optional `share_target: "demo" | "preview"` (default `"demo"`, regex-validated)
+- `POST /api/share-demo` — when `share_target="preview"`, the demo_url becomes `{base}/preview` instead of `{base}/demo/{vertical}`. Audit row in `demo_shares` records the new field.
+- `email_service.send_demo_share()` — new `kind="demo" | "preview"` param. When `kind="preview"`, subject becomes "{sender} sent you the CreatorBoostAI Command Center preview", body uses preview-themed copy, and CTA button reads "Open the Command Center →".
+
+**Frontend**
+- `pages/PreviewPage.jsx` — new `<SendToAgent>` component injected directly under the Creator/Influencer view inside Section D. Inline form with name + recipient email + optional message. POSTs to `/api/share-demo` with `share_target="preview"`. Success/error UI banners. "Copy link" preserved as secondary.
+
+**Tests**
+- New `tests/test_iter8_send_to_agent.py` (3 tests, all green): default share_target links to demo, share_target=preview links to /preview, invalid target rejected with 422.
+
+**Test results — Iter 8**
+- Backend: 3/3 new + all prior (96 + 3 = 99 cumulative)
+- Frontend: send-to-agent block visible on /preview, error UI surfaces correctly when Resend not configured (graceful degradation)
 
 
 

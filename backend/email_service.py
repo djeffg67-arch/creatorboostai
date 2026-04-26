@@ -128,15 +128,20 @@ async def send_demo_share(
     demo_type: str,
     company: Optional[str] = None,
     message: Optional[str] = None,
+    kind: str = "demo",
 ) -> bool:
-    """Send a personalized demo share email via Resend.
+    """Send a personalized share email via Resend.
 
-    Used by POST /api/share-demo from the demo pages' share module. The link
-    points at the live demo (/demo/realtor or /demo/insurance). Falls back to
-    log-only if RESEND_API_KEY is empty.
+    `kind="demo"` (default) — share a vertical demo (realtor/insurance).
+    `kind="preview"` — share the CB Preview Command Center (read-only sample).
+    Falls back to log-only if RESEND_API_KEY is empty.
     """
     vertical = "Insurance" if demo_type == "insurance" else "Real Estate"
-    title = f"{sender_name} sent you a CreatorBoostAI {vertical} demo"
+    is_preview = kind == "preview"
+    if is_preview:
+        title = f"{sender_name} sent you the CreatorBoostAI Command Center preview"
+    else:
+        title = f"{sender_name} sent you a CreatorBoostAI {vertical} demo"
     safe_msg = (message or "").strip().replace("<", "&lt;").replace(">", "&gt;")
     msg_block = (
         f'<p style="margin:18px 0;padding:14px 16px;border-left:3px solid #22D3EE;background:#0A0F1C;'
@@ -144,15 +149,33 @@ async def send_demo_share(
         if safe_msg else ""
     )
     company_line = f' at <strong style="color:#F8FAFC;">{company}</strong>' if company else ""
+
+    if is_preview:
+        intro = (
+            "I wanted you to see the live operating layer I'm using. "
+            "CreatorBoostAI sits on top of your existing systems and executes "
+            "across them — pipelines, follow-ups, content, campaigns, monetization."
+        )
+        cta_label = "Open the Command Center →"
+        meta_line = "Read-only preview · sample data · no signup."
+    else:
+        intro = (
+            f"CreatorBoostAI is the execution layer that sits on top of your "
+            f"existing {vertical.lower()} stack — CRM, AMS, MLS, marketing, "
+            f"communications — and unifies them into one operating system."
+        )
+        cta_label = f"View the {vertical} Demo →"
+        meta_line = "No signup needed. About 13 minutes."
+
     body = f"""
 <p>Hi,</p>
 <p><strong style="color:#F8FAFC;">{sender_name}</strong>{company_line} thought you'd want to see this.</p>
-<p>CreatorBoostAI is the execution layer that sits on top of your existing {vertical.lower()} stack — CRM, AMS, MLS, marketing, communications — and unifies them into one operating system.</p>
+<p>{intro}</p>
 {msg_block}
 <p style="margin-top:22px;">
-  <a href="{demo_url}" style="display:inline-block;background:#06B6D4;color:#0A0F1C;padding:14px 22px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">View the {vertical} Demo →</a>
+  <a href="{demo_url}" style="display:inline-block;background:#06B6D4;color:#0A0F1C;padding:14px 22px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">{cta_label}</a>
 </p>
 <p style="margin-top:18px;font-size:13px;color:#94A3B8;">Or open in your browser: <a href="{demo_url}" style="color:#22D3EE;">{demo_url}</a></p>
-<p style="margin-top:24px;font-size:13px;color:#94A3B8;">No signup needed. About 13 minutes.</p>
+<p style="margin-top:24px;font-size:13px;color:#94A3B8;">{meta_line}</p>
 """
     return await _send(recipient_email, title, _wrap(title, body))

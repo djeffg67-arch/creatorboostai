@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { toast } from "sonner";
+import { shareDemo } from "@/lib/api";
 import {
     Sparkles, ArrowRight, Lock, DollarSign, Users, Target, TrendingUp,
     Layers, Globe2, Brain, Zap, Building2, BarChart3, Activity,
-    Mic, Eye, Megaphone, Rocket, Briefcase, MapPin, Network,
+    Mic, Eye, Megaphone, Rocket, Briefcase, MapPin, Network, Send, Copy,
 } from "lucide-react";
 
 /**
@@ -120,6 +121,9 @@ export default function PreviewPage() {
                             <SuggestedAction Icon={Rocket} title="Monetize audience" body="Storefront + paid tier unlock projected $11K incremental MRR." />
                         </div>
                     </div>
+
+                    {/* Send to my agent — viral channel for managers/booking agents */}
+                    <SendToAgent />
                 </Section>
 
                 {/* E. Locked Actions */}
@@ -139,6 +143,127 @@ export default function PreviewPage() {
 }
 
 // ---------- Subcomponents ----------
+
+// ---------- Send-to-my-agent share form (preview link) ----------
+const SendToAgent = () => {
+    const [form, setForm] = useState({ name: "", email: "", message: "" });
+    const [sending, setSending] = useState(false);
+    const [result, setResult] = useState(null); // {ok, msg}
+    const handle = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+    const previewLink = typeof window !== "undefined" ? `${window.location.origin}/preview` : "/preview";
+
+    const send = async () => {
+        if (!form.name || !form.email) { toast.error("Your name and recipient email are required"); return; }
+        setSending(true); setResult(null);
+        try {
+            const res = await shareDemo({
+                recipient_email: form.email,
+                sender_name: form.name,
+                message: form.message || undefined,
+                demo_type: "realtor",       // required by backend; ignored when share_target=preview
+                share_target: "preview",
+                origin_url: typeof window !== "undefined" ? window.location.origin : undefined,
+            });
+            if (res.sent) {
+                setResult({ ok: true, msg: `Preview link sent to ${form.email}.` });
+                toast.success("Preview link sent");
+            } else {
+                setResult({ ok: false, msg: res.reason || "Email service unavailable. Use Copy link instead." });
+                toast.error("Could not send. Copy link as a fallback.");
+            }
+        } catch (err) {
+            const detail = err?.response?.data?.detail;
+            const msg = typeof detail === "string" ? detail : "Network error. Try again.";
+            setResult({ ok: false, msg });
+            toast.error(msg);
+        } finally { setSending(false); }
+    };
+
+    const copyLink = async () => {
+        try { await navigator.clipboard.writeText(previewLink); toast.success("Preview link copied"); }
+        catch { toast.error("Copy failed"); }
+    };
+
+    return (
+        <div
+            data-testid="preview-send-to-agent"
+            className="mt-8 rounded-md border border-cyan-500/30 bg-gradient-to-b from-cyan-500/5 to-transparent p-5 sm:p-6"
+        >
+            <div className="flex items-center gap-2">
+                <Send size={13} className="text-cyan-400" />
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Send to my agent</span>
+            </div>
+            <h3 className="font-heading mt-2 text-xl font-semibold text-white sm:text-2xl">
+                Show this to your manager, booking agent, or partner.
+            </h3>
+            <p className="mt-1 max-w-2xl text-sm text-slate-300">
+                Send the read-only Command Center directly to the people who decide on monetization. One tap. No login on their end.
+            </p>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <div className="lg:col-span-7 space-y-3">
+                    <input
+                        data-testid="agent-share-name"
+                        type="text" value={form.name} onChange={handle("name")}
+                        placeholder="Your name *"
+                        className="w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+                    />
+                    <input
+                        data-testid="agent-share-email"
+                        type="email" value={form.email} onChange={handle("email")}
+                        placeholder="Recipient email *"
+                        className="w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+                    />
+                    <textarea
+                        data-testid="agent-share-message"
+                        rows={2} value={form.message} onChange={handle("message")}
+                        placeholder="Personal note (optional)"
+                        className="w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            data-testid="agent-share-send"
+                            onClick={send} disabled={sending}
+                            className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-400 disabled:opacity-60"
+                        >
+                            {sending ? "Sending…" : <><Send size={14} /> Send preview</>}
+                        </button>
+                        <button
+                            data-testid="agent-share-copy-link"
+                            onClick={copyLink}
+                            className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-4 py-3 text-sm font-semibold text-cyan-300 hover:bg-cyan-500 hover:text-ink-900"
+                        >
+                            <Copy size={13} /> Copy link
+                        </button>
+                    </div>
+                </div>
+                <div className="lg:col-span-5">
+                    {result ? (
+                        <div
+                            data-testid={result.ok ? "agent-share-success" : "agent-share-error"}
+                            className={`rounded-md border p-4 ${result.ok ? "border-emerald-500/40 bg-emerald-500/5" : "border-red-500/40 bg-red-500/5"}`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${result.ok ? "bg-emerald-400" : "bg-red-400"}`} />
+                                <span className={`font-mono text-[10px] uppercase tracking-[0.22em] ${result.ok ? "text-emerald-300" : "text-red-300"}`}>
+                                    {result.ok ? "Sent · check inbox" : "Send failed"}
+                                </span>
+                            </div>
+                            <p className="mt-1.5 text-sm text-slate-200">{result.msg}</p>
+                        </div>
+                    ) : (
+                        <div className="rounded-md border border-white/10 bg-ink-800 p-4">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Preview link</p>
+                            <p className="mt-2 break-all font-mono text-xs text-cyan-300">{previewLink}</p>
+                            <p className="mt-3 text-xs text-slate-500">Recipient sees the same read-only Command Center. No signup, no data leakage.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const Section = ({ icon: Icon, label, badge, children }) => (
     <section className="mt-12">
