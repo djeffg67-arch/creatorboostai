@@ -118,3 +118,41 @@ async def send_forensic_confirmation(email: str) -> bool:
 <p>Questions? Reply directly to this email.</p>
 """
     return await _send(email, "Forensic Visual Library – Access Confirmed", _wrap(title, body))
+
+
+async def send_demo_share(
+    *,
+    recipient_email: str,
+    sender_name: str,
+    demo_url: str,
+    demo_type: str,
+    company: Optional[str] = None,
+    message: Optional[str] = None,
+) -> bool:
+    """Send a personalized demo share email via Resend.
+
+    Used by POST /api/share-demo from the demo pages' share module. The link
+    points at the live demo (/demo/realtor or /demo/insurance). Falls back to
+    log-only if RESEND_API_KEY is empty.
+    """
+    vertical = "Insurance" if demo_type == "insurance" else "Real Estate"
+    title = f"{sender_name} sent you a CreatorBoostAI {vertical} demo"
+    safe_msg = (message or "").strip().replace("<", "&lt;").replace(">", "&gt;")
+    msg_block = (
+        f'<p style="margin:18px 0;padding:14px 16px;border-left:3px solid #22D3EE;background:#0A0F1C;'
+        f'color:#CBD5E1;font-style:italic;">{safe_msg}</p>'
+        if safe_msg else ""
+    )
+    company_line = f' at <strong style="color:#F8FAFC;">{company}</strong>' if company else ""
+    body = f"""
+<p>Hi,</p>
+<p><strong style="color:#F8FAFC;">{sender_name}</strong>{company_line} thought you'd want to see this.</p>
+<p>CreatorBoostAI is the execution layer that sits on top of your existing {vertical.lower()} stack — CRM, AMS, MLS, marketing, communications — and unifies them into one operating system.</p>
+{msg_block}
+<p style="margin-top:22px;">
+  <a href="{demo_url}" style="display:inline-block;background:#06B6D4;color:#0A0F1C;padding:14px 22px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">View the {vertical} Demo →</a>
+</p>
+<p style="margin-top:18px;font-size:13px;color:#94A3B8;">Or open in your browser: <a href="{demo_url}" style="color:#22D3EE;">{demo_url}</a></p>
+<p style="margin-top:24px;font-size:13px;color:#94A3B8;">No signup needed. About 13 minutes.</p>
+"""
+    return await _send(recipient_email, title, _wrap(title, body))

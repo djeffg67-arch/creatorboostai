@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import asyncio
 import logging
 import csv
 import io
@@ -32,7 +33,8 @@ from emergentintegrations.payments.stripe.checkout import (
 
 # ---------- Email ----------
 from email_service import (
-    send_lead_welcome, send_contact_ack, send_training_confirmation, send_forensic_confirmation
+    send_lead_welcome, send_contact_ack, send_training_confirmation,
+    send_forensic_confirmation, send_demo_share,
 )
 
 # ---------- TTS ----------
@@ -315,8 +317,17 @@ async def export_leads_csv(token: str = Query(...)):
 
 
 @api_router.get("/admin/transactions")
-async def list_transactions(_: str = Depends(verify_admin)):
-    docs = await db.payment_transactions.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+async def list_transactions(
+    _: str = Depends(verify_admin),
+    range: str = Query("all", regex="^(7d|30d|all)$"),
+):
+    """Admin · payment_transactions list, filtered by created_at window."""
+    query: Dict[str, Any] = {}
+    if range != "all":
+        days = 7 if range == "7d" else 30
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        query["created_at"] = {"$gte": cutoff}
+    docs = await db.payment_transactions.find(query, {"_id": 0}).sort("created_at", -1).to_list(2000)
     return docs
 
 
@@ -560,10 +571,155 @@ async def portal_login(payload: PortalLoginRequest):
     }
 
 
+# ---------- Stripe Customer Portal (self-serve subscription management) ----------
+class BillingPortalRequest(BaseModel):
+    email: EmailStr
+    token: str
+    return_url: Optional[str] = None
+
+
+@api_router.post("/portal/billing-session")
+async def portal_billing_session(payload: BillingPortalRequest, http_request: Request):
+    """Generates a one-time Stripe Customer Portal URL so authenticated portal
+    users can manage their subscription (update card, cancel, switch plan).
+
+    Auth: the user must present their email + portal_token. We then look up the
+    Stripe customer_id we cached during checkout and ask Stripe to mint a
+    short-lived session URL.
+
+    Note: requires `stripe_customer_id` to be present on a `subscriptions` row
+    for this user. That field is populated when the customer.subscription.created
+    webhook fires after live checkout. Until live keys + webhook land, this
+    returns 503 with a clear message.
+    """
+    if not STRIPE_API_KEY:
+        raise HTTPException(status_code=503, detail="Billing portal unavailable (missing STRIPE_API_KEY)")
+
+    user = await db.users.find_one(
+        {"email": payload.email, "portal_token": payload.token}, {"_id": 0}
+    )
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or access token")
+
+    sub = await db.subscriptions.find_one(
+        {"email": payload.email, "stripe_customer_id": {"$exists": True, "$ne": None}},
+        {"_id": 0},
+    )
+    if not sub or not sub.get("stripe_customer_id"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No active Stripe subscription on file. The billing portal will "
+                "activate as soon as your subscription is processed (you'll see "
+                "a confirmation email)."
+            ),
+        )
+
+    # Use the official Stripe SDK directly for billing_portal — the
+    # emergentintegrations wrapper covers Checkout but not Customer Portal.
+    import stripe as _stripe
+    _stripe.api_key = STRIPE_API_KEY
+    origin = (payload.return_url or os.environ.get("SITE_URL") or str(http_request.base_url)).rstrip("/")
+    return_url = f"{origin}/portal"
+    try:
+        session = await asyncio.to_thread(
+            _stripe.billing_portal.Session.create,
+            customer=sub["stripe_customer_id"],
+            return_url=return_url,
+        )
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Stripe billing portal failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not open billing portal")
+    return {"url": session.url}
+
+
+# ---------- Demo share (Resend) ----------
+class ShareDemoRequest(BaseModel):
+    recipient_email: EmailStr
+    sender_name: str = Field(..., min_length=1, max_length=120)
+    demo_type: str = Field(..., pattern=r"^(realtor|insurance)$")
+    company: Optional[str] = Field(None, max_length=120)
+    message: Optional[str] = Field(None, max_length=1000)
+    origin_url: Optional[str] = None
+
+
+@api_router.post("/share-demo", status_code=202)
+async def share_demo(payload: ShareDemoRequest, http_request: Request):
+    """Sends a personalized demo-share email via Resend.
+
+    Always logs to the `demo_shares` collection so we get a usage trail even
+    when RESEND_API_KEY is empty (graceful degradation). Returns 202 with
+    `{sent: bool, reason}` so the client can show success/error UI.
+    """
+    base = (payload.origin_url or os.environ.get("SITE_URL") or str(http_request.base_url)).rstrip("/")
+    demo_url = f"{base}/demo/{payload.demo_type}"
+
+    log_doc = {
+        "id": str(uuid.uuid4()),
+        "recipient_email": payload.recipient_email,
+        "sender_name": payload.sender_name,
+        "company": payload.company,
+        "message": payload.message,
+        "demo_type": payload.demo_type,
+        "demo_url": demo_url,
+        "ip": http_request.client.host if http_request.client else None,
+        "ua": (http_request.headers.get("user-agent", "") or "")[:200],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "sent": False,
+        "error": None,
+    }
+
+    sent = False
+    error_msg = None
+    try:
+        sent = await send_demo_share(
+            recipient_email=payload.recipient_email,
+            sender_name=payload.sender_name.strip(),
+            demo_url=demo_url,
+            demo_type=payload.demo_type,
+            company=(payload.company.strip() if payload.company else None),
+            message=(payload.message.strip() if payload.message else None),
+        )
+        if not sent:
+            error_msg = "Email service unavailable (RESEND_API_KEY not configured)."
+    except Exception as e:
+        logging.getLogger(__name__).error(f"share-demo email failed: {e}")
+        error_msg = "Email service error. The link is still valid — try copying it instead."
+
+    log_doc["sent"] = sent
+    log_doc["error"] = error_msg
+    await db.demo_shares.insert_one(log_doc)
+
+    return {"sent": sent, "demo_url": demo_url, "reason": error_msg}
+
+
+@api_router.get("/admin/demo-shares")
+async def admin_list_demo_shares(
+    _: str = Depends(verify_admin),
+    range: str = Query("all", regex="^(7d|30d|all)$"),
+):
+    """Admin · demo-share log, date-filtered."""
+    query: Dict[str, Any] = {}
+    if range != "all":
+        days = 7 if range == "7d" else 30
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        query["timestamp"] = {"$gte": cutoff}
+    docs = await db.demo_shares.find(query, {"_id": 0}).sort("timestamp", -1).to_list(2000)
+    return docs
+
+
 @api_router.get("/admin/subscriptions")
-async def admin_list_subscriptions(_: str = Depends(verify_admin)):
-    """Admin: list all CreatorBoostAI subscription rows (active + canceled)."""
-    docs = await db.subscriptions.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+async def admin_list_subscriptions(
+    _: str = Depends(verify_admin),
+    range: str = Query("all", regex="^(7d|30d|all)$"),
+):
+    """Admin: list CreatorBoostAI subscription rows (active + canceled), date-filtered."""
+    query: Dict[str, Any] = {}
+    if range != "all":
+        days = 7 if range == "7d" else 30
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        query["created_at"] = {"$gte": cutoff}
+    docs = await db.subscriptions.find(query, {"_id": 0}).sort("created_at", -1).to_list(2000)
     return docs
 
 
@@ -898,6 +1054,30 @@ async def _handle_checkout_completed(event) -> None:
             await db.payment_transactions.update_one(
                 {"session_id": event.session_id}, {"$set": {"email": hinted}}
             )
+    # For subscriptions: retrieve the Stripe Checkout Session via official SDK
+    # so we can cache stripe_customer_id + stripe_subscription_id on the txn.
+    # The Emergent webhook wrapper hides these fields. We only run this when
+    # a real STRIPE_API_KEY is available — silently skipped during testing.
+    if (txn.get("subscription") or txn.get("product_key") in SUBSCRIPTIONS) and STRIPE_API_KEY:
+        try:
+            import stripe as _stripe
+            _stripe.api_key = STRIPE_API_KEY
+            sess = await asyncio.to_thread(
+                _stripe.checkout.Session.retrieve, event.session_id
+            )
+            txn["stripe_customer_id"] = sess.get("customer")
+            txn["stripe_subscription_id"] = sess.get("subscription")
+            await db.payment_transactions.update_one(
+                {"session_id": event.session_id},
+                {"$set": {
+                    "stripe_customer_id": txn["stripe_customer_id"],
+                    "stripe_subscription_id": txn["stripe_subscription_id"],
+                }},
+            )
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                f"Could not retrieve Stripe session {event.session_id} for customer/sub IDs: {e}"
+            )
     await _trigger_post_purchase_email(txn)
     await _grant_access_for_txn(txn)
     # If subscription, also seed/refresh the subscriptions collection
@@ -913,23 +1093,28 @@ async def _upsert_subscription_record_from_txn(txn: Dict[str, Any]) -> None:
         return
     plan = SUBSCRIPTIONS[plan_key]
     now_iso = datetime.now(timezone.utc).isoformat()
+    set_doc = {
+        "email": email,
+        "plan_key": plan_key,
+        "tier": plan["tier"],
+        "interval": plan["interval"],
+        "amount": plan["amount"],
+        "currency": plan["currency"],
+        "status": "active",
+        "session_id": txn.get("session_id"),
+        "stripe_price_id": txn.get("stripe_price_id"),
+        "started_at": now_iso,
+        "last_renewal_at": now_iso,
+        "updated_at": now_iso,
+    }
+    # Cache the Stripe customer + subscription IDs so the billing portal works
+    if txn.get("stripe_customer_id"):
+        set_doc["stripe_customer_id"] = txn["stripe_customer_id"]
+    if txn.get("stripe_subscription_id"):
+        set_doc["stripe_subscription_id"] = txn["stripe_subscription_id"]
     await db.subscriptions.update_one(
         {"email": email, "plan_key": plan_key},
-        {"$set": {
-            "email": email,
-            "plan_key": plan_key,
-            "tier": plan["tier"],
-            "interval": plan["interval"],
-            "amount": plan["amount"],
-            "currency": plan["currency"],
-            "status": "active",
-            "session_id": txn.get("session_id"),
-            "stripe_price_id": txn.get("stripe_price_id"),
-            "started_at": now_iso,
-            "last_renewal_at": now_iso,
-            "updated_at": now_iso,
-        },
-         "$setOnInsert": {
+        {"$set": set_doc, "$setOnInsert": {
             "id": str(uuid.uuid4()),
             "created_at": now_iso,
         }},

@@ -6,9 +6,14 @@ import {
     adminStats,
     adminExportUrl,
     adminPickerStats,
+    adminListSubscriptions,
+    adminListTransactions,
 } from "@/lib/api";
 import { toast } from "sonner";
-import { LogIn, Download, RefreshCw, Loader2, Users, Mail, Inbox, Building2, ShieldCheck, MousePointerClick } from "lucide-react";
+import {
+    LogIn, Download, RefreshCw, Loader2, Users, Mail, Inbox,
+    Building2, ShieldCheck, MousePointerClick, CreditCard, Repeat,
+} from "lucide-react";
 
 const STORAGE_KEY = "bodyiq_admin_token";
 
@@ -18,27 +23,34 @@ export default function AdminPage() {
     const [leads, setLeads] = useState([]);
     const [stats, setStats] = useState(null);
     const [pickerStats, setPickerStats] = useState(null);
+    const [subscriptions, setSubscriptions] = useState([]);
+    const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState("all");
+    const [dateRange, setDateRange] = useState("all"); // 7d | 30d | all
 
-    const loadData = useCallback(async (t) => {
+    const loadData = useCallback(async (t, range = "all") => {
         setLoading(true);
         try {
-            const [leadsRes, statsRes, pickerRes] = await Promise.all([
+            const [leadsRes, statsRes, pickerRes, subsRes, txRes] = await Promise.all([
                 adminListLeads(t),
                 adminStats(t),
                 adminPickerStats(t).catch(() => null),
+                adminListSubscriptions(t, range).catch(() => []),
+                adminListTransactions(t, range).catch(() => []),
             ]);
             setLeads(leadsRes);
             setStats(statsRes);
             setPickerStats(pickerRes);
+            setSubscriptions(subsRes || []);
+            setTransactions(txRes || []);
         } catch (err) {
             if (err?.response?.status === 401) {
                 localStorage.removeItem(STORAGE_KEY);
                 setToken("");
                 toast.error("Session expired. Log in again.");
             } else {
-                toast.error("Failed to load leads.");
+                toast.error("Failed to load admin data.");
             }
         } finally {
             setLoading(false);
@@ -46,8 +58,8 @@ export default function AdminPage() {
     }, []);
 
     useEffect(() => {
-        if (token) loadData(token);
-    }, [token, loadData]);
+        if (token) loadData(token, dateRange);
+    }, [token, dateRange, loadData]);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -72,6 +84,8 @@ export default function AdminPage() {
         setLeads([]);
         setStats(null);
         setPickerStats(null);
+        setSubscriptions([]);
+        setTransactions([]);
     };
 
     const filteredLeads = filter === "all" ? leads : leads.filter((l) => l.source === filter);
@@ -120,9 +134,20 @@ export default function AdminPage() {
                         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">BodyIQ-AI · Admin Console</p>
                         <h1 className="font-heading mt-2 text-3xl font-semibold text-white">Lead Intelligence</h1>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Date range filter — applies to subscriptions + transactions */}
+                        <div className="hidden sm:flex items-center rounded-md border border-white/10 bg-ink-700/40 p-0.5" data-testid="admin-date-range">
+                            {["7d", "30d", "all"].map((r) => (
+                                <button
+                                    key={r}
+                                    onClick={() => setDateRange(r)}
+                                    data-testid={`admin-range-${r}`}
+                                    className={`rounded-sm px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors ${dateRange === r ? "bg-cyan-500 text-ink-900" : "text-slate-300 hover:text-cyan-300"}`}
+                                >{r === "all" ? "All-time" : r}</button>
+                            ))}
+                        </div>
                         <button
-                            onClick={() => loadData(token)}
+                            onClick={() => loadData(token, dateRange)}
                             disabled={loading}
                             data-testid="admin-refresh"
                             className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-2.5 text-xs font-medium text-slate-200 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
@@ -187,7 +212,7 @@ export default function AdminPage() {
                     ))}
                 </div>
 
-                {/* Table */}
+                {/* Leads table */}
                 <div className="mt-6 overflow-hidden rounded-md border border-white/10">
                     <div className="scrollbar-cyan overflow-x-auto">
                         <table className="w-full min-w-[720px] text-sm" data-testid="admin-leads-table">
@@ -225,6 +250,80 @@ export default function AdminPage() {
                                         <Td className="font-mono text-xs text-slate-500">
                                             {new Date(l.timestamp).toLocaleString()}
                                         </Td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Subscriptions */}
+                <SectionHeading icon={Repeat} label="Subscriptions" badge={`${subscriptions.length} · ${dateRange}`} />
+                <div className="mt-3 overflow-hidden rounded-md border border-white/10" data-testid="admin-subscriptions">
+                    <div className="scrollbar-cyan overflow-x-auto">
+                        <table className="w-full min-w-[800px] text-sm">
+                            <thead>
+                                <tr className="bg-ink-700/60 text-left">
+                                    <Th>Email</Th>
+                                    <Th>Plan</Th>
+                                    <Th>Tier</Th>
+                                    <Th>Interval</Th>
+                                    <Th>Status</Th>
+                                    <Th>Started</Th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {subscriptions.length === 0 && (
+                                    <tr><td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-500">No subscriptions in this window.</td></tr>
+                                )}
+                                {subscriptions.map((s, i) => (
+                                    <tr key={s.id || i} data-testid={`admin-sub-row-${i}`} className="border-t border-white/5">
+                                        <Td className="font-mono text-xs text-cyan-300">{s.email}</Td>
+                                        <Td className="text-slate-200">{s.plan_key}</Td>
+                                        <Td className="text-slate-300">{s.tier}</Td>
+                                        <Td className="text-slate-300">{s.interval}</Td>
+                                        <Td>
+                                            <span className={`rounded-sm border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] ${s.status === "active" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-red-500/40 bg-red-500/10 text-red-300"}`}>{s.status || "unknown"}</span>
+                                        </Td>
+                                        <Td className="font-mono text-xs text-slate-500">{s.started_at ? new Date(s.started_at).toLocaleString() : "—"}</Td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Payment transactions */}
+                <SectionHeading icon={CreditCard} label="Payment Transactions" badge={`${transactions.length} · ${dateRange}`} />
+                <div className="mt-3 overflow-hidden rounded-md border border-white/10" data-testid="admin-transactions">
+                    <div className="scrollbar-cyan overflow-x-auto">
+                        <table className="w-full min-w-[800px] text-sm">
+                            <thead>
+                                <tr className="bg-ink-700/60 text-left">
+                                    <Th>Email</Th>
+                                    <Th>Product</Th>
+                                    <Th>Amount</Th>
+                                    <Th>Type</Th>
+                                    <Th>Status</Th>
+                                    <Th>Created</Th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {transactions.length === 0 && (
+                                    <tr><td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-500">No transactions in this window.</td></tr>
+                                )}
+                                {transactions.map((t, i) => (
+                                    <tr key={t.id || i} data-testid={`admin-txn-row-${i}`} className="border-t border-white/5">
+                                        <Td className="font-mono text-xs text-cyan-300">{t.email || "—"}</Td>
+                                        <Td className="text-slate-200">{t.product_name || t.product_key}</Td>
+                                        <Td className="font-mono text-xs text-slate-200">${Number(t.amount || 0).toLocaleString()} {t.currency?.toUpperCase()}</Td>
+                                        <Td>
+                                            <span className="rounded-sm border border-white/10 bg-ink-800 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300">{t.subscription ? "subscription" : "one-time"}</span>
+                                        </Td>
+                                        <Td>
+                                            <span className={`rounded-sm border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] ${t.payment_status === "paid" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-amber-500/40 bg-amber-500/10 text-amber-300"}`}>{t.payment_status || "unpaid"}</span>
+                                        </Td>
+                                        <Td className="font-mono text-xs text-slate-500">{t.created_at ? new Date(t.created_at).toLocaleString() : "—"}</Td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -274,4 +373,14 @@ const Th = ({ children }) => (
 );
 const Td = ({ children, className = "" }) => (
     <td className={`px-5 py-3 ${className}`}>{children}</td>
+);
+
+const SectionHeading = ({ icon: Icon, label, badge }) => (
+    <div className="mt-10 flex items-center justify-between border-b border-white/5 pb-3">
+        <div className="flex items-center gap-2">
+            <Icon size={13} className="text-cyan-400" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">{label}</span>
+        </div>
+        {badge && <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{badge}</span>}
+    </div>
 );

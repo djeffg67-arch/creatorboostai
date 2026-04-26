@@ -50,3 +50,18 @@ export const portalLogin = (payload) =>
 
 export const adminListApplications = (token) =>
     api.get("/admin/applications", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+
+export const adminListSubscriptions = (token, range = "all") =>
+    api.get(`/admin/subscriptions?range=${range}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+
+export const adminListTransactions = (token, range = "all") =>
+    api.get(`/admin/transactions?range=${range}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+
+export const adminListDemoShares = (token, range = "all") =>
+    api.get(`/admin/demo-shares?range=${range}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+
+export const shareDemo = (payload) =>
+    api.post("/share-demo", payload).then((r) => r.data);
+
+export const portalBillingSession = (payload) =>
+    api.post("/portal/billing-session", payload).then((r) => r.data);

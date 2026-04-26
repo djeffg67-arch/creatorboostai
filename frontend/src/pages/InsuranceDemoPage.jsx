@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Layout } from "@/components/site/Layout";
 import { toast } from "sonner";
+import { shareDemo } from "@/lib/api";
+import { DemoConversionCTA } from "@/components/site/DemoConversionCTA";
 import {
     Play, Pause, Sparkles, Users, MessageSquare, CalendarCheck, DollarSign,
     Target, Activity, Copy, Check, ShieldCheck, Mail,
     TrendingUp, Zap, Layers, Brain, Cpu, Award, Rocket,
     Network, Globe2, Lock, Database, GitBranch, Server, BarChart3,
     Briefcase, FileText, Volume2, VolumeX, FileCheck, AlertTriangle,
-    ClipboardCheck, Wallet, Phone
+    ClipboardCheck, Wallet, Phone, Send, ArrowRight
 } from "lucide-react";
 
 // =================================================================
@@ -477,6 +479,17 @@ export default function InsuranceDemoPage() {
                         )}
                     </div>
                 )}
+
+                {/* Post-demo conversion block (auto-scroll on demo end) */}
+                <DemoConversionCTA
+                    autoScroll={done}
+                    autoRedirect={false}
+                    demoType="insurance"
+                    onShareClick={() => {
+                        const node = document.querySelector('[data-testid="insurance-email-generator"]');
+                        if (node) node.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                />
 
                 <div className="mt-12"><DemoEmailSection /></div>
             </div>
@@ -1672,16 +1685,44 @@ const DemoEmailSection = () => {
     const [form, setForm] = useState({ name: "", email: "", company: "", industry: INDUSTRIES[0], note: "" });
     const [generated, setGenerated] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [sending, setSending] = useState(false);
+    const [sendResult, setSendResult] = useState(null);
     const handle = (k) => (e) => setForm({ ...form, [k]: e.target.value });
     const demoLink = useMemo(() => {
         if (typeof window === "undefined") return "https://www.bodyiq-ai.com/demo/insurance";
         return `${window.location.origin}/demo/insurance`;
     }, []);
-    const generate = () => {
-        if (!form.name || !form.email) { toast.error("Customer name and email are required"); return; }
+    const buildPreview = () => {
         const subject = `See how CreatorBoostAI unifies your ${form.industry.toLowerCase()} stack`;
         const body = `Hi ${form.name},\n\nI wanted to send you a quick demo of CreatorBoostAI for insurance operations.\n\nThis demo shows how the system sits on top of Catalyst CRM, your AMS, your compliance stack, and your communications platforms — capturing leads, scoring risk, automating follow-up, tracking policy lifecycle, calculating commissions, and producing audit-ready compliance trails.\n\nIt is designed for agencies, brokerages, MGAs, and carriers that want to multiply revenue without ripping out the systems they already run.\n\nYou can view the demo here:\n${demoLink}${form.note ? `\n\n${form.note}` : ""}\n\nBest,\nJeffrey`;
-        setGenerated({ subject, body, to: form.email }); setCopied(false); toast.success("Email generated");
+        return { subject, body, to: form.email };
+    };
+    const sendDemo = async () => {
+        if (!form.name || !form.email) { toast.error("Customer name and email are required"); return; }
+        setGenerated(buildPreview());
+        setSending(true); setSendResult(null);
+        try {
+            const res = await shareDemo({
+                recipient_email: form.email,
+                sender_name: "Jeffrey Garcia",
+                company: form.company || undefined,
+                message: form.note || undefined,
+                demo_type: "insurance",
+                origin_url: typeof window !== "undefined" ? window.location.origin : undefined,
+            });
+            if (res.sent) {
+                setSendResult({ ok: true, msg: `Demo email sent to ${form.email}.` });
+                toast.success("Demo email sent");
+            } else {
+                setSendResult({ ok: false, msg: res.reason || "Email service unavailable. Use Copy link as a fallback." });
+                toast.error("Email could not be sent. Copy link instead.");
+            }
+        } catch (err) {
+            const detail = err?.response?.data?.detail;
+            const msg = typeof detail === "string" ? detail : "Network error. Try again.";
+            setSendResult({ ok: false, msg });
+            toast.error(msg);
+        } finally { setSending(false); }
     };
     const copyEmail = async () => {
         if (!generated) return;
@@ -1694,21 +1735,30 @@ const DemoEmailSection = () => {
     return (
         <section className="rounded-md border border-white/10 bg-ink-700/40 p-6 lg:p-8" data-testid="insurance-email-generator">
             <div className="flex items-center gap-2"><Mail size={14} className="text-cyan-400" /><span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Send This Demo to a Customer</span></div>
-            <h2 className="font-heading mt-3 text-2xl font-semibold text-white sm:text-3xl">Generate a personalized outreach email.</h2>
-            <p className="mt-2 max-w-2xl text-sm text-slate-400">Fill in the customer details and we'll generate a ready-to-send email with the demo link.</p>
+            <h2 className="font-heading mt-3 text-2xl font-semibold text-white sm:text-3xl">Personalized email · sent in one click.</h2>
+            <p className="mt-2 max-w-2xl text-sm text-slate-400">Fill in the customer details and we'll send the demo directly via Resend. Or copy the shareable link below.</p>
             <div className="mt-7 grid grid-cols-1 gap-6 lg:grid-cols-12">
                 <div className="lg:col-span-5 space-y-4">
-                    <Field label="Customer name *"><input type="text" value={form.name} onChange={handle("name")} className="input-glow w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="Sarah Whitfield" /></Field>
-                    <Field label="Customer email *"><input type="email" value={form.email} onChange={handle("email")} className="input-glow w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="sarah@whitfieldinsurance.com" /></Field>
-                    <Field label="Agency / company"><input type="text" value={form.company} onChange={handle("company")} className="input-glow w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="Whitfield Insurance Group" /></Field>
+                    <Field label="Customer name *"><input data-testid="ins-share-name" type="text" value={form.name} onChange={handle("name")} className="input-glow w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="Sarah Whitfield" /></Field>
+                    <Field label="Customer email *"><input data-testid="ins-share-email" type="email" value={form.email} onChange={handle("email")} className="input-glow w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="sarah@whitfieldinsurance.com" /></Field>
+                    <Field label="Agency / company"><input data-testid="ins-share-company" type="text" value={form.company} onChange={handle("company")} className="input-glow w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="Whitfield Insurance Group" /></Field>
                     <Field label="Role"><select value={form.industry} onChange={handle("industry")} className="input-glow w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white focus:border-cyan-500 focus:outline-none">{INDUSTRIES.map((i) => <option key={i}>{i}</option>)}</select></Field>
-                    <Field label="Personal note (optional)"><textarea rows={3} value={form.note} onChange={handle("note")} className="input-glow w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="Adds a personal line at the end." /></Field>
-                    <button onClick={generate} className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-400"><Sparkles size={14} /> Generate Demo Email</button>
+                    <Field label="Personal note (optional)"><textarea data-testid="ins-share-note" rows={3} value={form.note} onChange={handle("note")} className="input-glow w-full rounded-md border border-white/10 bg-ink-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none" placeholder="Adds a personal line at the end." /></Field>
+                    <div className="flex flex-wrap gap-3">
+                        <button data-testid="ins-share-send" onClick={sendDemo} disabled={sending} className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-400 disabled:opacity-60">{sending ? "Sending…" : <><Send size={14} /> Send Demo</>}</button>
+                        <button data-testid="ins-share-copy-link" onClick={copyLink} className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-4 py-3 text-sm font-semibold text-cyan-300 transition-all hover:bg-cyan-500 hover:text-ink-900"><Copy size={13} /> Copy link</button>
+                    </div>
                 </div>
                 <div className="lg:col-span-7">
+                    {sendResult && (
+                        <div data-testid={sendResult.ok ? "ins-share-success" : "ins-share-error"} className={`mb-4 rounded-md border p-4 ${sendResult.ok ? "border-emerald-500/40 bg-emerald-500/5" : "border-red-500/40 bg-red-500/5"}`}>
+                            <div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${sendResult.ok ? "bg-emerald-400" : "bg-red-400"}`} /><span className={`font-mono text-[10px] uppercase tracking-[0.22em] ${sendResult.ok ? "text-emerald-300" : "text-red-300"}`}>{sendResult.ok ? "Sent · check inbox" : "Send failed"}</span></div>
+                            <p className="mt-1.5 text-sm text-slate-200">{sendResult.msg}</p>
+                        </div>
+                    )}
                     <div className="rounded-md border border-white/10 bg-ink-800 p-5">
                         <div className="flex items-center justify-between border-b border-white/5 pb-3"><span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Email preview</span>{generated && (<button onClick={copyEmail} className="inline-flex items-center gap-1.5 rounded-sm border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500 hover:text-ink-900">{copied ? <Check size={11} /> : <Copy size={11} />} {copied ? "Copied" : "Copy email"}</button>)}</div>
-                        {generated ? (<div className="mt-4 space-y-3"><p className="font-mono text-[11px] text-slate-400">To: <span className="text-white">{generated.to}</span></p><p className="font-mono text-[11px] text-slate-400">Subject: <span className="text-white">{generated.subject}</span></p><pre className="mt-2 max-h-96 overflow-y-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-200 scrollbar-cyan">{generated.body}</pre></div>) : (<div className="flex h-72 items-center justify-center text-center"><p className="max-w-xs text-sm text-slate-500">Fill in the customer details and click <span className="text-cyan-300">Generate Demo Email</span>.</p></div>)}
+                        {generated ? (<div className="mt-4 space-y-3"><p className="font-mono text-[11px] text-slate-400">To: <span className="text-white">{generated.to}</span></p><p className="font-mono text-[11px] text-slate-400">Subject: <span className="text-white">{generated.subject}</span></p><pre className="mt-2 max-h-96 overflow-y-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-200 scrollbar-cyan">{generated.body}</pre></div>) : (<div className="flex h-72 items-center justify-center text-center"><p className="max-w-xs text-sm text-slate-500">Fill in the customer details and click <span className="text-cyan-300">Send Demo</span>.</p></div>)}
                     </div>
                     <div className="mt-4 rounded-sm border border-white/10 bg-ink-800 p-4">
                         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Shareable demo link</p>

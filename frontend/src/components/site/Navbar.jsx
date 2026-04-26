@@ -6,6 +6,8 @@ const links = [
     { to: "/", label: "Home", testid: "nav-home" },
     { to: "/demo", label: "Demo", testid: "nav-demo" },
     { to: "/training", label: "Training", testid: "nav-training" },
+    { to: "/pricing", label: "Pricing", testid: "nav-pricing" },
+    { to: "/apply/strategy", label: "Apply", testid: "nav-apply" },
     { to: "/forensic-library", label: "Library", testid: "nav-library" },
     { to: "/contact", label: "Contact", testid: "nav-contact" },
 ];
@@ -31,7 +33,7 @@ export const Navbar = () => {
                     </span>
                 </Link>
 
-                <nav className="hidden items-center gap-8 md:flex">
+                <nav className="hidden items-center gap-5 lg:gap-7 md:flex">
                     {links.map((l) => (
                         <NavLink
                             key={l.to}
@@ -39,7 +41,7 @@ export const Navbar = () => {
                             end={l.to === "/"}
                             data-testid={l.testid}
                             className={({ isActive }) =>
-                                `text-sm font-medium tracking-wide transition-colors ${
+                                `text-[13px] font-medium tracking-wide transition-colors ${
                                     isActive ? "text-cyan-400" : "text-slate-300 hover:text-white"
                                 }`
                             }

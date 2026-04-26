@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
-import { portalLogin } from "@/lib/api";
+import { portalLogin, portalBillingSession } from "@/lib/api";
 import { toast } from "sonner";
-import { Lock, ArrowRight, Check, Sparkles, BookOpen, Mail, Calendar } from "lucide-react";
+import { Lock, ArrowRight, Check, Sparkles, BookOpen, Mail, CreditCard } from "lucide-react";
 
 const STORAGE_KEY = "bodyiq_portal_user";
 
@@ -28,7 +28,12 @@ export default function PortalPage() {
         setLoading(true);
         try {
             const res = await portalLogin(form);
-            const data = { email: res.email, entitlements: res.entitlements };
+            const data = {
+                email: res.email,
+                token: form.token,
+                entitlements: res.entitlements,
+                subscriptions: res.subscriptions || [],
+            };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             setUser(data);
             toast.success(`Welcome, ${res.email}`);
@@ -36,6 +41,21 @@ export default function PortalPage() {
             toast.error("Invalid email or access token");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const openBillingPortal = async () => {
+        if (!user) return;
+        try {
+            const res = await portalBillingSession({
+                email: user.email,
+                token: user.token,
+                return_url: window.location.origin,
+            });
+            if (res?.url) window.open(res.url, "_blank", "noopener");
+        } catch (err) {
+            const detail = err?.response?.data?.detail;
+            toast.error(typeof detail === "string" ? detail : "Could not open billing portal");
         }
     };
 
@@ -130,8 +150,17 @@ export default function PortalPage() {
 
                     {/* Quick links */}
                     <section className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <button
+                            type="button"
+                            onClick={openBillingPortal}
+                            data-testid="portal-manage-subscription"
+                            className="flex items-center gap-3 rounded-md border border-cyan-500/40 bg-cyan-500/5 p-4 text-left transition-all hover:border-cyan-500/60 hover:bg-cyan-500/10"
+                        >
+                            <CreditCard size={14} className="text-cyan-400" />
+                            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300">Manage Subscription</span>
+                            <ArrowRight size={12} className="ml-auto text-cyan-400" />
+                        </button>
                         <QuickLink href="/training" Icon={BookOpen} label="Training programs" />
-                        <QuickLink href="/library" Icon={BookOpen} label="Forensic library" />
                         <QuickLink href="/contact" Icon={Mail} label="Contact support" />
                     </section>
                 </div>

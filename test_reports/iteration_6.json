@@ -1,0 +1,62 @@
+{
+  "summary": "Iter-6 finishing pass PASS. 20/21 backend tests green (1 skipped — magic-link portal/login does not return token in body). All new surfaces verified: POST /api/share-demo (gracefully degrades with sent=false + reason when RESEND_API_KEY is empty, persists row in demo_shares), demo_type validation (422 on 'mortgage'), email validation (422), GET /api/admin/demo-shares (auth gating + range filter), GET /api/admin/transactions?range= and /api/admin/subscriptions?range= (auth + range), POST /api/portal/billing-session (401 invalid creds, 409 when no stripe_customer_id on file). Frontend: Navbar shows all 7 links + Experience Demo CTA on both desktop & mobile; /apply/strategy → accelerator_7k ($7,000), /apply/mastery → mastery_27k ($27,000); DemoConversionCTA with 1 primary + 4 secondary CTAs visible at end of /demo/realtor and /demo/insurance; clicking the share secondary CTA scrolls to email-generator/insurance-email-generator; share-send hits /api/share-demo and renders share-error/ins-share-error with the helpful 'RESEND not configured' reason; /portal post-login renders portal-manage-subscription which surfaces a 409 toast (no crash); /admin login + admin-date-range toggles re-fetch /api/admin/subscriptions?range=… and /api/admin/transactions?range=… for 7d/30d/all. Mobile (390x844) overflow_x = 0 on /, /demo/realtor, /demo/insurance, /portal, /admin.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_flows": [
+    "POST /api/share-demo realtor — 202, sent=false, reason set, row in demo_shares (verified via /api/admin/demo-shares)",
+    "POST /api/share-demo insurance — 202, sent=false",
+    "POST /api/share-demo demo_type='mortgage' — 422",
+    "POST /api/share-demo recipient_email='not-an-email' — 422",
+    "GET /api/admin/demo-shares (no auth) — 401",
+    "GET /api/admin/demo-shares?range=7d|30d|all — 200 list",
+    "GET /api/admin/demo-shares?range=12d — 422",
+    "GET /api/admin/transactions?range=7d|30d|all — 200 list (401 without auth)",
+    "GET /api/admin/subscriptions?range=7d|30d|all — 200 list (401 without auth)",
+    "POST /api/portal/billing-session invalid creds — 401",
+    "POST /api/portal/billing-session valid email+token but no stripe_customer_id — 409 with helpful detail",
+    "POST /api/checkout/session foundations $400 — 200 + Stripe URL",
+    "POST /api/checkout/session applied $1500 — 200 + Stripe URL",
+    "POST /api/checkout/subscription cb_starter_monthly — 503 (Stripe Price IDs intentionally empty) — by-design",
+    "POST /api/applications accelerator_7k — 201",
+    "POST /api/applications mastery_27k — 201",
+    "POST /api/admin/login wrong password — 401",
+    "GET /api/admin/leads — 200",
+    "Frontend desktop /demo/realtor: demo-conversion-cta + 5 CTA testids present; share-send → /api/share-demo 202; share-error visible",
+    "Frontend desktop /demo/insurance: demo-conversion-cta + 5 CTA testids present; ins-share-send → /api/share-demo 202; ins-share-error visible",
+    "Frontend desktop /portal: post-login portal-manage-subscription btn → click → 409 toast 'No active Stripe subscription on file. The billing portal will activate as soon as your subscription is processed' — no crash",
+    "Frontend desktop /admin: admin-date-range, admin-subscriptions, admin-transactions all rendered; toggling 7d→30d→all re-fetches both endpoints with correct ?range= query",
+    "Frontend desktop Navbar: Home, Demo, Training, Pricing, Apply, Library, Contact + 'Experience Demo' CTA all visible (1920x1080)",
+    "Frontend mobile Navbar (390x844): same 7 links + 'Experience Demo' visible inside burger menu",
+    "Frontend /apply/strategy → 'Apply for Signal Accelerator' header + '$7,000 · UPON CLOSE'",
+    "Frontend /apply/mastery → 'Apply for Signal Mastery' header + '$27,000 · UPON CLOSE'",
+    "Mobile horizontal overflow = 0px on /, /demo/realtor, /demo/insurance, /portal, /admin"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_iter6_finishing.py",
+    "/app/test_reports/pytest/iter6_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~1283 lines. Same recommendation as iter-5: split into routers (share_router, portal_router, admin_router, payments_router) before adding more features.",
+    "/api/portal/billing-session uses official Stripe SDK directly via _stripe.billing_portal.Session.create wrapped in asyncio.to_thread — correctly non-blocking. Good.",
+    "demo_shares row is always inserted (even when Resend is unavailable) — gives full audit trail. Good design.",
+    "verify_admin still in-memory ADMIN_TOKENS dict — same caveat as iter-5 (won't survive restart / multi-replica)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter6_finishing.py (created)"
+  ],
+  "success_rate": {"backend": "100% (20 passed, 1 skipped — magic-link flow can't extract token in test)", "frontend": "100% (all required testids + flows verified on desktop and mobile)"},
+  "test_credentials": "Admin password: bodyiq-admin-2026 (validated). Stripe in test mode (sk_test_emergent). RESEND_API_KEY intentionally empty — verified graceful sent=false degradation.",
+  "seed_data_creation": "Inserted temporary db.users{email:'portal-iter6@example.com', portal_token:'TEST_TOKEN_ITER6'} to test post-login Manage Subscription → 409 path; deleted after the test. A handful of TEST_-prefixed demo_shares + applications rows remain (jeffrey+test@example.com, jeffrey+ins@example.com, persist@example.com, TEST_iter6_app@example.com, TEST_iter6_mas@example.com).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All iter-6 finishing-pass surfaces are green. Two intentional 503/409 by-design paths: (a) /api/checkout/subscription returns 503 until STRIPE_PRICE_CB_* env vars are populated, (b) /api/portal/billing-session returns 409 until a webhook caches stripe_customer_id on the subscriptions row. /api/share-demo will start returning sent=true once RESEND_API_KEY is set — no code change needed. Only known caveat: /api/portal/login uses magic-link style and does not return the token in the response body, so the backend test for the 401→409 progression is structured as a skip when no token is available; the UI test seeded a user directly via mongo to verify the 409 path end-to-end.",
+  "rca of the issue": "N/A — no issues found. Single test fixture skip (test_billing_no_customer_id_409) is by design — portal/login is a magic-link flow that emails the token rather than returning it in the response."
+}

@@ -25,8 +25,16 @@ const TEAM_SIZES = [
     "100+",
 ];
 
+// Friendly URL aliases — /apply/strategy and /apply/mastery are the
+// public-facing routes; they map to backend program keys.
+const PROGRAM_ALIAS = {
+    strategy: "accelerator_7k",
+    mastery: "mastery_27k",
+};
+
 export default function ApplyPage() {
-    const { program: programKey } = useParams();
+    const { program: rawProgramKey } = useParams();
+    const programKey = PROGRAM_ALIAS[rawProgramKey] || rawProgramKey;
     const [program, setProgram] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
