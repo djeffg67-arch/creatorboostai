@@ -8,6 +8,8 @@ import HomePage from "@/pages/HomePage";
 import DemoPage from "@/pages/DemoPage";
 import TrainingPage from "@/pages/TrainingPage";
 import ThankYouPage from "@/pages/ThankYouPage";
+import SuccessPage from "@/pages/SuccessPage";
+import CancelPage from "@/pages/CancelPage";
 import ForensicLibraryPage from "@/pages/ForensicLibraryPage";
 import ContactPage from "@/pages/ContactPage";
 import AdminPage from "@/pages/AdminPage";
@@ -59,6 +61,8 @@ function App() {
                     <Route path="/services/report" element={<ReportPage />} />
                     <Route path="/services/jury" element={<JuryPage />} />
                     <Route path="/download/signal-pack" element={<DownloadSignalPackPage />} />
+                    <Route path="/success" element={<SuccessPage />} />
+                    <Route path="/cancel" element={<CancelPage />} />
                     <Route path="/thank-you" element={<ThankYouPage />} />
                     <Route path="/forensic-library" element={<ForensicLibraryPage />} />
                     <Route path="/contact" element={<ContactPage />} />

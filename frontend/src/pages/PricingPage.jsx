@@ -22,8 +22,20 @@ const TIERS = [
         ],
     },
     {
-        tier: "pro", name: "Pro", icon: Sparkles, featured: true,
+        tier: "growth", name: "Growth", icon: Sparkles, featured: true,
         tagline: "Growing brokerages + agencies",
+        bullets: [
+            "Connects up to 10 systems",
+            "Up to 10,000 leads / month",
+            "Full AI scoring + segmentation",
+            "Autonomous follow-up (channel-level)",
+            "Up to 10 team seats",
+            "Priority support · onboarding included",
+        ],
+    },
+    {
+        tier: "pro", name: "Pro", icon: ShieldCheck,
+        tagline: "Established operators + multi-brand",
         bullets: [
             "Connects unlimited systems",
             "Unlimited leads",
@@ -31,7 +43,7 @@ const TIERS = [
             "Autonomous mode (you choose by team)",
             "Up to 25 team seats",
             "National command center + drill-down",
-            "Priority support · onboarding included",
+            "Dedicated success manager",
         ],
     },
     {
@@ -102,7 +114,7 @@ export default function PricingPage() {
                     </div>
                     <h1 className="font-heading mx-auto mt-6 max-w-3xl text-balance text-3xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
                         One execution layer.{" "}
-                        <span className="text-cyan-400">Three plans.</span>
+                        <span className="text-cyan-400">Four plans.</span>
                     </h1>
                     <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base lg:text-lg">
                         CreatorBoostAI sits on top of every system you already run. Pick a plan and start
@@ -124,7 +136,7 @@ export default function PricingPage() {
                 </header>
 
                 {/* Tiers */}
-                <section className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3" data-testid="pricing-tiers">
+                <section className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4" data-testid="pricing-tiers">
                     {TIERS.map((t) => {
                         const plan = !t.custom ? priceFor(t.tier) : null;
                         return (

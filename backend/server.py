@@ -67,6 +67,20 @@ PRODUCTS: Dict[str, Dict[str, Any]] = {
         "type": "training",
         "description": "2-3 hour advanced applied signals training",
     },
+    "strategy": {
+        "name": "Strategy Program",
+        "amount": 7000.00,
+        "currency": "usd",
+        "type": "training",
+        "description": "Strategy-tier signal program — direct enrollment",
+    },
+    "full_training": {
+        "name": "Full Training Program",
+        "amount": 27000.00,
+        "currency": "usd",
+        "type": "training",
+        "description": "Complete signal mastery training program — direct enrollment",
+    },
     "forensic_library": {
         "name": "Forensic Visual Library",
         "amount": 59.00,
@@ -110,22 +124,32 @@ PRODUCTS: Dict[str, Dict[str, Any]] = {
 SUBSCRIPTIONS: Dict[str, Dict[str, Any]] = {
     "cb_starter_monthly": {
         "name": "CreatorBoostAI Starter", "tier": "starter", "interval": "month",
-        "amount": 49.00, "currency": "usd",
+        "amount": 97.00, "currency": "usd",
         "price_id_env": "STRIPE_PRICE_CB_STARTER_MONTHLY",
     },
     "cb_starter_annual":  {
         "name": "CreatorBoostAI Starter", "tier": "starter", "interval": "year",
-        "amount": 490.00, "currency": "usd",
+        "amount": 970.00, "currency": "usd",
         "price_id_env": "STRIPE_PRICE_CB_STARTER_ANNUAL",
+    },
+    "cb_growth_monthly":  {
+        "name": "CreatorBoostAI Growth",  "tier": "growth",  "interval": "month",
+        "amount": 297.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_CB_GROWTH_MONTHLY",
+    },
+    "cb_growth_annual":   {
+        "name": "CreatorBoostAI Growth",  "tier": "growth",  "interval": "year",
+        "amount": 2970.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_CB_GROWTH_ANNUAL",
     },
     "cb_pro_monthly":     {
         "name": "CreatorBoostAI Pro",     "tier": "pro",     "interval": "month",
-        "amount": 149.00, "currency": "usd",
+        "amount": 997.00, "currency": "usd",
         "price_id_env": "STRIPE_PRICE_CB_PRO_MONTHLY",
     },
     "cb_pro_annual":      {
         "name": "CreatorBoostAI Pro",     "tier": "pro",     "interval": "year",
-        "amount": 1490.00, "currency": "usd",
+        "amount": 9970.00, "currency": "usd",
         "price_id_env": "STRIPE_PRICE_CB_PRO_ANNUAL",
     },
     # Enterprise tier: NO checkout — routes to /contact
@@ -942,12 +966,18 @@ async def create_checkout_session(payload: CheckoutSessionCreate, http_request: 
 
     product = PRODUCTS[payload.product_key]
     origin = payload.origin_url.rstrip("/")
+    # Signal Packs go to a dedicated download page (entitlement-gated).
     if product["type"] == "signal_pack":
         success_url = f"{origin}/download/signal-pack?session_id={{CHECKOUT_SESSION_ID}}"
-        cancel_url = f"{origin}/products/signal-pack"
+        cancel_url = f"{origin}/cancel?product={payload.product_key}"
     else:
-        success_url = f"{origin}/thank-you?session_id={{CHECKOUT_SESSION_ID}}"
-        cancel_url = f"{origin}/training" if product["type"] == "training" else f"{origin}/forensic-library"
+        # Unified success page reads ?product=&session_id= and renders the
+        # right onboarding flow (training vs library).
+        success_url = (
+            f"{origin}/success?session_id={{CHECKOUT_SESSION_ID}}"
+            f"&product={payload.product_key}"
+        )
+        cancel_url = f"{origin}/cancel?product={payload.product_key}"
 
     stripe_checkout = _stripe_client(http_request)
 
@@ -1021,8 +1051,11 @@ async def create_subscription_session(payload: SubscriptionCheckoutCreate, http_
         )
 
     origin = payload.origin_url.rstrip("/")
-    success_url = f"{origin}/portal?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{origin}/pricing"
+    success_url = (
+        f"{origin}/success?session_id={{CHECKOUT_SESSION_ID}}"
+        f"&product={payload.plan_key}&type=subscription"
+    )
+    cancel_url = f"{origin}/cancel?product={payload.plan_key}"
 
     stripe_checkout = _stripe_client(http_request)
 
