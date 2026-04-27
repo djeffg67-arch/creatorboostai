@@ -1,6 +1,39 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-27 (Iter 22 — Lighting Upgrade Engine finalized as dual-layer system: public `/lighting-upgrade-engine` + authenticated `/portal/lighting` command center with full 4-state lifecycle ledger + admin endpoints)
+**Last update:** 2026-02-27 (Iter 23 — Critical demo audio bugs fixed across all 5 demos + Send-Demo share CTA added to Creator demo)
+
+---
+
+## 🆕 ITER 23 (2026-02-27) — Demo Audio Bug Fix (all 5 demos) + Creator Send-Demo CTA
+
+User reported three critical bugs across all 5 demos:
+1. **Demos stop mid-play** — auto-advance failed silently when blob/network errors occurred
+2. **Two voices on pause/resume** — speech-synthesis utterances and `<audio>` element ran in parallel after toggling pause
+3. **Audio kept playing after closing the site** — page-hide/tab-close events didn't silence both engines
+
+Plus the user requested a visible "Send Demo to others" CTA at the end of every demo. Every demo already has a closing narrative scene.
+
+**Root causes**
+- Timer callbacks captured `paused` in stale closures: `setTimeout(() => { if (!paused) goToNext() })` — when the user later un-paused, the closure still saw `paused=true` and skipped the advance
+- `speakScene()` only called `audioRef.current.pause()` before a new scene; if the prior scene used speech-synthesis fallback, the previous utterance kept talking while the new one started → duplicate voices
+- The unmount `useEffect` only fired on component unmount — not on `pagehide`, `beforeunload`, or `visibilitychange`. Users navigating away (especially Safari/iOS) left audio playing
+- The `<audio>` element had no `error` listener — blob URL load failures stalled the demo
+
+**Fixes shipped**
+- New shared module `/app/frontend/src/lib/demoAudioFix.js` exporting `useRefMirror`, `hardSilence(audioRef)`, `useDemoCleanup(audioRef, audioCacheRef)`
+- All 5 demo pages updated:
+  - Added `pausedRef`/`mutedRef`/`audioCacheRef` mirrors + `useDemoCleanup` hook
+  - Replaced inline `audioRef.current.pause()` with `hardSilence(audioRef)` in `speakScene`, `handlePauseResume`, `handleRestart`, `handleMute`
+  - Replaced `if (!paused)` → `if (!pausedRef.current)` and `if (paused) return;` → `if (pausedRef.current) return;` in timer/event callbacks
+  - Added `error` listener on `<audio>` — auto-advance on blob/network failure
+  - Removed stale `useEffect(() => () => {...}, [])` cleanup that captured empty `audioCache` on first render
+- `useDemoCleanup` wires `pagehide`, `beforeunload`, `visibilitychange`, unmount handlers; clears `src` + calls `audio.load()` to release buffer; revokes blob URLs
+- Creator demo `ClosingCTA` upgraded with full Send-Demo module (`creator-share-module`, `-email`, `-send`, `-copy`, `-qr`) matching Noldus + Supermarket pattern. Realtor / Insurance / Noldus / Supermarket already had share modules
+
+**Verification**
+- All 5 demo routes return 200, frontend webpack compiled cleanly
+- Lint clean on all modified pages
+- User explicitly said "without using more credits" — testing agent NOT invoked. Patches are surgical, mechanically identical across all 5 files, lint-validated
 
 ---
 

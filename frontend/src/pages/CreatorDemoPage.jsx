@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Layout } from "@/components/site/Layout";
+import { toast } from "sonner";
+import { shareDemo } from "@/lib/api";
 import { DemoConversionCTA } from "@/components/site/DemoConversionCTA";
 import { useDemoTracking } from "@/lib/useDemoTracking";
+import { useRefMirror, hardSilence, useDemoCleanup } from "@/lib/demoAudioFix";
 import {
     Play, Pause, Volume2, VolumeX, Check, ArrowRight, Sparkles,
     Mic, TrendingUp, DollarSign, Users, Brain, Activity, Zap,
     Heart, Eye, MessageSquare, Briefcase, Globe2, Layers, Target,
-    BarChart3, ShieldCheck, Cpu, Network,
+    BarChart3, ShieldCheck, Cpu, Network, Mail, Send, Copy,
 } from "lucide-react";
 
 // =================================================================
@@ -199,6 +202,10 @@ export default function CreatorDemoPage() {
     const maxTimer = useRef(null);
     const tickTimer = useRef(null);
     const sceneStart = useRef(0);
+    const pausedRef = useRefMirror(paused);
+    const mutedRef = useRefMirror(muted);
+    const audioCacheRef = useRefMirror(audioCache);
+    useDemoCleanup(audioRef, audioCacheRef);
 
     const current = SCENES[scene];
     const total = SCENES.length;
@@ -275,7 +282,7 @@ export default function CreatorDemoPage() {
 
     const speakScene = useCallback((idx, cache = audioCache) => {
         clearAllTimers();
-        if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+        if (audioRef.current) { hardSilence(audioRef); }
         const sc = SCENES[idx];
         if (!sc) return;
         sceneStart.current = Date.now();
@@ -285,13 +292,13 @@ export default function CreatorDemoPage() {
         }, 250);
         const maxMs = sc.fallback_ms || 45000;
         maxTimer.current = setTimeout(() => {
-            if (!paused) goToNext();
+            if (!pausedRef.current) goToNext();
         }, maxMs + 1500);
 
         if (muted) {
             setSpeaking(false);
             advanceTimer.current = setTimeout(() => {
-                if (!paused) goToNext();
+                if (!pausedRef.current) goToNext();
             }, maxMs);
             return;
         }
@@ -313,13 +320,13 @@ export default function CreatorDemoPage() {
             u.onstart = () => setSpeaking(true);
             u.onend = () => {
                 setSpeaking(false);
-                if (paused) return;
+                if (pausedRef.current) return;
                 advanceTimer.current = setTimeout(goToNext, SCENE_GAP_MS);
             };
             window.speechSynthesis.speak(u);
         } else {
             advanceTimer.current = setTimeout(() => {
-                if (!paused) goToNext();
+                if (!pausedRef.current) goToNext();
             }, maxMs);
         }
     }, [audioCache, muted, paused, goToNext]);
@@ -328,18 +335,25 @@ export default function CreatorDemoPage() {
         const a = audioRef.current; if (!a) return;
         const onEnded = () => {
             setSpeaking(false);
-            if (paused) return;
+            if (pausedRef.current) return;
             advanceTimer.current = setTimeout(goToNext, SCENE_GAP_MS);
         };
         const onPlay = () => setSpeaking(true);
         const onPause = () => setSpeaking(false);
+        const onError = () => {
+            setSpeaking(false);
+            if (pausedRef.current) return;
+            advanceTimer.current = setTimeout(goToNext, SCENE_GAP_MS);
+        };
         a.addEventListener("ended", onEnded);
         a.addEventListener("play", onPlay);
         a.addEventListener("pause", onPause);
+        a.addEventListener("error", onError);
         return () => {
             a.removeEventListener("ended", onEnded);
             a.removeEventListener("play", onPlay);
             a.removeEventListener("pause", onPause);
+            a.removeEventListener("error", onError);
         };
     }, [paused, goToNext]);
 
@@ -350,12 +364,7 @@ export default function CreatorDemoPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [scene, started]);
 
-    useEffect(() => () => {
-        clearAllTimers();
-        if (audioRef.current) audioRef.current.pause();
-        if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
-        Object.values(audioCache).forEach(URL.revokeObjectURL);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // (page-hide / before-unload / visibility / unmount cleanup is handled by useDemoCleanup hook above)
 
     const handleStart = async () => {
         // Open scene 0 immediately so the personalized greeting + first
@@ -379,20 +388,19 @@ export default function CreatorDemoPage() {
         } else {
             setPaused(true);
             clearAllTimers();
-            audioRef.current?.pause();
-            window?.speechSynthesis?.cancel();
+            hardSilence(audioRef);
         }
     };
     const handleRestart = () => {
         clearAllTimers();
-        audioRef.current?.pause();
+        hardSilence(audioRef);
         setScene(0); setDone(false); setPaused(false);
         setTimeout(() => speakScene(0), 150);
     };
     const handleMute = () => {
         setMuted(p => {
             const n = !p;
-            if (n) audioRef.current?.pause();
+            if (n) hardSilence(audioRef);
             else setTimeout(() => speakScene(scene), 100);
             return n;
         });
@@ -1171,30 +1179,87 @@ const CKPI = ({ label, value, trend }) => (
     </div>
 );
 
-const ClosingCTA = ({ onReplay, trackEvent }) => (
-    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-r from-cyan-500/10 to-ink-700/40 p-6 fade-in-up">
-        <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
-            <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Demo complete</p>
-                <p className="font-heading mt-1 text-xl font-semibold text-white sm:text-2xl">Ready to run your creator business with one operating system?</p>
+const ClosingCTA = ({ onReplay, trackEvent }) => {
+    const [email, setEmail] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [sent, setSent] = useState(null);
+    const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/demo/creator` : "/demo/creator";
+
+    const send = async () => {
+        if (!email || !/^\S+@\S+\.\S+$/.test(email)) { toast.error("Enter a valid email"); return; }
+        setBusy(true);
+        try {
+            const res = await shareDemo({ recipient_email: email, demo_type: "creator", share_target: shareUrl });
+            setSent({ ok: true, msg: res?.delivered ? "Sent!" : "Queued (no email key in dev)" });
+            trackEvent?.("cta_share", { from: "creator-end", email });
+            toast.success("Demo sent");
+            setEmail("");
+        } catch {
+            setSent({ ok: false, msg: "Could not send" });
+            toast.error("Could not send demo");
+        } finally { setBusy(false); }
+    };
+
+    const copy = async () => {
+        try { await navigator.clipboard.writeText(shareUrl); toast.success("Link copied"); trackEvent?.("cta_copy_link", { from: "creator-end" }); }
+        catch { toast.error("Copy failed"); }
+    };
+
+    return (
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-r from-cyan-500/10 to-ink-700/40 p-6 fade-in-up" data-testid="creator-share-module">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-xl">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Demo complete · Send it to your team</p>
+                    <h3 className="font-heading mt-2 text-2xl font-semibold text-white sm:text-3xl">Pass this demo to a manager, agent, or fellow creator.</h3>
+                    <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
+                        Every share is tracked. Help your team see how CreatorBoostAI runs the entire creator business as one operating system.
+                    </p>
+                </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-                <button
-                    onClick={() => { trackEvent?.("cta_replay", { from: "creator-end" }); onReplay(); }}
-                    data-testid="creator-replay-btn"
-                    className="inline-flex items-center gap-2 rounded-md border border-white/15 bg-transparent px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"
-                >
-                    <Play size={11} /> Replay
-                </button>
-                <a
-                    href="/apply/strategy"
-                    onClick={() => trackEvent("cta_apply", { from: "creator-end" })}
+
+            <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
+                <div className="lg:col-span-2 flex flex-wrap items-center gap-2">
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                        placeholder="recipient@company.com"
+                        data-testid="creator-share-email"
+                        className="min-w-[220px] flex-1 rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none" />
+                    <button onClick={send} disabled={busy} data-testid="creator-share-send"
+                        className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 text-sm font-semibold text-ink-900 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-400 disabled:opacity-60">
+                        {busy ? "Sending…" : <><Send size={13} /> Send Demo</>}
+                    </button>
+                    <button onClick={copy} data-testid="creator-share-copy"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                        <Copy size={11} /> Copy link
+                    </button>
+                    <button onClick={() => { trackEvent?.("cta_replay", { from: "creator-end" }); onReplay(); }}
+                        data-testid="creator-replay-btn"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                        <Play size={11} /> Replay
+                    </button>
+                </div>
+                <div className="rounded-sm border border-cyan-500/30 bg-ink-900 p-3 text-center">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Or scan to share</p>
+                    <img src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(shareUrl)}&size=150x150&bgcolor=0a0e14&color=22d3ee`}
+                        alt="Demo QR code"
+                        className="mx-auto mt-2 h-24 w-24 rounded-sm border border-white/5" data-testid="creator-share-qr" />
+                </div>
+            </div>
+
+            {sent && (
+                <p className={`mt-3 font-mono text-[10px] uppercase tracking-[0.22em] ${sent.ok ? "text-cyan-300" : "text-rose-300"}`} data-testid="creator-share-result">
+                    {sent.msg}
+                </p>
+            )}
+
+            <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Ready to apply?</span>
+                <a href="/apply/strategy"
+                    onClick={() => trackEvent?.("cta_apply", { from: "creator-end" })}
                     data-testid="creator-apply-btn"
-                    className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-900 hover:bg-cyan-400"
-                >
+                    className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-900 hover:bg-cyan-400">
                     Request Access <ArrowRight size={11} />
                 </a>
             </div>
         </div>
-    </div>
-);
+    );
+};

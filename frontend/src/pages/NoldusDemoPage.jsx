@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Layout } from "@/components/site/Layout";
 import { shareDemo } from "@/lib/api";
 import { useDemoTracking } from "@/lib/useDemoTracking";
+import { useRefMirror, hardSilence, useDemoCleanup } from "@/lib/demoAudioFix";
 import { toast } from "sonner";
 import { SCENE_IMG_NOLDUS } from "@/lib/images";
 import {
@@ -230,6 +231,10 @@ export default function NoldusDemoPage() {
     const maxTimer = useRef(null);
     const tickTimer = useRef(null);
     const sceneStart = useRef(0);
+    const pausedRef = useRefMirror(paused);
+    const mutedRef = useRefMirror(muted);
+    const audioCacheRef = useRefMirror(audioCache);
+    useDemoCleanup(audioRef, audioCacheRef);
 
     const current = SCENES[scene];
     const total = SCENES.length;
@@ -305,7 +310,7 @@ export default function NoldusDemoPage() {
 
     const speakScene = useCallback((idx, cache = audioCache) => {
         clearAllTimers();
-        if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+        if (audioRef.current) { hardSilence(audioRef); }
         const sc = SCENES[idx]; if (!sc) return;
         sceneStart.current = Date.now();
         setSceneElapsed(0);
@@ -313,11 +318,11 @@ export default function NoldusDemoPage() {
             setSceneElapsed(Date.now() - sceneStart.current);
         }, 250);
         const maxMs = sc.fallback_ms || 40000;
-        maxTimer.current = setTimeout(() => { if (!paused) goToNext(); }, maxMs + 1500);
+        maxTimer.current = setTimeout(() => { if (!pausedRef.current) goToNext(); }, maxMs + 1500);
 
         if (muted) {
             setSpeaking(false);
-            advanceTimer.current = setTimeout(() => { if (!paused) goToNext(); }, maxMs);
+            advanceTimer.current = setTimeout(() => { if (!pausedRef.current) goToNext(); }, maxMs);
             return;
         }
         const url = cache[sc.id];
@@ -337,12 +342,12 @@ export default function NoldusDemoPage() {
             u.onstart = () => setSpeaking(true);
             u.onend = () => {
                 setSpeaking(false);
-                if (paused) return;
+                if (pausedRef.current) return;
                 advanceTimer.current = setTimeout(goToNext, SCENE_GAP_MS);
             };
             window.speechSynthesis.speak(u);
         } else {
-            advanceTimer.current = setTimeout(() => { if (!paused) goToNext(); }, maxMs);
+            advanceTimer.current = setTimeout(() => { if (!pausedRef.current) goToNext(); }, maxMs);
         }
     }, [audioCache, muted, paused, goToNext]);
 
@@ -350,18 +355,25 @@ export default function NoldusDemoPage() {
         const a = audioRef.current; if (!a) return;
         const onEnded = () => {
             setSpeaking(false);
-            if (paused) return;
+            if (pausedRef.current) return;
             advanceTimer.current = setTimeout(goToNext, SCENE_GAP_MS);
         };
         const onPlay = () => setSpeaking(true);
         const onPause = () => setSpeaking(false);
+        const onError = () => {
+            setSpeaking(false);
+            if (pausedRef.current) return;
+            advanceTimer.current = setTimeout(goToNext, SCENE_GAP_MS);
+        };
         a.addEventListener("ended", onEnded);
         a.addEventListener("play", onPlay);
         a.addEventListener("pause", onPause);
+        a.addEventListener("error", onError);
         return () => {
             a.removeEventListener("ended", onEnded);
             a.removeEventListener("play", onPlay);
             a.removeEventListener("pause", onPause);
+            a.removeEventListener("error", onError);
         };
     }, [paused, goToNext]);
 
@@ -372,12 +384,7 @@ export default function NoldusDemoPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [scene, started]);
 
-    useEffect(() => () => {
-        clearAllTimers();
-        if (audioRef.current) audioRef.current.pause();
-        if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
-        Object.values(audioCache).forEach(URL.revokeObjectURL);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // (page-hide / before-unload / visibility / unmount cleanup is handled by useDemoCleanup hook above)
 
     const handleStart = async () => {
         const cache = await prefetchAll();
@@ -398,20 +405,19 @@ export default function NoldusDemoPage() {
         } else {
             setPaused(true);
             clearAllTimers();
-            audioRef.current?.pause();
-            window?.speechSynthesis?.cancel();
+            hardSilence(audioRef);
         }
     };
     const handleRestart = () => {
         clearAllTimers();
-        audioRef.current?.pause();
+        hardSilence(audioRef);
         setScene(0); setDone(false); setPaused(false);
         setTimeout(() => speakScene(0), 150);
     };
     const handleMute = () => {
         setMuted((p) => {
             const n = !p;
-            if (n) audioRef.current?.pause();
+            if (n) hardSilence(audioRef);
             else setTimeout(() => speakScene(scene), 100);
             return n;
         });
