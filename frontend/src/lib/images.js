@@ -73,6 +73,7 @@ export const SCENE_IMG_RETAIL = {
     cStore:             u("photo-1545459720-aac8509eb02c", 1800, 70),      // fuel station forecourt
     fleetSupply:        u("photo-1591768793355-74d04bb6608f", 1800, 70),   // truck on road
     maintenance:        u("photo-1581092335397-9583eb92d232", 1800, 70),   // industrial / warehouse
+    costRecovery:       u("photo-1581094794329-c8112a89af12", 1800, 70),   // electrician / equipment audit
     financialImpact:    u("photo-1454165804606-c3d57bc86b40", 1800, 70),   // charts up
     closing:            "/generated/industry-retail.jpg",
 };

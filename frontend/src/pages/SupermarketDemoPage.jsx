@@ -9,11 +9,12 @@ import {
     Activity, Brain, Zap, Globe2, Send, Copy, QrCode, Cpu, Target,
     Mail, Shield, AlertTriangle, CheckCircle2, X, BarChart3, Layers,
     ShoppingCart, Truck, Wrench, Users, Camera, Fuel, Boxes, Building2,
-    Package, ScanLine, MapPin,
+    Package, ScanLine, MapPin, TrendingUp, TrendingDown, DollarSign, Lightbulb,
+    RefreshCcw, Snowflake, Crown, Workflow,
 } from "lucide-react";
 
 // =================================================================
-// 14 scenes · ~12 min auto-played · Supermarket / C-Store / Retail
+// 15 scenes · ~13 min auto-played · Supermarket / C-Store / Retail
 // CreatorBoostAI execution layer — sits on top of SAP, Oracle, Salesforce,
 // Blue Yonder, UKG, ServiceChannel, Manhattan TMS, PDI, NCR, Gilbarco
 // Passport, FuelQuest, Titan Cloud, OneStream and store-level POS.
@@ -175,8 +176,24 @@ const SCENES = [
             "discipline — not a backlog.",
     },
     {
+        id: "cost-recovery",
+        section: "Scene 13 · Cost Recovery and Asset Intelligence",
+        focus: "cost-recovery",
+        fallback_ms: 60000,
+        narration:
+            "CreatorBoostAI goes beyond tracking maintenance — it actively recovers lost money. " +
+            "The system reads purchasing logs, maintenance histories, vendor invoices, and equipment " +
+            "records across every store. It flags repeated service calls on the same unit, rising " +
+            "maintenance cost curves, end-of-life equipment, lighting and refrigeration upgrade " +
+            "opportunities, and vendor overcharging or inconsistent pricing. For every flag, it " +
+            "recommends a clear action — replace versus repair, vendor review or escalation, capital " +
+            "upgrade with payback, or preventive maintenance prioritized by financial risk. Reactive " +
+            "operations become proactive cost control. Every dollar leaking out of the operation is " +
+            "found, ranked, and recovered.",
+    },
+    {
         id: "financial-impact",
-        section: "Scene 13 · Financial Impact Dashboard",
+        section: "Scene 14 · Financial Impact Dashboard",
         focus: "financial-impact",
         fallback_ms: 50000,
         narration:
@@ -188,7 +205,7 @@ const SCENES = [
     },
     {
         id: "closing",
-        section: "Scene 14 · The Execution Layer for Retail",
+        section: "Scene 15 · The Execution Layer for Retail",
         focus: "closing",
         fallback_ms: 56000,
         narration:
@@ -215,6 +232,7 @@ const SCENE_BG_MAP = {
     "c-store":          SCENE_IMG_RETAIL.cStore,
     "fleet-supply":     SCENE_IMG_RETAIL.fleetSupply,
     "maintenance":      SCENE_IMG_RETAIL.maintenance,
+    "cost-recovery":    SCENE_IMG_RETAIL.costRecovery,
     "financial-impact": SCENE_IMG_RETAIL.financialImpact,
     "closing":          SCENE_IMG_RETAIL.closing,
 };
@@ -502,9 +520,9 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                         {personalization.greeting}
                     </p>
                 )}
-                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 14-scene Supermarket &amp; C-Store walkthrough.</h2>
+                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 15-scene Supermarket &amp; C-Store walkthrough.</h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                    A fully automated 14-scene cinematic walkthrough — narrated by Sage (female · American)
+                    A fully automated 15-scene cinematic walkthrough — narrated by Sage (female · American)
                     — designed for grocery, supermarket, and convenience-store enterprises. CreatorBoostAI
                     overlays your existing systems, prioritizes actions by financial impact, and helps
                     every level of the operation execute. No clicks. Approximately 10 to 13 minutes.
@@ -518,13 +536,14 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                 </div>
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
                     {[
-                        "14 cinematic scenes",
+                        "15 cinematic scenes",
                         "SAP · Oracle · Salesforce · Blue Yonder",
                         "ServiceChannel · Accruent · UKG",
                         "Manhattan TMS · OneStream · POS",
                         "PDI · NCR · Gilbarco · FuelQuest · Titan",
                         "CEO · COO · CFO · Regional · Store views",
                         "Money saving + revenue recovery scenarios",
+                        "Cost recovery + asset intelligence",
                         "Assisted + Autonomous execution modes",
                     ].map((b) => (
                         <li key={b} className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">
@@ -550,6 +569,7 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                             "C-Store + Fuel Operations",
                             "Fleet and Supply Chain",
                             "Maintenance and Facilities",
+                            "Cost Recovery + Asset Intelligence",
                             "Financial Impact Dashboard",
                             "The Execution Layer for Retail",
                         ].map((b, i) => (
@@ -659,6 +679,7 @@ const STAGE_BADGES = {
     "c-store":          "C-Store + Forecourt",
     "fleet-supply":     "Fleet + Supply Chain",
     "maintenance":      "Maintenance + Facilities",
+    "cost-recovery":    "Cost Recovery + Asset Intelligence",
     "financial-impact": "Financial Impact Dashboard",
     "closing":          "The Execution Layer for Retail",
 };
@@ -681,6 +702,7 @@ const SceneStage = ({ scene }) => {
             case "c-store":          return <CStoreStage />;
             case "fleet-supply":     return <FleetSupplyStage />;
             case "maintenance":      return <MaintenanceStage />;
+            case "cost-recovery":    return <CostRecoveryStage />;
             case "financial-impact": return <FinancialImpactStage />;
             case "closing":          return <ClosingStage />;
             default:                 return null;
@@ -1191,7 +1213,169 @@ const MaintenanceStage = () => {
     );
 };
 
-// ---- 13. Financial impact
+// ---- 13. Cost Recovery + Asset Intelligence
+const CostRecoveryStage = () => {
+    const flags = [
+        {
+            Icon: RefreshCcw,
+            tone: "rose",
+            label: "Repeated service calls",
+            unit: "Walk-in cooler · Store 2073",
+            detail: "3 service calls in 90 days · CoolTech",
+            cost: "$5,640 lifetime",
+            action: "REPLACE — payback 8.2 mo",
+        },
+        {
+            Icon: TrendingUp,
+            tone: "amber",
+            label: "Maintenance cost climbing",
+            unit: "Reach-in freezer · Store 1142",
+            detail: "+34% YoY · 5-yr asset",
+            cost: "$11.4K trailing 12mo",
+            action: "REPLACE vs REPAIR · queued",
+        },
+        {
+            Icon: AlertTriangle,
+            tone: "rose",
+            label: "End-of-life equipment",
+            unit: "HVAC RTU-2 · Store 0411",
+            detail: "Manufacturer EOL · 14-yr unit",
+            cost: "$8.2K avoided breakdown",
+            action: "Capital plan · Q3 swap",
+        },
+        {
+            Icon: Lightbulb,
+            tone: "cyan",
+            label: "Lighting upgrade opportunity",
+            unit: "T8 fluorescent · 184 stores",
+            detail: "LED retrofit · 62% energy cut",
+            cost: "$2.1M / yr energy savings",
+            action: "Phase 1 · 40 stores · ROI 22mo",
+        },
+        {
+            Icon: Snowflake,
+            tone: "cyan",
+            label: "Refrigeration efficiency",
+            unit: "Open-case dairy · 96 stores",
+            detail: "Door retrofit · 38% energy cut",
+            cost: "$1.4M / yr · shrink down 12%",
+            action: "Capital case · CFO queue",
+        },
+        {
+            Icon: DollarSign,
+            tone: "amber",
+            label: "Vendor overcharging detected",
+            unit: "FilterPro · HVAC filters",
+            detail: "Inconsistent pricing · +18% vs market",
+            cost: "$184K overpaid · trailing 12mo",
+            action: "ESCALATE · vendor review",
+        },
+    ];
+
+    const toneRing = {
+        rose:  "border-rose-500/30 bg-rose-500/5",
+        amber: "border-amber-500/30 bg-amber-500/5",
+        cyan:  "border-cyan-500/30 bg-cyan-500/5",
+    };
+    const toneIcon = { rose: "text-rose-300", amber: "text-amber-300", cyan: "text-cyan-300" };
+    const toneAction = { rose: "text-rose-300", amber: "text-amber-300", cyan: "text-cyan-300" };
+
+    const reactiveVsProactive = [
+        { label: "Trigger",     reactive: "Equipment fails",       proactive: "Pattern detected before failure" },
+        { label: "Decision",    reactive: "Repair · always",       proactive: "Replace · repair · upgrade · escalate" },
+        { label: "Vendor",      reactive: "Pay invoice",           proactive: "Benchmark + flag overcharge" },
+        { label: "Energy",      reactive: "Pay the bill",          proactive: "Retrofit with payback" },
+        { label: "Outcome",     reactive: "Cost grows quarter-over-quarter", proactive: "Cost recovered + ROI tracked" },
+    ];
+
+    const impact = [
+        { Icon: DollarSign,    label: "Estimated cost savings",   value: "$6.4M",  trend: "Annualized · 184 stores" },
+        { Icon: Wrench,        label: "Avoided repair spend",     value: "$3.6M",  trend: "Replace-vs-repair flips" },
+        { Icon: Activity,      label: "Reduced energy usage",     value: "$3.5M",  trend: "Lighting + refrigeration" },
+        { Icon: TrendingDown,  label: "Vendor overcharge recovered", value: "$1.2M", trend: "Audit + escalation" },
+        { Icon: BarChart3,     label: "ROI on upgrades",          value: "238%",   trend: "Blended · 24-mo cohort" },
+        { Icon: Sparkles,      label: "Avoided downtime sales loss", value: "$2.8M", trend: "Refrigeration · HVAC" },
+    ];
+
+    return (
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-cost-recovery">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <DollarSign size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                        Cost Recovery + Asset Intelligence · purchasing · invoices · equipment history
+                    </span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Active recovery layer</span>
+            </div>
+
+            {/* Flags + recommended actions */}
+            <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                Flagged across all locations · ranked by financial leakage
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {flags.map((f, i) => (
+                    <div key={f.label} className={`rounded-sm border p-3 fade-in-up ${toneRing[f.tone]}`} style={{ animationDelay: `${i * 70}ms` }}>
+                        <div className="flex items-center gap-2">
+                            <f.Icon size={13} className={toneIcon[f.tone]} />
+                            <span className={`font-mono text-[10px] uppercase tracking-[0.22em] ${toneIcon[f.tone]}`}>{f.label}</span>
+                        </div>
+                        <p className="mt-2 text-sm font-medium text-white">{f.unit}</p>
+                        <p className="mt-0.5 text-xs text-slate-300">{f.detail}</p>
+                        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">{f.cost}</p>
+                        <div className="mt-2 flex items-center gap-1.5 border-t border-white/5 pt-2">
+                            <ArrowRight size={11} className={toneAction[f.tone]} />
+                            <span className={`font-mono text-[10px] uppercase tracking-[0.22em] ${toneAction[f.tone]}`}>{f.action}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Reactive vs Proactive comparison */}
+            <div className="mt-6 rounded-sm border border-white/10 bg-ink-900 p-4">
+                <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                    <RefreshCcw size={12} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                        Reactive Operations vs Proactive Cost Control
+                    </span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500" />
+                    <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-rose-300">Reactive</span>
+                    <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Proactive · CreatorBoostAI</span>
+                    {reactiveVsProactive.map((row) => (
+                        <React.Fragment key={row.label}>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">{row.label}</span>
+                            <span className="text-sm text-rose-200/90">{row.reactive}</span>
+                            <span className="text-sm text-cyan-200">{row.proactive}</span>
+                        </React.Fragment>
+                    ))}
+                </div>
+            </div>
+
+            {/* Financial Impact Panel */}
+            <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                Financial impact · sample demo values
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                {impact.map((t, i) => (
+                    <div key={t.label} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+                        <div className="flex items-center gap-2"><t.Icon size={12} className="text-cyan-300" /><span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">{t.label}</span></div>
+                        <p className="font-heading mt-1 text-xl font-semibold text-white">{t.value}</p>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300">{t.trend}</p>
+                    </div>
+                ))}
+            </div>
+
+            <p className="mt-5 rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-3 text-sm text-cyan-100">
+                CreatorBoostAI is not just tracking maintenance — it is actively reducing costs and
+                recovering lost money across every store, every vendor, and every asset.
+            </p>
+        </div>
+    );
+};
+
+// ---- 14. Financial impact
 const FinancialImpactStage = () => {
     const tiles = [
         { Icon: BarChart3, label: "Estimated savings",        value: "$18.4M",  trend: "Q · est." },
@@ -1228,7 +1412,7 @@ const FinancialImpactStage = () => {
     );
 };
 
-// ---- 14. Closing slate
+// ---- 15. Closing slate
 const ClosingStage = () => (
     <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-7 lg:p-12 fade-in-up shadow-[0_0_60px_rgba(6,182,212,0.18)]" data-testid="stage-closing">
         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Closing</p>
