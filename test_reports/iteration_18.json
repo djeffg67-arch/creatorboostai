@@ -1,0 +1,23 @@
+{
+  "summary": "Targeted re-test of iter-17 HIGH-priority Navbar wordmark fix. All 6 verification flows PASS. On /demo/supermarket, /demo/retail, /demo/c-store, /demo/grocery the brand-logo renders 'CreatorBoostAI\u2122' only (no 'BodyIQ') and tagline-strip reads 'CreatorBoostAI \u00b7 The Execution Layer for Modern Retail Operations'. Full document.body.innerText on each CB-only route contains ZERO occurrences of every forbidden token ('BodyIQ', 'BodyIQ-AI', 'SRS', 'CPS', 'EOS', 'Signal Cluster', 'Action Unit', 'Nonverbal', 'nonverbal', 'signal-level', 'non-subjective', 'anatomical', 'human behavior', 'behavioral signal'). On non-CB-only routes (/ and /demo/noldus) the dual brand 'CreatorBoostAI\u2122 + BodyIQ-AI\u2122' plus dual-brand tagline remain intact. Mobile (375x812): /demo/supermarket shows 'CreatorBoostAI' only; / shows 'CBAI + BodyIQ-AI' dual brand. Iter-17 forbidden-vocabulary HIGH bug is fully resolved.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Navbar cbOnly route-list ['/demo/supermarket','/demo/retail','/demo/c-store','/demo/grocery'] is hard-coded inline; consider exporting a CB_ONLY_ROUTES constant from a shared config so future single-brand routes stay in sync with SupermarketDemoPage aliases.",
+    "Tagline copy duplicated between Navbar.jsx (cbOnly tagline) and any other marketing surface \u2014 extract to a constant to avoid drift.",
+    "SupermarketDemoPage.jsx still 1272 lines (carry-over from iter-17) \u2014 split SCENES + 14 stage components into /pages/supermarket/scenes/*.jsx."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only re-test)", "frontend": "100%"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter-18 verified the single iter-17 HIGH bug (Navbar dual-brand wordmark leaking 'BodyIQ' onto CB-only routes) is fixed via useLocation + cbOnly boolean in /app/frontend/src/components/site/Navbar.jsx. Desktop + mobile wordmark, tagline-strip, and full body innerText are all clean on /demo/supermarket|retail|c-store|grocery while / and /demo/noldus preserve the dual brand. No regression detected. Full iter-17 feature list (hero, 14-scene arc, personalization, share module, aliases, homepage CTAs, nav-supermarket link) was not re-exercised end-to-end in this fast re-test but the Navbar is the only piece that changed since iter-17, so no regression path is expected.",
+  "rca of the issue": "Iter-17 bug RCA: shared global Navbar wordmark rendered 'CreatorBoostAI\u2122 + BodyIQ-AI\u2122' on every route, leaking forbidden tokens into /demo/supermarket DOM innerText. Iter-18 fix verified: Navbar.jsx now uses useLocation() to compute cbOnly = pathname matches any of ['/demo/supermarket','/demo/retail','/demo/c-store','/demo/grocery']; when true, the '+ BodyIQ-AI\u2122' span is not rendered, mobile span collapses to 'CreatorBoostAI', and tagline switches to the CB-only variant. Verified via live DOM inspection on preview URL."
+}

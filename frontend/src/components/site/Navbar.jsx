@@ -1,17 +1,23 @@
 import React, { useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Menu, X } from "lucide-react";
 import { LanguageSelector } from "@/components/site/LanguageSelector";
 
 /**
  * Global header for the unified CreatorBoostAI™ + BodyIQ-AI™ enterprise platform.
- * Always shows BOTH brand names. Tagline strip below the bar reinforces
- * positioning across every page.
+ * Default wordmark shows BOTH brand names. On routes that should focus on a single
+ * brand (e.g. /demo/supermarket — pure CreatorBoostAI retail-ops demo), the
+ * wordmark collapses to CreatorBoostAI only.
  */
 export const Navbar = () => {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
+    const { pathname } = useLocation();
+    // Single-brand routes that focus exclusively on CreatorBoostAI as the
+    // retail operations execution layer. The brand stack collapses for these.
+    const cbOnlyRoutes = ["/demo/supermarket", "/demo/retail", "/demo/c-store", "/demo/grocery"];
+    const cbOnly = cbOnlyRoutes.some((r) => pathname === r || pathname.startsWith(r + "/"));
 
     const links = [
         { to: "/", label: t("nav.home"), testid: "nav-home" },
@@ -42,13 +48,20 @@ export const Navbar = () => {
                         <span className="font-heading text-[15px] font-semibold text-white">
                             CreatorBoost<span className="text-cyan-400">AI</span><sup className="text-[8px] text-slate-400">™</sup>
                         </span>
-                        <span className="text-slate-500 text-sm">+</span>
-                        <span className="font-heading text-[15px] font-semibold text-white">
-                            BodyIQ<span className="text-cyan-400">-AI</span><sup className="text-[8px] text-slate-400">™</sup>
-                        </span>
+                        {!cbOnly && (
+                            <>
+                                <span className="text-slate-500 text-sm">+</span>
+                                <span className="font-heading text-[15px] font-semibold text-white">
+                                    BodyIQ<span className="text-cyan-400">-AI</span><sup className="text-[8px] text-slate-400">™</sup>
+                                </span>
+                            </>
+                        )}
                     </div>
                     <span className="sm:hidden font-heading text-sm font-semibold text-white">
-                        CB<span className="text-cyan-400">AI</span> + BodyIQ<span className="text-cyan-400">-AI</span>
+                        {cbOnly
+                            ? <>CreatorBoost<span className="text-cyan-400">AI</span></>
+                            : <>CB<span className="text-cyan-400">AI</span> + BodyIQ<span className="text-cyan-400">-AI</span></>
+                        }
                     </span>
                 </Link>
 
@@ -104,7 +117,10 @@ export const Navbar = () => {
             <div className="border-t border-white/5 bg-ink-900/60" data-testid="tagline-strip">
                 <div className="mx-auto max-w-7xl px-5 py-2 lg:px-8">
                     <p className="text-center font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300/90 sm:text-[11px]">
-                        The AI Operating System That Runs and Grows Your Business · Powered by Real-Time Human Intelligence
+                        {cbOnly
+                            ? "CreatorBoostAI · The Execution Layer for Modern Retail Operations"
+                            : "The AI Operating System That Runs and Grows Your Business · Powered by Real-Time Human Intelligence"
+                        }
                     </p>
                 </div>
             </div>
