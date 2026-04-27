@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 17 frontend testing of /demo/supermarket CreatorBoostAI rewrite. Hero, start screen, 14-scene story arc, personalization, mobile, aliases (/demo/retail, /demo/c-store, /demo/grocery), homepage CTAs, navbar link, and backend smoke checks (TTS + share-demo) all pass. CRITICAL FORBIDDEN-VOCAB violation found: the global Navbar logo on every page (including /demo/supermarket) renders 'CreatorBoostAI\u2122 + BodyIQ-AI\u2122', so the strings 'BodyIQ' and 'BodyIQ-AI' appear in /demo/supermarket DOM body innerText. The Supermarket page itself (hero, start screen, scenes, narration, share module) is clean of all forbidden vocabulary \u2014 but the shared site Navbar wordmark still includes 'BodyIQ-AI\u2122'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/share-demo", "issue": "Returns HTTP 202 (Accepted) instead of 200 when Resend not configured; payload requires 'recipient_email' (not 'recipient'). 202 is functionally correct for async/accepted. Smoke check passes."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Navbar (site/Navbar.jsx) logo wordmark", "issue": "Brand logo on every page reads 'CreatorBoostAI\u2122 + BodyIQ-AI\u2122'. This puts the forbidden tokens 'BodyIQ' and 'BodyIQ-AI' into the user-visible DOM body innerText of /demo/supermarket (and /demo/retail, /demo/c-store, /demo/grocery). The iter-17 spec requires ZERO user-visible occurrences of these tokens on /demo/supermarket.", "selector": "header brand link / Navbar logo span", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Update /app/frontend/src/components/site/Navbar.jsx (and any shared Layout/Footer) to remove 'BodyIQ-AI\u2122' from the visible brand wordmark on the Supermarket route \u2014 or globally rename to CreatorBoostAI-only \u2014 to satisfy the forbidden-vocabulary requirement.",
+    "Optionally also scrub 'BodyIQ-AI' from any aria-label/title attributes that surface in screen-reader DOM text, and from the page <title> if it contains it."
+  ],
+  "critical_code_review_comments": [
+    "SupermarketDemoPage.jsx is 1272 lines \u2014 consider splitting SCENES + 14 stage components into /pages/supermarket/scenes/*.jsx to drop main file <700 lines.",
+    "useEffect with [scene, started] disables exhaustive-deps for speakScene; acceptable but noisy. Memoize speakScene with stable deps to avoid the disable.",
+    "ClosingStage hard-codes 6 closing bullets; consider exporting a shared CLOSING_BULLETS constant for reuse in marketing surfaces.",
+    "ShareModule constructs QR via api.qrserver.com with no fallback if the third-party is down \u2014 add an <img onError> graceful state."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "92%"},
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 14 scenes, story arc order, hero copy, start screen, system-name list, personalization (?name=&company=), aliases, homepage CTAs, mobile (375px no horizontal overflow), TTS endpoint, and share-demo endpoint all verified working. The single remaining HIGH bug is the Navbar wordmark still containing 'BodyIQ-AI\u2122'. Once that wordmark is removed from the Supermarket route the entire iter-17 spec is satisfied. Note: the SupermarketDemoPage.jsx body itself contains zero forbidden tokens (only one allowed JS code comment at line 617 saying 'no behavioral signals' which is non-user-visible).",
+  "rca of the issue": "Iter-17 rewrite scrubbed the SupermarketDemoPage.jsx component thoroughly, but the shared global Layout/Navbar (rendered above the demo page) still uses the old dual-brand wordmark 'CreatorBoostAI\u2122 + BodyIQ-AI\u2122'. document.body.innerText therefore still contains the forbidden tokens on every demo route. Fix: edit /app/frontend/src/components/site/Navbar.jsx (and any logo SVG/text it imports) so the brand on the Supermarket route renders CreatorBoostAI only \u2014 either by removing the '+ BodyIQ-AI\u2122' span unconditionally, or by route-conditional rendering (hide on pathname.startsWith('/demo/'))."
+}

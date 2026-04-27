@@ -12,213 +12,189 @@ import {
 } from "lucide-react";
 
 // =================================================================
-// 18 scenes · ~12 min auto-played · Supermarket / C-Store / Retail
-// SRS · CPS · EOS structured signal framework. No adjectives.
+// 14 scenes · ~12 min auto-played · Supermarket / C-Store / Retail
+// CreatorBoostAI execution layer — sits on top of SAP, Oracle, Salesforce,
+// Blue Yonder, UKG, ServiceChannel, Manhattan TMS, PDI, NCR, Gilbarco
+// Passport, FuelQuest, Titan Cloud, OneStream and store-level POS.
+// Connects intelligence across systems · prioritizes actions · saves
+// money · recovers revenue.
 // =================================================================
 const SCENES = [
     {
-        id: "modern-stack",
-        section: "Scene 1 · The Modern Store Stack",
-        focus: "modern-stack",
-        fallback_ms: 40000,
+        id: "opening",
+        section: "Scene 1 · The Modern Retail Operation",
+        focus: "opening",
+        fallback_ms: 44000,
         narration:
-            "This is how modern retail operates today. Enterprise retailers run on dozens of disconnected " +
-            "systems. ERP — SAP, Microsoft Dynamics, OneStream. Retail — Oracle Retail, SAP Retail. " +
-            "Workforce — UKG, Blue Yonder. Maintenance — ServiceChannel, Accruent. CRM — Salesforce. " +
-            "Fleet — Manhattan TMS, Geotab. Each system works. But none of them think together.",
+            "This is what a modern retail operation looks like at scale. Thousands of stores. Dozens " +
+            "of warehouses. Hundreds of trucks. Fuel locations across multiple regions. Tens of " +
+            "thousands of employees. Hundreds of thousands of maintenance requests every year. " +
+            "Inventory systems running across multiple platforms. Financial dashboards in every " +
+            "region. Large retailers do not need another disconnected tool. They need an execution " +
+            "layer that helps their existing systems work together.",
     },
     {
-        id: "problem",
-        section: "Scene 2 · The Problem",
-        focus: "problem",
-        fallback_ms: 36000,
+        id: "existing-systems",
+        section: "Scene 2 · The Existing Systems Layer",
+        focus: "existing-systems",
+        fallback_ms: 50000,
         narration:
-            "Every day, alerts fire across the stack. Out-of-stock warnings. Labor shortages. Equipment " +
-            "failures. Missed sales. These systems generate data. They do not coordinate decisions. And " +
-            "they do not understand the most important variable in retail — human behavior.",
+            "Every modern retailer already runs on a stack like this. ERP — SAP, Microsoft Dynamics, " +
+            "OneStream. Retail — Oracle Retail and SAP Retail. Workforce — UKG and Blue Yonder. " +
+            "Maintenance — ServiceChannel and Accruent. CRM — Salesforce. Fleet — Manhattan TMS. " +
+            "Convenience and fuel — PDI Enterprise, NCR POS, Gilbarco Passport, FuelQuest, and Titan " +
+            "Cloud. And every store has its own POS system. CreatorBoostAI does not replace any of " +
+            "this. CreatorBoostAI overlays these systems and gives executives, regional managers, " +
+            "store operators, and maintenance teams one command view.",
     },
     {
-        id: "nonverbal",
-        section: "Scene 3 · Nonverbal Reality",
-        focus: "nonverbal",
-        fallback_ms: 36000,
-        narration:
-            "In retail, decisions are driven largely by nonverbal signals. Customer hesitation at the " +
-            "shelf. Product uncertainty in the aisle. Purchase friction at checkout. No legacy system is " +
-            "capturing this layer — until now.",
-    },
-    {
-        id: "bodyiq-activate",
-        section: "Scene 4 · BodyIQ-AI Activation",
-        focus: "bodyiq-activate",
-        fallback_ms: 35000,
-        narration:
-            "BodyIQ-AI activates as the Signal Intelligence Layer. The system defines human behavior " +
-            "using anatomical signals. No adjectives. No interpretation. Every output is a structured " +
-            "signal cluster anchored to Action Units, scored by intensity, and classified as positive, " +
-            "negative, or mixed.",
-    },
-    {
-        id: "objective-mode",
-        section: "Scene 5 · Objective Mode",
-        focus: "objective-mode",
-        fallback_ms: 36000,
-        narration:
-            "Objective Mode engages. Three structured states form the foundation. SRS — Signal Response " +
-            "State. CPS — Cognitive Processing State. EOS — Evaluation Outcome State. Up to ninety-six " +
-            "percent non-subjective classification. Up to ninety-eight percent signal-level accuracy. " +
-            "Anatomical, measurement-based, and objective.",
-    },
-    {
-        id: "shelf-clusters",
-        section: "Scene 6 · In-store Customer at Shelf",
-        focus: "shelf-clusters",
+        id: "command-center",
+        section: "Scene 3 · The Operations Command Center",
+        focus: "command-center",
         fallback_ms: 45000,
         narration:
-            "Camera input from Aisle four, beverage section. A customer approaches the shelf. The signal " +
-            "stack fires in real time. SRS dash four one zero seven. Action Unit four. Action Unit seven. " +
-            "Hand pause at zero point seven seconds. Intensity zero point six four. Classification mixed. " +
-            "CPS dash five two one one. Gaze drift across three SKUs. Dwell time eleven seconds. " +
-            "Classification mixed. EOS dash six three zero four. Item replaced. Pivot away. " +
-            "Classification negative. Hesitation pattern detected. Not guessed. Measured.",
+            "The Operations Command Center opens. CreatorBoostAI pulls live information from sales, " +
+            "inventory, labor, maintenance, refrigeration, fleet, fuel, marketing, pricing, store " +
+            "tasks, vendor performance, customer demand, and regional performance. For every issue " +
+            "it surfaces, the system answers four questions immediately. What needs attention first. " +
+            "What action should be taken. Who should handle it. And what the financial impact will " +
+            "be if it is ignored.",
     },
     {
-        id: "real-time-action",
-        section: "Scene 7 · Real-time Store Action",
-        focus: "real-time-action",
-        fallback_ms: 40000,
+        id: "money-saving",
+        section: "Scene 4 · Money-Saving Scenarios",
+        focus: "money-saving",
+        fallback_ms: 50000,
         narration:
-            "CreatorBoostAI converts the cluster into action. Three executions fire in real time. Push " +
-            "comparison information to the digital shelf display in front of the customer. Notify the " +
-            "associate on duty for Aisle four. Trigger a personalized price incentive through the loyalty " +
-            "app. Intelligence becomes execution — in under two seconds.",
+            "CreatorBoostAI flags high-cost problems before they become expensive. Refrigeration " +
+            "drift. HVAC failures. Lighting waste. Overstaffing on slow days. Understaffing during " +
+            "rushes. Late maintenance response. Fuel inventory risk. Shrink. Expired products. " +
+            "Missed vendor credits. Energy waste. Slow repair cycles. The system reduces waste, " +
+            "prevents downtime, lowers labor inefficiency, reduces emergency repair costs, and " +
+            "creates accountability across the operation.",
     },
     {
-        id: "checkout",
-        section: "Scene 8 · Checkout Optimization",
-        focus: "checkout",
-        fallback_ms: 38000,
+        id: "revenue-making",
+        section: "Scene 5 · Revenue-Making Scenarios",
+        focus: "revenue-making",
+        fallback_ms: 50000,
         narration:
-            "A customer reaches the checkout lane. Cluster EOS dash seven one one nine fires. Hand " +
-            "withdraw motion. Item removed from belt. Classification negative. The system responds. " +
-            "Adjust the upsell prompt. Reduce friction. Recommend the express lane two registers over. " +
-            "Even checkout becomes optimized at the signal level.",
+            "CreatorBoostAI also identifies opportunities to make more money. Out-of-stock recovery. " +
+            "Better promotion timing. Localized pricing opportunities. Basket-size improvement. " +
+            "Missed upsell opportunities. Fuel-to-store conversion. Loyalty campaign triggers. " +
+            "Regional product demand. Slow-moving inventory actions. High-margin product focus. " +
+            "The system does not just report problems. It recommends the next best action and " +
+            "helps execute it.",
     },
     {
-        id: "workforce",
-        section: "Scene 9 · Workforce Intelligence",
-        focus: "workforce",
-        fallback_ms: 40000,
+        id: "store-example",
+        section: "Scene 6 · Store-Level Example · Store 1142",
+        focus: "store-example",
+        fallback_ms: 55000,
         narration:
-            "Zoom into the workforce layer. An associate is assisting a customer. The system scores the " +
-            "interaction across three structured dimensions. Signal Accuracy — how well the associate " +
-            "reads anatomical cues. Response Efficiency — how quickly they act on the signal stack. " +
-            "Outcome Impact — the revenue effect of their decisions. Organizations now measure how " +
-            "employees respond to human signals — not just what they say.",
+            "Store one one four two. Falling sales in dairy. Refrigeration alerts on two units. " +
+            "Labor schedule gaps. Rising customer complaints. CreatorBoostAI connects all of this " +
+            "data and recommends six coordinated actions. Dispatch maintenance to refrigeration. " +
+            "Adjust the labor schedule for the evening shift. Trigger a manager task to inspect " +
+            "the cold chain. Reorder affected products. Update the dairy promotion. Send a regional " +
+            "alert to the area lead. The financial impact is tracked end to end.",
     },
     {
-        id: "ops-overlay",
-        section: "Scene 10 · Store Operations Overlay",
-        focus: "ops-overlay",
-        fallback_ms: 40000,
+        id: "regional-view",
+        section: "Scene 7 · Regional Operator View",
+        focus: "regional-view",
+        fallback_ms: 45000,
         narration:
-            "CreatorBoostAI does not replace your systems. It sits on top of them. The dashboard now " +
-            "overlays SAP for ERP, Salesforce for CRM, ServiceChannel for maintenance, and Blue Yonder " +
-            "for workforce — all in one operational view. The intelligence layer connects them and " +
-            "makes them coordinate decisions for the first time.",
+            "Zoom out to the regional operator view. A regional manager oversees fifty to three " +
+            "hundred stores. CreatorBoostAI ranks every store by highest financial risk, highest " +
+            "savings opportunity, highest revenue opportunity, maintenance backlog, labor " +
+            "inefficiency, inventory problems, energy waste, and sales opportunity. Regional " +
+            "leaders stop guessing — and start managing by financial priority.",
     },
     {
-        id: "maintenance",
-        section: "Scene 11 · Maintenance + Facility",
-        focus: "maintenance",
-        fallback_ms: 40000,
+        id: "executive-view",
+        section: "Scene 8 · Executive View · CEO · COO · CFO · Regional · Store",
+        focus: "executive-view",
+        fallback_ms: 50000,
         narration:
-            "A refrigeration unit in the dairy section is flagged in ServiceChannel. The system " +
-            "correlates the equipment fault with cluster EOS dash eight two zero four — customers " +
-            "approaching the cooler door, then pivoting away. A failing refrigeration unit is now tied " +
-            "directly to lost customer engagement. The work order escalates with measurable revenue " +
-            "impact attached.",
+            "Each level of the organization sees what matters to them. The CEO sees total " +
+            "performance across the enterprise. The COO sees execution bottlenecks. The CFO sees " +
+            "savings, leakage, and return on investment. Regional managers see store action " +
+            "priorities. Store managers see simple daily tasks they can act on immediately. One " +
+            "system. Every role. Every level. Aligned.",
     },
     {
-        id: "supply-chain",
-        section: "Scene 12 · Supply Chain + Inventory",
-        focus: "supply-chain",
-        fallback_ms: 40000,
+        id: "autonomous",
+        section: "Scene 9 · Assisted and Autonomous Execution",
+        focus: "autonomous",
+        fallback_ms: 45000,
         narration:
-            "An out-of-stock event fires for SKU four nine zero zero one. The signal stack confirms " +
-            "negative classification clusters from twelve customers in the last forty minutes. The " +
-            "system executes three actions. Auto reorder triggered through SAP Retail. Substitute SKU " +
-            "suggested through the loyalty app. Supplier alert dispatched. Inventory is no longer " +
-            "static — it is behavior-driven.",
-    },
-    {
-        id: "fleet",
-        section: "Scene 13 · Fleet + Delivery",
-        focus: "fleet",
-        fallback_ms: 36000,
-        narration:
-            "Truck routes from Manhattan TMS appear on the live map. The system adjusts delivery " +
-            "priority based on real-time store demand. Store one one four two — accelerated. Store " +
-            "two zero seven three — deprioritized. Even logistics adapts to the signal stack at the " +
-            "store level.",
+            "CreatorBoostAI runs in two modes. In assisted mode, the system recommends actions and " +
+            "waits for human approval. In autonomous mode, the system creates tasks, sends alerts, " +
+            "drafts vendor emails, updates managers, triggers workflows, and logs results " +
+            "automatically. Companies choose how much control they want. The toggle is real-time " +
+            "and operator-level.",
     },
     {
         id: "c-store",
-        section: "Scene 14 · C-Store + Fuel",
+        section: "Scene 10 · C-Store + Fuel Operations",
         focus: "c-store",
-        fallback_ms: 42000,
+        fallback_ms: 55000,
         narration:
-            "The view shifts to a convenience store and fuel forecourt. Systems appear — PDI Enterprise, " +
-            "NCR POS, FuelQuest. Speed and decision timing are everything in this environment. A " +
-            "customer grabs a beverage from the cooler — cluster CPS dash nine four one one fires. " +
-            "Hesitation between two SKUs. The system reacts instantly. Suggest the bundle. Adjust the " +
-            "pump price. Trigger a forecourt promotion to the customer's loyalty app.",
+            "Convenience stores and fuel forecourts come into focus. The systems shift to PDI " +
+            "Enterprise, NCR POS, Gilbarco Passport, FuelQuest, and Titan Cloud. CreatorBoostAI " +
+            "helps with fuel pricing, fuel inventory, tank monitoring, pump downtime, POS issues, " +
+            "food freshness, labor coverage, delivery timing, fleet card activity, forecourt " +
+            "maintenance, security incident follow-up, and vendor and repair accountability. In " +
+            "C-stores, speed matters. The system helps operators respond faster — before small " +
+            "issues become lost sales.",
     },
     {
-        id: "ai-camera",
-        section: "Scene 15 · AI Camera + Behavior",
-        focus: "ai-camera",
-        fallback_ms: 36000,
+        id: "fleet-supply",
+        section: "Scene 11 · Fleet and Supply Chain",
+        focus: "fleet-supply",
+        fallback_ms: 45000,
         narration:
-            "Ceiling camera systems track movement across the store — paths, dwell time, approach " +
-            "vectors. AI cameras provide the input. CreatorBoostAI defines the meaning. Movement plus " +
-            "anatomical signals plus structured clusters equals decision-grade intelligence at every " +
-            "square foot of retail floor.",
+            "Trucks, warehouses, delivery routes, and store demand all feed into the same view. " +
+            "CreatorBoostAI helps with late delivery exceptions, route prioritization, backhaul " +
+            "opportunities, fuel cost visibility, warehouse-to-store coordination, real-time store " +
+            "demand changes, and delivery exception alerts. The supply chain becomes responsive — " +
+            "not reactive.",
     },
     {
-        id: "global-dashboard",
-        section: "Scene 16 · Global Enterprise Dashboard",
-        focus: "global-dashboard",
-        fallback_ms: 42000,
+        id: "maintenance",
+        section: "Scene 12 · Maintenance and Facilities",
+        focus: "maintenance",
+        fallback_ms: 45000,
         narration:
-            "The view expands to the global enterprise dashboard. United States. Latin America. Europe. " +
-            "Asia. Every region with live behavioral KPIs. Two thousand four hundred fifteen active " +
-            "stores. One hundred forty-seven thousand structured signal clusters today. Forty-two " +
-            "point one million dollars in revenue influenced by the signal stack this quarter. For " +
-            "the first time, behavior becomes a measurable enterprise KPI.",
+            "Work orders flow in from across the chain. CreatorBoostAI identifies which work orders " +
+            "are urgent, which vendors are slow, which repairs are costing too much, which stores " +
+            "have repeated failures, which equipment is hurting sales, and which preventive " +
+            "maintenance should be scheduled now. Maintenance becomes a measurable financial " +
+            "discipline — not a backlog.",
     },
     {
-        id: "training-replay",
-        section: "Scene 17 · Training Replay",
-        focus: "training-replay",
-        fallback_ms: 36000,
-        narration:
-            "Training replay engages. A recorded store interaction plays back, with SRS, CPS, and EOS " +
-            "clusters overlaid frame by frame. Associates see exactly which signals fired, when, and " +
-            "how they responded. Every interaction becomes measurable, coachable, and standardized " +
-            "across the organization.",
-    },
-    {
-        id: "autonomous-closing",
-        section: "Scene 18 · Autonomous Mode · Final Positioning",
-        focus: "autonomous-closing",
+        id: "financial-impact",
+        section: "Scene 13 · Financial Impact Dashboard",
+        focus: "financial-impact",
         fallback_ms: 50000,
         narration:
-            "The mode toggles to autonomous. CreatorBoostAI executes across pricing, staffing, " +
-            "inventory, marketing, and fleet — simultaneously, system-wide. With human approval, or " +
-            "fully autonomous. Retail measures transactions. BodyIQ-AI defines human behavior. " +
-            "CreatorBoostAI executes on it. This is the first complete retail intelligence execution " +
-            "system.",
+            "Every action ties to a number. Estimated savings. Revenue recovered. Maintenance cost " +
+            "avoided. Labor savings. Energy savings. Inventory waste reduced. Out-of-stock recovery. " +
+            "Promotion lift. Store performance improvement. The figures shown here are sample demo " +
+            "values — but in real deployments, every recommendation is tagged with a measurable " +
+            "financial outcome the moment it executes.",
+    },
+    {
+        id: "closing",
+        section: "Scene 14 · The Execution Layer for Retail",
+        focus: "closing",
+        fallback_ms: 56000,
+        narration:
+            "Your stores already generate the data. CreatorBoostAI turns that data into action. " +
+            "See every store. Prioritize every issue. Execute every action. Save money. Recover " +
+            "revenue. Scale performance. CreatorBoostAI is the execution layer for modern retail " +
+            "operations.",
     },
 ];
 
@@ -453,13 +429,13 @@ export default function SupermarketDemoPage() {
                                     speaking={speaking} muted={muted} paused={paused}
                                     onMute={handleMute}
                                     personalGreeting={scene === 0 && personalization?.name
-                                        ? `Hello ${personalization.name}${personalization.company ? ` from ${personalization.company}` : ""} — this retail walkthrough was prepared just for you.`
+                                        ? `Hello ${personalization.name}${personalization.company ? ` from ${personalization.company}` : ""} — this CreatorBoostAI retail walkthrough was prepared just for you.`
                                         : null}
                                 />
                                 <SceneIndex current={scene} total={total} />
                             </div>
                         </div>
-                        {(current.focus === "autonomous-closing" || done) && (
+                        {(current.focus === "closing" || done) && (
                             <div className="mt-6"><ShareModule onReplay={handleRestart} trackEvent={trackEvent} /></div>
                         )}
                     </div>
@@ -484,14 +460,15 @@ const Hero = ({ personalization }) => (
             </p>
         )}
         <h1 className="font-heading mt-6 text-balance text-3xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
-            Retail measures transactions.{" "}
-            <span className="text-cyan-400">BodyIQ-AI defines human behavior. CreatorBoostAI executes on it.</span>
+            Your stores already generate the data.{" "}
+            <span className="text-cyan-400">CreatorBoostAI turns that data into action.</span>
         </h1>
         <p className="mt-5 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base lg:text-lg">
-            A 12-minute walkthrough of the first complete retail intelligence execution system — sitting on
-            top of SAP, Oracle Retail, Salesforce, ServiceChannel, Blue Yonder, Manhattan TMS, PDI, NCR POS,
-            and your fleet stack — connecting them with structured signal clusters (SRS · CPS · EOS) that
-            drive coordinated decisions in real time. Anatomical. Measurement-based. Objective.
+            A 12-minute walkthrough of the execution layer for modern retail operations. CreatorBoostAI
+            sits on top of SAP, Microsoft Dynamics, Oracle Retail, Salesforce, Blue Yonder, UKG,
+            ServiceChannel, Accruent, Manhattan TMS, PDI Enterprise, NCR, Gilbarco Passport, FuelQuest,
+            Titan Cloud, OneStream, and your store-level POS — and helps operators see problems,
+            prioritize actions, reduce waste, save money, and recover revenue across every store.
         </p>
     </section>
 );
@@ -506,11 +483,12 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                         {personalization.greeting}
                     </p>
                 )}
-                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 18-scene Supermarket &amp; C-Store walkthrough.</h2>
+                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 14-scene Supermarket &amp; C-Store walkthrough.</h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                    A fully automated 18-scene cinematic walkthrough — narrated by Nova (female · American)
-                    — designed for grocery, supermarket, and convenience-store enterprises. Built around the
-                    SRS · CPS · EOS structured signal framework. No clicks. Approximately 10 to 13 minutes.
+                    A fully automated 14-scene cinematic walkthrough — narrated by Nova (female · American)
+                    — designed for grocery, supermarket, and convenience-store enterprises. CreatorBoostAI
+                    overlays your existing systems, prioritizes actions by financial impact, and helps
+                    every level of the operation execute. No clicks. Approximately 10 to 13 minutes.
                 </p>
                 <div className="mt-7 flex flex-wrap items-center gap-3">
                     <button onClick={onStart} disabled={prefetching} data-testid="start-supermarket-demo-btn"
@@ -521,14 +499,14 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                 </div>
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
                     {[
-                        "18 cinematic scenes",
+                        "14 cinematic scenes",
                         "SAP · Oracle · Salesforce · Blue Yonder",
-                        "ServiceChannel · Manhattan · UKG",
-                        "C-Store · PDI · NCR POS · FuelQuest",
-                        "SRS · CPS · EOS structured framework",
-                        "AI camera + behavior intelligence",
-                        "Up to 96% non-subjective · 98% accuracy",
-                        "Autonomous mode + global dashboard",
+                        "ServiceChannel · Accruent · UKG",
+                        "Manhattan TMS · OneStream · POS",
+                        "PDI · NCR · Gilbarco · FuelQuest · Titan",
+                        "CEO · COO · CFO · Regional · Store views",
+                        "Money saving + revenue recovery scenarios",
+                        "Assisted + Autonomous execution modes",
                     ].map((b) => (
                         <li key={b} className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">
                             <Check size={13} className="text-cyan-400" /> {b}
@@ -541,24 +519,20 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                     <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">The story arc</p>
                     <ol className="mt-4 space-y-2 text-sm">
                         {[
-                            "The Modern Store Stack",
-                            "The Problem · disconnected systems",
-                            "Nonverbal Reality of retail",
-                            "BodyIQ-AI · Signal Intelligence Layer",
-                            "Objective Mode · 96% / 98%",
-                            "Customer at shelf · SRS · CPS · EOS",
-                            "Real-time store action",
-                            "Checkout optimization",
-                            "Workforce intelligence scoring",
-                            "Store ops overlay · SAP / SF / SC / BY",
-                            "Maintenance + facility correlation",
-                            "Supply chain · behavior-driven",
-                            "Fleet + delivery prioritization",
-                            "C-Store · PDI · NCR · FuelQuest",
-                            "AI camera + behavior intelligence",
-                            "Global enterprise dashboard",
-                            "Training replay system",
-                            "Autonomous mode + closing",
+                            "The Modern Retail Operation",
+                            "The Existing Systems Layer",
+                            "The Operations Command Center",
+                            "Money-Saving Scenarios",
+                            "Revenue-Making Scenarios",
+                            "Store-Level Example · Store 1142",
+                            "Regional Operator View",
+                            "Executive View · CEO · COO · CFO",
+                            "Assisted + Autonomous Execution",
+                            "C-Store + Fuel Operations",
+                            "Fleet and Supply Chain",
+                            "Maintenance and Facilities",
+                            "Financial Impact Dashboard",
+                            "The Execution Layer for Retail",
                         ].map((b, i) => (
                             <li key={b} className="flex items-start gap-3 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300">
                                 <span className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 px-2 py-0.5 text-[9px] text-cyan-300">{String(i + 1).padStart(2, "0")}</span>
@@ -640,29 +614,25 @@ const SceneIndex = ({ current, total }) => (
 );
 
 // =================================================================
-// SCENE STAGES
+// SCENE STAGES — CreatorBoostAI operational layer (no behavioral signals)
 // =================================================================
 const SceneStage = ({ scene }) => {
     switch (scene.focus) {
-        case "modern-stack":      return <ModernStackStage />;
-        case "problem":           return <ProblemStage />;
-        case "nonverbal":         return <NonverbalStage />;
-        case "bodyiq-activate":   return <BodyIQActivateStage />;
-        case "objective-mode":    return <ObjectiveModeStage />;
-        case "shelf-clusters":    return <ShelfClustersStage />;
-        case "real-time-action":  return <RealTimeActionStage />;
-        case "checkout":          return <CheckoutStage />;
-        case "workforce":         return <WorkforceStage />;
-        case "ops-overlay":       return <OpsOverlayStage />;
-        case "maintenance":       return <MaintenanceStage />;
-        case "supply-chain":      return <SupplyChainStage />;
-        case "fleet":             return <FleetStage />;
-        case "c-store":           return <CStoreStage />;
-        case "ai-camera":         return <AICameraStage />;
-        case "global-dashboard":  return <GlobalDashboardStage />;
-        case "training-replay":   return <TrainingReplayStage />;
-        case "autonomous-closing":return <AutonomousClosingStage />;
-        default:                  return null;
+        case "opening":          return <OpeningStage />;
+        case "existing-systems": return <ExistingSystemsStage />;
+        case "command-center":   return <CommandCenterStage />;
+        case "money-saving":     return <MoneySavingStage />;
+        case "revenue-making":   return <RevenueMakingStage />;
+        case "store-example":    return <StoreExampleStage />;
+        case "regional-view":    return <RegionalViewStage />;
+        case "executive-view":   return <ExecutiveViewStage />;
+        case "autonomous":       return <AutonomousModeStage />;
+        case "c-store":          return <CStoreStage />;
+        case "fleet-supply":     return <FleetSupplyStage />;
+        case "maintenance":      return <MaintenanceStage />;
+        case "financial-impact": return <FinancialImpactStage />;
+        case "closing":          return <ClosingStage />;
+        default:                 return null;
     }
 };
 
@@ -684,339 +654,319 @@ const KPI = ({ Icon, label, value, trend }) => (
     </div>
 );
 
-// ---- 1. Modern store stack
-const ModernStackStage = () => {
-    const groups = [
-        { label: "ERP",          items: ["SAP", "Microsoft Dynamics", "OneStream"], Icon: Cpu },
-        { label: "Retail",       items: ["Oracle Retail", "SAP Retail"], Icon: ShoppingCart },
-        { label: "Workforce",    items: ["UKG", "Blue Yonder"], Icon: Users },
-        { label: "Maintenance",  items: ["ServiceChannel", "Accruent"], Icon: Wrench },
-        { label: "CRM",          items: ["Salesforce"], Icon: Sparkles },
-        { label: "Fleet",        items: ["Manhattan TMS", "Geotab"], Icon: Truck },
+// ---- 1. Opening (scale of operation)
+const OpeningStage = () => {
+    const stats = [
+        { Icon: Building2,  label: "Active stores",        value: "2,415",    trend: "across U.S. + LATAM + EU + APAC" },
+        { Icon: Truck,      label: "Trucks · routes / day", value: "412 / 1,840", trend: "Manhattan TMS" },
+        { Icon: Fuel,       label: "Fuel locations",         value: "618",     trend: "PDI · Gilbarco · Titan" },
+        { Icon: Users,      label: "Active employees",       value: "47,200",  trend: "across all banners" },
+        { Icon: Wrench,     label: "Open work orders",       value: "8,418",   trend: "ServiceChannel + Accruent" },
+        { Icon: Boxes,      label: "Inventory SKUs",         value: "1.4M",    trend: "Oracle Retail + SAP Retail" },
     ];
     return (
-        <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-modern-stack">
+        <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-opening">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
                 <div className="flex items-center gap-2">
-                    <Layers size={13} className="text-cyan-400" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Enterprise Retail · Operating Systems</span>
+                    <Globe2 size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Modern Retail at Scale</span>
                 </div>
-                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Each system works · None think together</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Live operational footprint</span>
             </div>
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {stats.map((s, i) => (
+                    <div key={s.label} className="rounded-sm border border-white/10 bg-ink-900 p-3 fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
+                        <div className="flex items-center gap-2"><s.Icon size={12} className="text-cyan-400" /><span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">{s.label}</span></div>
+                        <p className="mt-1 font-heading text-xl font-semibold text-white">{s.value}</p>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300">{s.trend}</p>
+                    </div>
+                ))}
+            </div>
+            <p className="mt-5 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 text-sm text-slate-200">
+                <span className="font-semibold text-cyan-300">Large retailers do not need another disconnected tool.</span> They need an execution layer that helps their existing systems work together.
+            </p>
+        </div>
+    );
+};
+
+// ---- 2. Existing systems
+const ExistingSystemsStage = () => {
+    const groups = [
+        { label: "ERP",          items: ["SAP", "Microsoft Dynamics", "OneStream"],            Icon: Cpu },
+        { label: "Retail",       items: ["Oracle Retail", "SAP Retail"],                       Icon: ShoppingCart },
+        { label: "Workforce",    items: ["UKG", "Blue Yonder"],                                Icon: Users },
+        { label: "Maintenance",  items: ["ServiceChannel", "Accruent"],                        Icon: Wrench },
+        { label: "CRM",          items: ["Salesforce"],                                        Icon: Sparkles },
+        { label: "Fleet",        items: ["Manhattan TMS", "Geotab"],                           Icon: Truck },
+        { label: "C-Store + Fuel", items: ["PDI Enterprise", "NCR POS", "Gilbarco Passport", "FuelQuest", "Titan Cloud"], Icon: Fuel },
+        { label: "Store POS",    items: ["NCR", "Toshiba", "Verifone", "Banner POS"],          Icon: ScanLine },
+    ];
+    return (
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-existing-systems">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <Layers size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">CreatorBoostAI sits on top · No replacement · No migration</span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">One command view</span>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {groups.map((g, i) => (
-                    <div key={g.label} className="rounded-sm border border-white/10 bg-ink-900 p-4 fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
-                        <div className="flex items-center gap-2">
-                            <g.Icon size={13} className="text-cyan-300" />
-                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{g.label}</span>
-                        </div>
-                        <ul className="mt-3 space-y-1">
+                    <div key={g.label} className="rounded-sm border border-white/10 bg-ink-900 p-3 fade-in-up" style={{ animationDelay: `${i * 70}ms` }}>
+                        <div className="flex items-center gap-2"><g.Icon size={12} className="text-cyan-300" /><span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">{g.label}</span></div>
+                        <ul className="mt-2 space-y-0.5">
                             {g.items.map((it) => (
-                                <li key={it} className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-200">{it}</li>
+                                <li key={it} className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-200">{it}</li>
                             ))}
                         </ul>
                     </div>
                 ))}
             </div>
-        </div>
-    );
-};
-
-// ---- 2. Problem
-const ProblemStage = () => {
-    const alerts = [
-        { Icon: Package,        label: "Out-of-stock · 47 SKUs",     tone: "amber" },
-        { Icon: Users,          label: "Labor shortage · 3 stores",   tone: "amber" },
-        { Icon: Wrench,         label: "Equipment failure · 2 units", tone: "rose" },
-        { Icon: BarChart3,      label: "Missed sales · $184K today",  tone: "rose" },
-    ];
-    return (
-        <div className="rounded-md border border-amber-500/30 bg-gradient-to-b from-amber-500/5 to-ink-900 p-5 fade-in-up" data-testid="stage-problem">
-            <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
-                <div className="flex items-center gap-2">
-                    <AlertTriangle size={13} className="text-amber-300" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Disconnected Systems · Decisions not coordinated</span>
-                </div>
-                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Live alerts feed</span>
-            </div>
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {alerts.map((a, i) => (
-                    <div key={a.label} className={`rounded-sm border p-4 fade-in-up ${a.tone === "rose" ? "border-rose-500/30 bg-rose-500/5" : "border-amber-500/30 bg-amber-500/5"}`} style={{ animationDelay: `${i * 100}ms` }}>
-                        <div className="flex items-center gap-3">
-                            <a.Icon size={16} className={a.tone === "rose" ? "text-rose-300" : "text-amber-300"} />
-                            <span className="text-sm text-slate-100">{a.label}</span>
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <p className="mt-5 rounded-sm border border-amber-500/30 bg-amber-500/5 p-3 font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">
-                Systems generate data. They do not coordinate decisions. And they do not understand human behavior.
+            <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                Executives · Regional Managers · Store Operators · Maintenance Teams — one command view.
             </p>
         </div>
     );
 };
 
-// ---- 3. Nonverbal reality
-const NonverbalStage = () => {
-    const moments = [
-        { label: "Customer browsing · Aisle 4",  detail: "Dwell 11.4s · Approach vector W → E", Icon: ShoppingCart },
-        { label: "Employee assisting · Pharmacy", detail: "Eye contact · open posture",         Icon: Users },
-        { label: "Checkout hesitation · Lane 3",  detail: "Hand withdraw · gaze drift",         Icon: ScanLine },
+// ---- 3. Operations Command Center
+const CommandCenterStage = () => {
+    const streams = [
+        "Sales", "Inventory", "Labor", "Maintenance", "Refrigeration",
+        "Fleet", "Fuel", "Marketing", "Pricing", "Store Tasks",
+        "Vendor Performance", "Customer Demand", "Regional Performance",
+    ];
+    const questions = [
+        { Icon: AlertTriangle, q: "What needs attention first?" },
+        { Icon: Target,        q: "What action should be taken?" },
+        { Icon: Users,         q: "Who should handle it?" },
+        { Icon: BarChart3,     q: "What is the financial impact?" },
     ];
     return (
-        <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-nonverbal">
-            <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <div className="flex items-center gap-2">
-                    <Brain size={13} className="text-cyan-400" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Nonverbal Layer · The Hidden Variable</span>
-                </div>
-                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">No legacy system captures this</span>
-            </div>
-            <div className="mt-5 space-y-3">
-                {moments.map((m, i) => (
-                    <div key={m.label} className="flex items-center gap-3 rounded-sm border border-cyan-500/20 bg-cyan-500/5 p-4 fade-in-up" style={{ animationDelay: `${i * 120}ms` }}>
-                        <m.Icon size={14} className="text-cyan-300" />
-                        <div className="flex-1">
-                            <p className="text-sm font-semibold text-white">{m.label}</p>
-                            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">{m.detail}</p>
-                        </div>
-                        <span className="rounded-full border border-cyan-500/30 bg-ink-900 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">capture</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-// ---- 4. BodyIQ activation
-const BodyIQActivateStage = () => (
-    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up shadow-[0_0_50px_rgba(6,182,212,0.18)]" data-testid="stage-bodyiq-activate">
-        <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
-            <div className="flex items-center gap-2">
-                <Brain size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">BodyIQ-AI · Signal Intelligence Layer · ACTIVATED</span>
-            </div>
-            <span className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">PATENT-PENDING</span>
-        </div>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <KV label="Output Format" value="Signal Cluster" />
-            <KV label="Anchored To"   value="Action Units" />
-            <KV label="Classification" value="+ / − / mixed" />
-        </div>
-        <p className="mt-5 text-sm leading-relaxed text-slate-300">
-            <span className="text-cyan-300">BodyIQ-AI does not describe behavior — it defines it.</span>{" "}
-            Every output is a structured signal cluster. No adjectives. No interpretation. Only anatomical
-            measurement.
-        </p>
-    </div>
-);
-
-// ---- 5. Objective Mode + 96/98 stats
-const ObjectiveModeStage = () => (
-    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-objective-mode">
-        <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
-            <div className="flex items-center gap-2">
-                <Shield size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Objective Mode · ON</span>
-            </div>
-            <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">SRS · CPS · EOS</span>
-        </div>
-        <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
-            {[
-                { code: "SRS", title: "Signal Response State",     tag: "First measurable reaction" },
-                { code: "CPS", title: "Cognitive Processing State", tag: "Brain working through input" },
-                { code: "EOS", title: "Evaluation Outcome State",   tag: "Final evaluative resolution" },
-            ].map((s, i) => (
-                <div key={s.code} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-4 fade-in-up" style={{ animationDelay: `${i * 150}ms` }}>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{s.code}</p>
-                    <p className="font-heading mt-2 text-base font-semibold text-white">{s.title}</p>
-                    <p className="mt-1 text-xs text-slate-300">{s.tag}</p>
-                </div>
-            ))}
-        </div>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Non-subjective Classification</p>
-                <p className="font-heading mt-2 text-4xl font-semibold text-white">up to 96%</p>
-            </div>
-            <div className="rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Signal-level Accuracy</p>
-                <p className="font-heading mt-2 text-4xl font-semibold text-white">up to 98%</p>
-            </div>
-        </div>
-    </div>
-);
-
-// ---- 6. Shelf clusters
-const ShelfClustersStage = () => {
-    const clusters = [
-        { code: "SRS-4107", aus: "AU 4 + AU 7 · Hand Pause", intensity: 0.64, cls: "mixed" },
-        { code: "CPS-5211", aus: "Gaze Drift · 3 SKUs · 11s", intensity: 0.69, cls: "mixed" },
-        { code: "EOS-6304", aus: "Item Replaced · Pivot Away", intensity: 0.58, cls: "negative" },
-    ];
-    return (
-        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-ink-700/50 to-ink-900/80 p-5 fade-in-up shadow-[0_0_50px_rgba(6,182,212,0.15)]" data-testid="stage-shelf-clusters">
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-command-center">
             <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
                 <div className="flex items-center gap-2">
-                    <Camera size={13} className="text-cyan-400" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Aisle 4 · Beverage Section · Live capture</span>
+                    <Cpu size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Operations Command Center · LIVE</span>
                 </div>
-                <span className="rounded-full border border-white/10 bg-ink-900 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">SRS · CPS · EOS</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">13 live streams</span>
             </div>
-            <div className="mt-5 space-y-3">
-                {clusters.map((c, i) => {
-                    const tone = c.cls === "negative" ? "rose" : c.cls === "mixed" ? "amber" : "cyan";
-                    const cls = tone === "rose" ? "border-rose-500/40 bg-rose-500/5 text-rose-300" : tone === "amber" ? "border-amber-500/40 bg-amber-500/5 text-amber-300" : "border-cyan-500/40 bg-cyan-500/5 text-cyan-300";
-                    return (
-                        <div key={c.code} className={`rounded-sm border p-4 fade-in-up ${cls.split(" ")[0]} ${cls.split(" ")[1]}`} style={{ animationDelay: `${i * 150}ms` }}>
-                            <div className="flex items-center justify-between flex-wrap gap-2">
-                                <div className="flex items-center gap-3">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Cluster ID</span>
-                                    <span className="font-heading text-base font-semibold text-white">{c.code}</span>
-                                </div>
-                                <span className={`rounded-sm border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] ${cls}`}>{c.cls}</span>
-                            </div>
-                            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">{c.aus} · Intensity {c.intensity.toFixed(2)}</p>
-                            <div className="mt-2 h-1 overflow-hidden rounded-full bg-ink-800">
-                                <div className={`h-full transition-all duration-500 ${tone === "rose" ? "bg-rose-400/70" : tone === "amber" ? "bg-amber-400/70" : "bg-cyan-400/70"}`} style={{ width: `${c.intensity * 100}%` }} />
-                            </div>
-                        </div>
-                    );
-                })}
+            <div className="mt-5 flex flex-wrap gap-2">
+                {streams.map((s, i) => (
+                    <span key={s} className="rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>{s}</span>
+                ))}
             </div>
-            <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                Hesitation pattern detected at the shelf. Anatomical, structured, auditable.
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {questions.map((q, i) => (
+                    <div key={q.q} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
+                        <q.Icon size={14} className="text-cyan-300" />
+                        <p className="mt-2 text-sm font-medium text-white">{q.q}</p>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// ---- 4. Money saving
+const MoneySavingStage = () => {
+    const items = [
+        { label: "Refrigeration drift",         saved: "$182K / yr", Icon: Wrench },
+        { label: "HVAC failure prevention",     saved: "$94K / yr",  Icon: Wrench },
+        { label: "Lighting waste",              saved: "$48K / yr",  Icon: Activity },
+        { label: "Overstaffing on slow days",   saved: "$128K / yr", Icon: Users },
+        { label: "Understaffing during rush",   saved: "$76K / yr",  Icon: Users },
+        { label: "Late maintenance response",   saved: "$112K / yr", Icon: AlertTriangle },
+        { label: "Fuel inventory risk",         saved: "$68K / yr",  Icon: Fuel },
+        { label: "Shrink + expired products",   saved: "$144K / yr", Icon: Package },
+        { label: "Missed vendor credits",       saved: "$92K / yr",  Icon: Boxes },
+    ];
+    return (
+        <div className="rounded-md border border-amber-500/30 bg-gradient-to-b from-amber-500/5 to-ink-900 p-5 fade-in-up" data-testid="stage-money-saving">
+            <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <DollarBadge />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Money-Saving Scenarios · per store / yr · sample</span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Total est. $944K / store / yr</span>
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {items.map((it, i) => (
+                    <div key={it.label} className="flex items-center gap-3 rounded-sm border border-white/10 bg-ink-900 p-3 fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+                        <it.Icon size={14} className="text-amber-300 flex-shrink-0" />
+                        <span className="text-sm text-slate-200 flex-1">{it.label}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300">{it.saved}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// ---- 5. Revenue making
+const RevenueMakingStage = () => {
+    const items = [
+        { label: "Out-of-stock recovery",       lift: "+$214K / yr", Icon: Package },
+        { label: "Better promotion timing",     lift: "+$148K / yr", Icon: Sparkles },
+        { label: "Localized pricing",           lift: "+$96K / yr",  Icon: Target },
+        { label: "Basket-size improvement",     lift: "+$184K / yr", Icon: ShoppingCart },
+        { label: "Missed upsell recovery",      lift: "+$72K / yr",  Icon: ArrowRight },
+        { label: "Fuel-to-store conversion",    lift: "+$118K / yr", Icon: Fuel },
+        { label: "Loyalty campaign triggers",   lift: "+$62K / yr",  Icon: Users },
+        { label: "Regional product demand",     lift: "+$92K / yr",  Icon: Globe2 },
+        { label: "High-margin product focus",   lift: "+$108K / yr", Icon: BarChart3 },
+    ];
+    return (
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-revenue-making">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <BarChart3 size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Revenue-Making Scenarios · per store / yr · sample</span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Total est. +$1.1M / store / yr</span>
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {items.map((it, i) => (
+                    <div key={it.label} className="flex items-center gap-3 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+                        <it.Icon size={14} className="text-cyan-300 flex-shrink-0" />
+                        <span className="text-sm text-slate-200 flex-1">{it.label}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300">{it.lift}</span>
+                    </div>
+                ))}
+            </div>
+            <p className="mt-5 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 text-sm text-slate-200">
+                <span className="font-semibold text-cyan-300">CreatorBoostAI does not just report problems.</span> It recommends and helps execute the next best action.
             </p>
         </div>
     );
 };
 
-// ---- 7. Real-time action
-const RealTimeActionStage = () => (
-    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-ink-700/50 to-ink-900/80 p-5 fade-in-up" data-testid="stage-real-time-action">
-        <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
-            <div className="flex items-center gap-2">
-                <Zap size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">CreatorBoostAI · Execution · Live</span>
-            </div>
-            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">&lt; 2s</span>
-        </div>
-        <div className="mt-5 space-y-3">
-            {[
-                { Icon: ScanLine, label: "Push comparison info to digital shelf · Aisle 4", status: "Sent" },
-                { Icon: Users,    label: "Notify associate on duty · Aisle 4",               status: "Notified" },
-                { Icon: Sparkles, label: "Trigger personalized price incentive · loyalty app", status: "Delivered" },
-            ].map((a, i) => (
-                <div key={a.label} className="flex items-center gap-3 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3.5 fade-in-up" style={{ animationDelay: `${i * 120}ms` }}>
-                    <a.Icon size={14} className="text-cyan-300" />
-                    <span className="text-sm text-slate-200 flex-1">{a.label}</span>
-                    <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">{a.status}</span>
-                </div>
-            ))}
-        </div>
-    </div>
-);
-
-// ---- 8. Checkout
-const CheckoutStage = () => (
-    <div className="rounded-md border border-amber-500/30 bg-gradient-to-b from-amber-500/5 to-ink-900 p-5 fade-in-up" data-testid="stage-checkout">
-        <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
-            <div className="flex items-center gap-2">
-                <ScanLine size={13} className="text-amber-300" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Checkout · Lane 3 · Cluster fired</span>
-            </div>
-            <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-rose-300">EOS-7119 · negative</span>
-        </div>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <KV label="Cluster" value="EOS-7119" />
-            <KV label="AUs" value="Hand withdraw · gaze drift" />
-            <KV label="Intensity" value="0.61" />
-        </div>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {[
-                { Icon: Sparkles, label: "Adjust upsell prompt" },
-                { Icon: CheckCircle2, label: "Reduce friction at lane" },
-                { Icon: ArrowRight,   label: "Recommend express lane 5" },
-            ].map((a) => (
-                <div key={a.label} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3">
-                    <div className="flex items-center gap-2">
-                        <a.Icon size={14} className="text-cyan-300" />
-                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Action</span>
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-white">{a.label}</p>
-                </div>
-            ))}
-        </div>
-    </div>
-);
-
-// ---- 9. Workforce
-const WorkforceStage = () => {
-    const reps = [
-        { name: "Maria L.", store: "Store 1142 · NY",  acc: 0.93, eff: 0.88, imp: "$24,800" },
-        { name: "James K.", store: "Store 0411 · CA",  acc: 0.81, eff: 0.79, imp: "$11,420" },
-        { name: "Priya S.", store: "Store 2073 · TX",  acc: 0.96, eff: 0.92, imp: "$31,640" },
-        { name: "Tom R.",   store: "Store 1556 · IL",  acc: 0.74, eff: 0.71, imp: "$6,180" },
+// ---- 6. Store-level example (Store 1142)
+const StoreExampleStage = () => {
+    const issues = [
+        { Icon: BarChart3,     label: "Dairy sales · -18% week-over-week",   tone: "rose" },
+        { Icon: Wrench,        label: "Refrigeration alerts · DR-04, DR-07", tone: "amber" },
+        { Icon: Users,         label: "Labor schedule gap · evening shift",  tone: "amber" },
+        { Icon: AlertTriangle, label: "Customer complaints · +6 this week",  tone: "rose" },
+    ];
+    const actions = [
+        { Icon: Wrench,    label: "Dispatch maintenance · ServiceChannel",    status: "Sent" },
+        { Icon: Users,     label: "Adjust labor schedule · UKG · evening",   status: "Updated" },
+        { Icon: Target,    label: "Trigger manager task · cold chain check",   status: "Assigned" },
+        { Icon: Package,   label: "Reorder affected SKUs · SAP Retail",      status: "Reordered" },
+        { Icon: Sparkles,  label: "Update dairy promotion · loyalty app",     status: "Live" },
+        { Icon: Send,      label: "Send regional alert · Region 04 lead",     status: "Notified" },
     ];
     return (
-        <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-workforce">
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-ink-700/50 to-ink-900/80 p-5 fade-in-up" data-testid="stage-store-example">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <Building2 size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Store 1142 · NJ Region 04 · Connected View</span>
+                </div>
+                <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-rose-300">Financial impact $4,820 / day</span>
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="rounded-sm border border-white/10 bg-ink-900 p-4">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Issues detected</p>
+                    <ul className="mt-3 space-y-2">
+                        {issues.map((it, i) => (
+                            <li key={it.label} className={`flex items-center gap-2 rounded-sm border p-2 fade-in-up ${it.tone === "rose" ? "border-rose-500/30 bg-rose-500/5" : "border-amber-500/30 bg-amber-500/5"}`} style={{ animationDelay: `${i * 80}ms` }}>
+                                <it.Icon size={13} className={it.tone === "rose" ? "text-rose-300" : "text-amber-300"} />
+                                <span className="text-sm text-slate-200">{it.label}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+                <div className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-4">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">CreatorBoostAI · Recommended actions · executed</p>
+                    <ul className="mt-3 space-y-2">
+                        {actions.map((a, i) => (
+                            <li key={a.label} className="flex items-center gap-2 rounded-sm border border-cyan-500/30 bg-ink-900 p-2 fade-in-up" style={{ animationDelay: `${i * 90}ms` }}>
+                                <a.Icon size={13} className="text-cyan-300" />
+                                <span className="flex-1 text-sm text-slate-200">{a.label}</span>
+                                <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">{a.status}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ---- 7. Regional view (rank stores)
+const RegionalViewStage = () => {
+    const stores = [
+        { id: "1142 · NJ", risk: "$4,820/d", save: "$182K/yr", rev: "+$214K/yr", flag: "rose" },
+        { id: "0411 · CA", risk: "$1,140/d", save: "$98K/yr",  rev: "+$148K/yr", flag: "amber" },
+        { id: "2073 · TX", risk: "$3,210/d", save: "$132K/yr", rev: "+$184K/yr", flag: "rose" },
+        { id: "1556 · IL", risk: "$680/d",   save: "$72K/yr",  rev: "+$96K/yr",  flag: "cyan" },
+        { id: "0814 · FL", risk: "$2,420/d", save: "$118K/yr", rev: "+$108K/yr", flag: "amber" },
+    ];
+    return (
+        <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-regional-view">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
                 <div className="flex items-center gap-2">
-                    <Users size={13} className="text-cyan-400" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Workforce Intelligence · Last 30 days</span>
+                    <MapPin size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Region 04 · 184 stores · ranked by financial priority</span>
                 </div>
-                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">3 dimensions per associate</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Top 5 today · sample</span>
             </div>
             <div className="mt-4 overflow-x-auto rounded-sm border border-white/5">
                 <table className="w-full min-w-[640px] text-left text-sm">
                     <thead className="bg-ink-900">
                         <tr>
-                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Associate</th>
-                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Signal Accuracy</th>
-                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Response Efficiency</th>
-                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Outcome Impact</th>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Store</th>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Daily Risk</th>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Savings Opportunity</th>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Revenue Opportunity</th>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Flag</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {reps.map((r) => (
-                            <tr key={r.name} className="border-t border-white/5">
-                                <td className="px-3 py-2"><span className="text-white">{r.name}</span><br /><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">{r.store}</span></td>
-                                <td className="px-3 py-2 font-mono text-cyan-300">{(r.acc * 100).toFixed(0)}%</td>
-                                <td className="px-3 py-2 font-mono text-cyan-300">{(r.eff * 100).toFixed(0)}%</td>
-                                <td className="px-3 py-2 font-mono text-cyan-300">{r.imp}</td>
+                        {stores.map((s) => (
+                            <tr key={s.id} className="border-t border-white/5">
+                                <td className="px-3 py-2 text-white">{s.id}</td>
+                                <td className="px-3 py-2 font-mono text-rose-300">{s.risk}</td>
+                                <td className="px-3 py-2 font-mono text-amber-300">{s.save}</td>
+                                <td className="px-3 py-2 font-mono text-cyan-300">{s.rev}</td>
+                                <td className="px-3 py-2"><span className={`rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] ${s.flag === "rose" ? "border-rose-500/30 bg-rose-500/10 text-rose-300" : s.flag === "amber" ? "border-amber-500/30 bg-amber-500/10 text-amber-300" : "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"}`}>{s.flag === "rose" ? "Urgent" : s.flag === "amber" ? "Watch" : "Healthy"}</span></td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+            <p className="mt-4 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 text-sm text-slate-200">
+                <span className="font-semibold text-cyan-300">Stop guessing. Manage by financial priority.</span>
+            </p>
         </div>
     );
 };
 
-// ---- 10. Ops overlay
-const OpsOverlayStage = () => {
-    const tiles = [
-        { label: "SAP · ERP",         status: "Connected · 12 streams",    Icon: Cpu },
-        { label: "Salesforce · CRM",  status: "Connected · 4M contacts",   Icon: Sparkles },
-        { label: "ServiceChannel",    status: "Connected · 218 work orders open", Icon: Wrench },
-        { label: "Blue Yonder",       status: "Connected · 8.2K shifts",   Icon: Users },
-        { label: "Oracle Retail",     status: "Connected · 1.4M SKUs",     Icon: ShoppingCart },
-        { label: "Manhattan TMS",     status: "Connected · 412 routes",    Icon: Truck },
+// ---- 8. Executive view (CEO/COO/CFO/Regional/Store)
+const ExecutiveViewStage = () => {
+    const roles = [
+        { role: "CEO",      Icon: Crown,        sees: "Total enterprise performance",     metric: "+11.4% YoY · $42M influenced" },
+        { role: "COO",      Icon: Workflow,     sees: "Execution bottlenecks",            metric: "184 critical · 8.2K open" },
+        { role: "CFO",      Icon: BarChart3,    sees: "Savings · leakage · ROI",          metric: "$18.4M saved · ROI 4.2x" },
+        { role: "Regional", Icon: MapPin,       sees: "Store action priorities",          metric: "12 urgent · 38 watch" },
+        { role: "Store",    Icon: Building2,    sees: "Daily tasks · simple actions",     metric: "6 tasks · 2 vendor calls" },
     ];
     return (
-        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-ops-overlay">
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-executive-view">
             <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
                 <div className="flex items-center gap-2">
-                    <Layers size={13} className="text-cyan-400" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">CreatorBoostAI sits on top · Connects · Coordinates</span>
+                    <Sparkles size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Role-based views · One system · Every level aligned</span>
                 </div>
-                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">No replacement · No migration</span>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {tiles.map((t, i) => (
-                    <div key={t.label} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
-                        <div className="flex items-center gap-2"><t.Icon size={13} className="text-cyan-300" /><span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{t.label}</span></div>
-                        <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300">{t.status}</p>
+            <div className="mt-5 space-y-2.5">
+                {roles.map((r, i) => (
+                    <div key={r.role} className="grid grid-cols-1 gap-2 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 sm:grid-cols-12 fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
+                        <div className="flex items-center gap-2 sm:col-span-2"><r.Icon size={13} className="text-cyan-300" /><span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{r.role}</span></div>
+                        <span className="text-sm text-slate-200 sm:col-span-6">{r.sees}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 sm:col-span-4">{r.metric}</span>
                     </div>
                 ))}
             </div>
@@ -1024,262 +974,232 @@ const OpsOverlayStage = () => {
     );
 };
 
-// ---- 11. Maintenance
-const MaintenanceStage = () => (
-    <div className="rounded-md border border-amber-500/30 bg-gradient-to-b from-amber-500/5 to-ink-900 p-5 fade-in-up" data-testid="stage-maintenance">
-        <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
-            <div className="flex items-center gap-2">
-                <Wrench size={13} className="text-amber-300" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">ServiceChannel · Work Order · Auto-correlated</span>
-            </div>
-            <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-rose-300">Cluster EOS-8204</span>
-        </div>
-        <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-sm border border-white/10 bg-ink-900 p-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Equipment Issue</p>
-                <p className="font-heading mt-2 text-base font-semibold text-white">Dairy refrigeration unit DR-04 · Store 1142</p>
-                <KV label="Status"      value="Failing · cooling -12%" />
-                <KV label="Reported"    value="ServiceChannel · 41 min ago" />
-            </div>
-            <div className="rounded-sm border border-white/10 bg-ink-900 p-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Behavior Correlation</p>
-                <p className="font-heading mt-2 text-base font-semibold text-white">EOS-8204 · negative · 14 customers / 38 min</p>
-                <KV label="Pattern"     value="Approach → pivot away · cooler door" />
-                <KV label="Revenue at risk" value="$2,180 / hour · est." />
-            </div>
-        </div>
-        <p className="mt-4 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 text-sm text-slate-200">
-            <span className="font-semibold text-cyan-300">Equipment fault is now tied directly to lost engagement.</span> The work order escalates with measurable revenue impact attached.
-        </p>
-    </div>
-);
-
-// ---- 12. Supply chain
-const SupplyChainStage = () => (
-    <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-supply-chain">
-        <div className="flex items-center justify-between border-b border-white/5 pb-3">
-            <div className="flex items-center gap-2">
-                <Boxes size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">SAP Retail · SKU 49001 · Out-of-stock</span>
-            </div>
-            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Inventory · behavior-driven</span>
-        </div>
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {[
-                { Icon: Package,  label: "Auto reorder",       detail: "SAP Retail · vendor SP-204 · 800 units · ETA 36 hr" },
-                { Icon: ArrowRight, label: "Substitute SKU",   detail: "Loyalty app · SKU 49014 · 12% loyalty boost" },
-                { Icon: Send,     label: "Supplier alert",     detail: "Vendor portal · sent · ack required" },
-            ].map((a, i) => (
-                <div key={a.label} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-4 fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
-                    <div className="flex items-center gap-2"><a.Icon size={13} className="text-cyan-300" /><span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{a.label}</span></div>
-                    <p className="mt-2 text-sm text-white">{a.detail}</p>
-                </div>
-            ))}
-        </div>
-        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">12 negative-classification clusters in last 40 minutes confirmed customer impact.</p>
-    </div>
-);
-
-// ---- 13. Fleet
-const FleetStage = () => {
-    const routes = [
-        { id: "RT-1142", label: "Bronx · Queens · Long Island", status: "Accelerated", priority: "high",  eta: "+0:14" },
-        { id: "RT-2073", label: "Houston · Galveston",          status: "Deprioritized", priority: "low", eta: "+1:08" },
-        { id: "RT-0411", label: "LA · OC · San Diego",          status: "On-time",     priority: "med",  eta: "0:00" },
-    ];
-    return (
-        <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-fleet">
-            <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <div className="flex items-center gap-2">
-                    <Truck size={13} className="text-cyan-400" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Manhattan TMS · Live Routes</span>
-                </div>
-                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">412 active</span>
-            </div>
-            <div className="mt-5 space-y-3">
-                {routes.map((r, i) => (
-                    <div key={r.id} className="grid grid-cols-1 gap-3 rounded-sm border border-white/10 bg-ink-900 p-3 sm:grid-cols-12 fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
-                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 sm:col-span-2">{r.id}</span>
-                        <span className="text-sm text-slate-200 sm:col-span-5"><MapPin size={11} className="inline mr-1 text-cyan-400" />{r.label}</span>
-                        <span className={`font-mono text-[9px] uppercase tracking-[0.22em] sm:col-span-3 ${r.priority === "high" ? "text-cyan-300" : r.priority === "low" ? "text-slate-500" : "text-amber-300"}`}>{r.status}</span>
-                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 sm:col-span-2">ETA {r.eta}</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-// ---- 14. C-Store
-const CStoreStage = () => (
-    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-c-store">
-        <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
-            <div className="flex items-center gap-2">
-                <Fuel size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">C-Store + Forecourt · PDI · NCR · FuelQuest</span>
-            </div>
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">CPS-9411 · mixed</span>
-        </div>
-        <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-sm border border-white/10 bg-ink-900 p-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Cooler · Beverage Hesitation</p>
-                <p className="font-heading mt-2 text-base font-semibold text-white">2 SKUs · gaze drift · hand pause 0.9s</p>
-                <KV label="Cluster" value="CPS-9411 · intensity 0.66" />
-            </div>
-            <div className="rounded-sm border border-white/10 bg-ink-900 p-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Real-time Response</p>
-                <ul className="mt-2 space-y-1.5 text-sm text-slate-200">
-                    <li className="flex items-center gap-2"><CheckCircle2 size={12} className="text-cyan-400" /> Bundle suggested · cooler beverage + snack</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 size={12} className="text-cyan-400" /> Pump-side promotion to loyalty app</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 size={12} className="text-cyan-400" /> Forecourt price tile updated · grade 87</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-);
-
-// ---- 15. AI Camera
-const AICameraStage = () => (
-    <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-ai-camera">
-        <div className="flex items-center justify-between border-b border-white/5 pb-3">
-            <div className="flex items-center gap-2">
-                <Camera size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">AI Camera Network · Behavior Intelligence</span>
-            </div>
-            <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Cameras provide input · CreatorBoostAI defines meaning</span>
-        </div>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {[
-                { label: "Active cameras", value: "12,488", trend: "across 2,415 stores" },
-                { label: "Tracked motion paths · today", value: "4.6M", trend: "approach + dwell + pivot" },
-                { label: "Structured clusters / hour", value: "11,204", trend: "SRS + CPS + EOS" },
-            ].map((k) => <KPI key={k.label} {...k} />)}
-        </div>
-        <p className="mt-5 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 text-sm text-slate-200">
-            <span className="font-semibold text-cyan-300">Movement + anatomical signals + structured clusters = decision-grade intelligence at every square foot.</span>
-        </p>
-    </div>
-);
-
-// ---- 16. Global dashboard
-const GlobalDashboardStage = () => {
-    const regions = [
-        { name: "United States",  stores: 1284, signals: "78,400", revenue: "$24.8M" },
-        { name: "Latin America",  stores: 312,  signals: "18,200", revenue: "$5.2M" },
-        { name: "Europe",         stores: 488,  signals: "32,100", revenue: "$8.4M" },
-        { name: "Asia-Pacific",   stores: 331,  signals: "18,900", revenue: "$3.7M" },
-    ];
-    return (
-        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-global-dashboard">
-            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
-                <div className="flex items-center gap-2">
-                    <Globe2 size={13} className="text-cyan-400" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Global Enterprise Dashboard</span>
-                </div>
-                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Behavior · KPI</span>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <KPI Icon={Building2} label="Active stores"          value="2,415"   trend="+12 wk" />
-                <KPI Icon={Activity}  label="Clusters today"          value="147,600" trend="SRS+CPS+EOS" />
-                <KPI Icon={BarChart3} label="Revenue influenced (Q)" value="$42.1M"  trend="↑ 18% YoY" />
-                <KPI Icon={Target}    label="Conversion lift"         value="+11.4%" trend="vs control" />
-            </div>
-            <div className="mt-5 overflow-hidden rounded-sm border border-white/5">
-                <table className="w-full min-w-[620px] text-left text-sm">
-                    <thead className="bg-ink-900">
-                        <tr>
-                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Region</th>
-                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Stores</th>
-                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Signal Clusters</th>
-                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Revenue Influenced (Q)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {regions.map((r) => (
-                            <tr key={r.name} className="border-t border-white/5">
-                                <td className="px-3 py-2 text-white">{r.name}</td>
-                                <td className="px-3 py-2 font-mono text-cyan-300">{r.stores.toLocaleString()}</td>
-                                <td className="px-3 py-2 font-mono text-cyan-300">{r.signals}</td>
-                                <td className="px-3 py-2 font-mono text-cyan-300">{r.revenue}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
-// ---- 17. Training replay
-const TrainingReplayStage = () => (
-    <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-training-replay">
-        <div className="flex items-center justify-between border-b border-white/5 pb-3">
-            <div className="flex items-center gap-2">
-                <Sparkles size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Training Replay · Recorded Store Interaction</span>
-            </div>
-            <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">02:14 / 14:32</span>
-        </div>
-        <div className="mt-4 rounded-sm border border-white/10 bg-ink-900 p-4">
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Timeline · structured clusters overlaid</p>
-            <div className="mt-3 space-y-2">
-                {[
-                    { t: "00:42", sig: "SRS-1108 · AU 12 + AU 6 · 0.54 · positive",   tone: "cyan" },
-                    { t: "01:18", sig: "CPS-2073 · AU 1 + AU 2 · 0.71 · mixed",        tone: "amber" },
-                    { t: "02:14", sig: "SRS-1142 · AU 4 + AU 7 · 0.62 · negative",     tone: "rose" },
-                    { t: "02:39", sig: "Decision · clarify · associate dispatched",   tone: "cyan" },
-                    { t: "03:01", sig: "EOS-3401 · AU 12 + AU 25 · 0.69 · positive",   tone: "cyan" },
-                ].map((m, i) => (
-                    <div key={m.t} className="flex items-center gap-3 rounded-sm border border-white/5 bg-ink-800 p-2.5 fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
-                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">{m.t}</span>
-                        <span className={`rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] ${m.tone === "rose" ? "border-rose-500/30 bg-rose-500/10 text-rose-300" : m.tone === "amber" ? "border-amber-500/30 bg-amber-500/10 text-amber-300" : "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"}`}>{m.sig}</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-        <p className="mt-4 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 text-sm text-slate-200">
-            <span className="font-semibold text-cyan-300">Every interaction becomes measurable, coachable, and standardized across the organization.</span>
-        </p>
-    </div>
-);
-
-// ---- 18. Autonomous + Closing
-const AutonomousClosingStage = () => (
-    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-7 lg:p-12 fade-in-up shadow-[0_0_60px_rgba(6,182,212,0.18)]" data-testid="stage-autonomous-closing">
+// ---- 9. Autonomous mode
+const AutonomousModeStage = () => (
+    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-autonomous">
         <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
             <div className="flex items-center gap-2">
                 <Cpu size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Autonomous Mode · ON</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Execution Mode · Operator-level toggle</span>
             </div>
             <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Assisted ⇄ Autonomous</span>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-            {["Pricing", "Staffing", "Inventory", "Marketing", "Fleet"].map((d) => (
-                <div key={d} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 text-center">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{d}</p>
-                    <p className="font-heading mt-1 text-sm text-white">Executing</p>
+        <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-sm border border-white/10 bg-ink-900 p-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Assisted Mode</p>
+                <p className="mt-2 text-sm text-slate-200">CreatorBoostAI recommends actions and waits for human approval.</p>
+                <ul className="mt-3 space-y-1.5">
+                    {["Flag issue", "Recommend action", "Show financial impact", "Wait for sign-off"].map((s, i) => (
+                        <li key={s} className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+                            <span className="h-1 w-1 rounded-full bg-amber-400" /> {s}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+            <div className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Autonomous Mode</p>
+                <p className="mt-2 text-sm text-slate-200">CreatorBoostAI executes immediately and logs every action.</p>
+                <ul className="mt-3 space-y-1.5">
+                    {["Create task", "Send alerts", "Draft vendor email", "Update managers", "Trigger workflow", "Log result"].map((s, i) => (
+                        <li key={s} className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+                            <CheckCircle2 size={11} className="text-cyan-400" /> {s}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+        <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
+            Companies choose how much control they want — by store, by team, or by category.
+        </p>
+    </div>
+);
+
+// ---- 10. C-Store + fuel
+const CStoreStage = () => {
+    const tiles = [
+        { Icon: Fuel,         label: "Fuel pricing",          detail: "Real-time · Gilbarco + PDI" },
+        { Icon: Boxes,        label: "Fuel inventory + tank", detail: "Titan Cloud · variance alert" },
+        { Icon: AlertTriangle,label: "Pump downtime",         detail: "Pump 4 · 18 min · vendor pinged" },
+        { Icon: ScanLine,     label: "POS issues",            detail: "NCR · 2 lanes · auto ticket" },
+        { Icon: Package,      label: "Food freshness",        detail: "Hot bar · expiring 38 min" },
+        { Icon: Users,        label: "Labor coverage",        detail: "Saturday morning · -1 cashier" },
+        { Icon: Truck,        label: "Delivery timing",       detail: "Late · ETA shifted +1:14" },
+        { Icon: Shield,       label: "Security incident",     detail: "Forecourt · auto-escalated" },
+    ];
+    return (
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-c-store">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <Fuel size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">C-Store + Forecourt · PDI · NCR · Gilbarco · FuelQuest · Titan</span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Speed matters</span>
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {tiles.map((t, i) => (
+                    <div key={t.label} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+                        <div className="flex items-center gap-2"><t.Icon size={13} className="text-cyan-300" /><span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{t.label}</span></div>
+                        <p className="mt-2 text-sm text-slate-200">{t.detail}</p>
+                    </div>
+                ))}
+            </div>
+            <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                Vendor + repair accountability · fleet card activity · forecourt maintenance — all in one view.
+            </p>
+        </div>
+    );
+};
+
+// ---- 11. Fleet + supply chain
+const FleetSupplyStage = () => {
+    const exceptions = [
+        { id: "RT-1142", route: "Bronx · Queens · LI",         issue: "Late · -32 min", action: "Reprioritized" },
+        { id: "RT-2073", route: "Houston · Galveston",          issue: "Backhaul opp.",   action: "Added" },
+        { id: "RT-0411", route: "LA · OC · San Diego",          issue: "Demand spike · Store 0411", action: "Express slot" },
+        { id: "RT-0814", route: "Miami · Tampa",                 issue: "Fuel cost +6%",  action: "Route adj." },
+    ];
+    return (
+        <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-fleet-supply">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                    <Truck size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Fleet + Supply Chain · Manhattan TMS</span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">412 active routes</span>
+            </div>
+            <div className="mt-5 space-y-2.5">
+                {exceptions.map((e, i) => (
+                    <div key={e.id} className="grid grid-cols-1 gap-2 rounded-sm border border-white/10 bg-ink-900 p-3 sm:grid-cols-12 fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 sm:col-span-2">{e.id}</span>
+                        <span className="text-sm text-slate-200 sm:col-span-4"><MapPin size={11} className="inline mr-1 text-cyan-400" />{e.route}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-300 sm:col-span-3">{e.issue}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 sm:col-span-3">→ {e.action}</span>
+                    </div>
+                ))}
+            </div>
+            <p className="mt-4 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 text-sm text-slate-200">
+                Late deliveries · route prioritization · backhaul opportunities · fuel cost visibility · warehouse-to-store coordination · real-time demand changes — all coordinated.
+            </p>
+        </div>
+    );
+};
+
+// ---- 12. Maintenance + facilities
+const MaintenanceStage = () => {
+    const orders = [
+        { id: "WO-9412", store: "Store 1142", issue: "Refrigeration DR-04",       vendor: "CoolTech",  cost: "$2,180", flag: "Urgent · sales impact" },
+        { id: "WO-9418", store: "Store 0411", issue: "HVAC West Wing",            vendor: "ClimaCo",   cost: "$3,420", flag: "Vendor slow · 8d" },
+        { id: "WO-9421", store: "Store 2073", issue: "Walk-in cooler · 3rd time", vendor: "CoolTech",  cost: "$5,640", flag: "Repeated failure" },
+        { id: "WO-9424", store: "Store 1556", issue: "Lighting · aisle 12",       vendor: "BrightOps", cost: "$420",   flag: "Preventive · queued" },
+    ];
+    return (
+        <div className="rounded-md border border-amber-500/30 bg-gradient-to-b from-amber-500/5 to-ink-900 p-5 fade-in-up" data-testid="stage-maintenance">
+            <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <Wrench size={13} className="text-amber-300" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Maintenance + Facilities · ServiceChannel + Accruent</span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">8,418 open · ranked by impact</span>
+            </div>
+            <div className="mt-4 overflow-x-auto rounded-sm border border-white/5">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                    <thead className="bg-ink-900">
+                        <tr>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">WO</th>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Store</th>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Issue</th>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Vendor</th>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Cost</th>
+                            <th className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Flag</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {orders.map((o) => (
+                            <tr key={o.id} className="border-t border-white/5">
+                                <td className="px-3 py-2 font-mono text-[10px] text-cyan-300">{o.id}</td>
+                                <td className="px-3 py-2 text-white">{o.store}</td>
+                                <td className="px-3 py-2 text-slate-200">{o.issue}</td>
+                                <td className="px-3 py-2 font-mono text-[10px] text-slate-300">{o.vendor}</td>
+                                <td className="px-3 py-2 font-mono text-rose-300">{o.cost}</td>
+                                <td className="px-3 py-2 font-mono text-[9px] uppercase tracking-[0.18em] text-amber-300">{o.flag}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+// ---- 13. Financial impact
+const FinancialImpactStage = () => {
+    const tiles = [
+        { Icon: BarChart3, label: "Estimated savings",        value: "$18.4M",  trend: "Q · est." },
+        { Icon: Sparkles,  label: "Revenue recovered",         value: "$24.1M", trend: "Q · est." },
+        { Icon: Wrench,    label: "Maintenance cost avoided",  value: "$3.6M",  trend: "Q · est." },
+        { Icon: Users,     label: "Labor savings",             value: "$5.8M",  trend: "Q · est." },
+        { Icon: Activity,  label: "Energy savings",            value: "$2.1M",  trend: "Q · est." },
+        { Icon: Package,   label: "Inventory waste reduced",   value: "$4.4M",  trend: "Q · est." },
+        { Icon: Boxes,     label: "Out-of-stock recovery",     value: "+$8.2M", trend: "Q · est." },
+        { Icon: Target,    label: "Promotion lift",            value: "+$3.9M", trend: "Q · est." },
+    ];
+    return (
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-financial-impact">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <BarChart3 size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Financial Impact Dashboard · Sample demo values</span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">2,415 stores · current Q</span>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {tiles.map((t, i) => (
+                    <div key={t.label} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+                        <div className="flex items-center gap-2"><t.Icon size={12} className="text-cyan-300" /><span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">{t.label}</span></div>
+                        <p className="font-heading mt-1 text-xl font-semibold text-white">{t.value}</p>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300">{t.trend}</p>
+                    </div>
+                ))}
+            </div>
+            <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                Every recommendation is tagged with measurable financial outcome the moment it executes.
+            </p>
+        </div>
+    );
+};
+
+// ---- 14. Closing slate
+const ClosingStage = () => (
+    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-7 lg:p-12 fade-in-up shadow-[0_0_60px_rgba(6,182,212,0.18)]" data-testid="stage-closing">
+        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Closing</p>
+        <div className="mt-6 space-y-3">
+            <p className="font-heading text-2xl font-semibold text-white sm:text-3xl">Your stores already generate the data.</p>
+            <p className="font-heading text-2xl font-semibold text-cyan-300 sm:text-3xl">CreatorBoostAI turns that data into action.</p>
+        </div>
+        <div className="mt-7 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+                { Icon: Building2,  text: "See every store" },
+                { Icon: AlertTriangle, text: "Prioritize every issue" },
+                { Icon: Zap,        text: "Execute every action" },
+                { Icon: Wrench,     text: "Save money" },
+                { Icon: BarChart3,  text: "Recover revenue" },
+                { Icon: Target,     text: "Scale performance" },
+            ].map((p, i) => (
+                <div key={p.text} className="flex items-center gap-3 rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
+                    <p.Icon size={14} className="text-cyan-300" />
+                    <span className="text-sm font-medium text-white">{p.text}</span>
                 </div>
             ))}
         </div>
-        <div className="mt-7 space-y-2.5">
-            <p className="font-heading text-xl font-semibold text-white sm:text-2xl"><span className="text-slate-400">Retail</span> measures transactions.</p>
-            <p className="font-heading text-xl font-semibold text-white sm:text-2xl"><span className="text-cyan-300">BodyIQ-AI</span> defines human behavior.</p>
-            <p className="font-heading text-xl font-semibold text-white sm:text-2xl"><span className="text-cyan-300">CreatorBoostAI</span> executes on it.</p>
-        </div>
-        <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg">
-            This is the first complete <span className="text-cyan-300">retail intelligence execution system</span>.
+        <p className="mt-7 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg">
+            <span className="text-cyan-300 font-semibold">CreatorBoostAI is the execution layer for modern retail operations.</span>
         </p>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3">
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Non-subjective Classification</p>
-                <p className="font-heading mt-1 text-3xl font-semibold text-white">up to 96%</p>
-            </div>
-            <div className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3">
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Signal-level Accuracy</p>
-                <p className="font-heading mt-1 text-3xl font-semibold text-white">up to 98%</p>
-            </div>
-        </div>
     </div>
+);
+
+// helper
+const DollarBadge = () => (
+    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 font-mono text-[10px] font-semibold text-amber-300">$</span>
 );
 
 // =================================================================
