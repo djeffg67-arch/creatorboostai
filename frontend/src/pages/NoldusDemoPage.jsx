@@ -10,7 +10,11 @@ import {
 } from "lucide-react";
 
 // =================================================================
-// 11 scenes · ~6.5 min auto-played · Noldus / Enterprise / Investor cut
+// 14 scenes · ~10 min auto-played · Noldus / Enterprise / Investor cut
+// SRS (Signal Response State) · CPS (Cognitive Processing State) ·
+// EOS (Evaluation Outcome State) — structured signal language only.
+// No adjectives. No subjective labels. Cluster ID + Action Units +
+// Intensity + Classification (positive / negative / mixed).
 // =================================================================
 const SCENES = [
     {
@@ -18,139 +22,188 @@ const SCENES = [
         section: "Scene 1 · The Measurement Floor",
         title: "Measurement at the highest level.",
         focus: "facereader",
-        fallback_ms: 38000,
+        fallback_ms: 45000,
         narration:
-            "What you are seeing here is one of the most advanced behavioral measurement systems in the world. " +
-            "It captures human physiology with precision. Action Units, gaze, micro-expressions, posture. " +
-            "This is measurement at the highest level.",
+            "What you are seeing is one of the most advanced behavioral measurement systems in the world. " +
+            "It captures human physiology with frame-level precision. Action Units. Gaze vectors. " +
+            "Micro-expressions. Head pose. Lip and brow articulation. Thirty frames per second of " +
+            "continuous anatomical data. This is measurement at the highest level — and it is the " +
+            "foundation of everything that follows.",
     },
     {
-        id: "problem",
-        section: "Scene 2 · The Problem",
-        title: "Measurement alone does not drive decisions.",
-        focus: "problem",
-        fallback_ms: 32000,
+        id: "subjectivity-problem",
+        section: "Scene 2 · The Subjectivity Problem",
+        title: "Measurement is rigorous. Interpretation has been improvisational.",
+        focus: "subjectivity-problem",
+        fallback_ms: 40000,
         narration:
-            "But here is the problem. Measurement alone does not drive decisions. " +
-            "Most enterprise teams do not struggle with collecting behavioral data. " +
-            "They struggle with what to do with it.",
+            "For decades, behavioral systems have ended at description. A reviewer says the buyer looked " +
+            "confused. Another says the candidate seemed nervous. A third says the witness appeared " +
+            "evasive. These are adjectives. They are subjective. They cannot be standardized, audited, " +
+            "or deployed across an enterprise. Measurement is rigorous. Interpretation has been " +
+            "improvisational. That gap is what BodyIQ-AI was built to close.",
     },
     {
-        id: "bodyiq-activate",
-        section: "Scene 3 · BodyIQ Signal Intelligence Layer",
-        title: "BodyIQ-AI activates. Measurement becomes meaning.",
-        focus: "bodyiq-activate",
+        id: "framework-intro",
+        section: "Scene 3 · The SRS · CPS · EOS Framework",
+        title: "Three structured states. One anatomical signal stack.",
+        focus: "framework-intro",
+        fallback_ms: 50000,
+        narration:
+            "BodyIQ-AI introduces three structured signal states. SRS — the Signal Response State — " +
+            "captures the body's first measurable reaction to stimulus. CPS — the Cognitive Processing " +
+            "State — captures the structured response of the brain working through the input. EOS — the " +
+            "Evaluation Outcome State — captures the body's final evaluative resolution. Together, SRS, " +
+            "CPS, and EOS form the complete anatomical signal stack. Every output the system produces " +
+            "is a Signal Cluster — identified by ID, anchored to specific Action Units, scored by " +
+            "intensity, and classified as positive, negative, or mixed. No adjectives. No interpretation. " +
+            "Only structured measurement.",
+    },
+    {
+        id: "comparison",
+        section: "Scene 4 · Subjective vs Structured",
+        title: "Same human. Same frame. Opinion versus anatomical evidence.",
+        focus: "comparison",
+        fallback_ms: 50000,
+        narration:
+            "Look at the difference. On the left, the legacy approach. Quote: the buyer seemed unsure. " +
+            "Quote: the candidate appeared defensive. Quote: the witness looked uncomfortable. On the " +
+            "right, the BodyIQ-AI output for the same moment. Cluster ID SRS dash one one four two. " +
+            "Action Units four and seven. Intensity zero point six two. Classification negative. Same " +
+            "human. Same frame. One is opinion. The other is anatomical evidence. Enterprises can " +
+            "audit the second. Enterprises can deploy the second. Enterprises can scale the second. " +
+            "This is the shift from subjective description to structured signal.",
+    },
+    {
+        id: "srs-detect",
+        section: "Scene 5 · Live SRS Detection",
+        title: "Cluster SRS-1142 · AU 4 · AU 7 · Lip Pressor · Intensity 0.62 · Classification: negative.",
+        focus: "srs-detect",
+        fallback_ms: 45000,
+        narration:
+            "The system enters live operation. The first cluster fires. S R S dash one one four two. " +
+            "Action Unit four. Action Unit seven. Lip pressor active. Intensity zero point six two. " +
+            "Classification negative. This is the body's initial reaction — measurable, time-stamped, " +
+            "and objective. No interpretation has occurred yet. The system has simply recorded what " +
+            "the anatomy is doing.",
+    },
+    {
+        id: "cps-detect",
+        section: "Scene 6 · CPS Cluster",
+        title: "Cluster CPS-2073 · AU 1 · AU 2 · Gaze Drift · Intensity 0.71 · Classification: mixed.",
+        focus: "cps-detect",
+        fallback_ms: 40000,
+        narration:
+            "A second cluster fires. C P S dash two zero seven three. Inner brow raiser. Outer brow " +
+            "raiser. Gaze drift. Intensity zero point seven one. Classification mixed. The brain is " +
+            "processing — working through the input rather than responding to it. The system tags " +
+            "this state and continues.",
+    },
+    {
+        id: "eos-detect",
+        section: "Scene 7 · EOS Cluster",
+        title: "Cluster EOS-3408 · AU 15 · AU 17 · Head Tilt · Intensity 0.58 · Classification: negative.",
+        focus: "eos-detect",
         fallback_ms: 42000,
         narration:
-            "Now the BodyIQ Signal Intelligence Layer activates. " +
-            "BodyIQ-AI does not describe behavior. It defines it. " +
-            "Every signal is built from objective anatomical measurements — Action Unit four, Action Unit seven, lip compression — " +
-            "removing subjectivity and replacing it with structured intelligence. " +
-            "The first signal fires: negotiation friction. Confidence point six two.",
-    },
-    {
-        id: "signals-cascade",
-        section: "Scene 4 · Signal Cascade",
-        title: "Multiple signals firing in sequence — each tied to underlying AUs.",
-        focus: "signals-cascade",
-        fallback_ms: 38000,
-        narration:
-            "Watch as additional signals fire in sequence. Cognitive gap detected. " +
-            "Evaluative skepticism detected. Each one anchored to a measurable Action Unit signature. " +
-            "This is what objective signal intelligence looks like at scale.",
+            "The third cluster resolves. E O S dash three four zero eight. Lip corner depressor. Chin " +
+            "raiser. Sustained head tilt. Intensity zero point five eight. Classification negative. " +
+            "The body has reached its evaluative outcome. SRS, CPS, and EOS together form a complete " +
+            "read of this moment — three structured states, anchored to anatomy, scored by intensity, " +
+            "free of subjective language.",
     },
     {
         id: "decision-panel",
-        section: "Scene 5 · Decision Engine",
-        title: "Behavioral data converted to a real-time decision.",
+        section: "Scene 8 · Decision Engine",
+        title: "Signal stack converted into a structured, auditable decision.",
         focus: "decision-panel",
-        fallback_ms: 36000,
+        fallback_ms: 40000,
         narration:
-            "This is where BodyIQ-AI changes everything. " +
-            "We convert behavioral data into real-time decision systems. " +
-            "Recommended action: do not proceed to close. Provide clarification. Reduce complexity. " +
-            "The decision is structured, scored, and ready to act on.",
+            "BodyIQ-AI converts the signal stack into a structured decision. Recommended action: do " +
+            "not proceed to close. Provide clarification. Reduce complexity. The decision is anchored " +
+            "to the underlying clusters. Every recommendation is fully traceable, fully auditable, and " +
+            "fully reproducible. There is no opinion in the chain. Only signal, cluster, intensity, " +
+            "and classification.",
     },
     {
         id: "creatorboost-arrives",
-        section: "Scene 6 · CreatorBoostAI · Execution Layer",
-        title: "Now we take it one step further.",
+        section: "Scene 9 · CreatorBoostAI · Execution Layer",
+        title: "The intelligence layer defines. The execution layer acts.",
         focus: "creatorboost-arrives",
-        fallback_ms: 36000,
+        fallback_ms: 40000,
         narration:
-            "Now we take it one step further. CreatorBoostAI — the Execution Layer — opens into a full enterprise command center. " +
-            "Clean, powerful, multi-panel. The intelligence from BodyIQ now connects to the live business environment.",
+            "Now the execution layer opens. CreatorBoostAI is the live command center where structured " +
+            "intelligence becomes operational reality. Pipelines, deals, communications, and follow-ups " +
+            "— all linked to the BodyIQ signal stack in real time. The intelligence layer defines. " +
+            "The execution layer acts.",
     },
     {
         id: "deal-at-risk",
-        section: "Scene 7 · Deal at Risk · Suggested Actions",
-        title: "Deal status: at risk. Reason: negotiation friction. Confidence: 78%.",
+        section: "Scene 10 · Deal at Risk · Autonomous Action",
+        title: "Cluster SRS-1142 linked to live deal · System executes autonomously.",
         focus: "deal-at-risk",
-        fallback_ms: 42000,
+        fallback_ms: 50000,
         narration:
-            "A deal is active in the sales pipeline. The system links the BodyIQ signal directly to the deal. " +
-            "Deal status: at risk. Reason: negotiation friction detected. AI confidence: seventy-eight percent. " +
-            "Suggested actions appear immediately. Send clarification email. Adjust pricing presentation. " +
-            "Trigger follow-up call within twenty-four hours. CreatorBoostAI takes the intelligence from BodyIQ and executes on it.",
-    },
-    {
-        id: "autonomous",
-        section: "Scene 8 · Assisted or Autonomous",
-        title: "Execute with human approval — or fully automated.",
-        focus: "autonomous",
-        fallback_ms: 40000,
-        narration:
-            "This can be done with human approval, or fully automated. " +
-            "The mode toggles to autonomous. The system executes immediately. " +
-            "An email is generated and sent. A follow-up task is assigned. The CRM is updated and audit-logged. " +
-            "This is no longer analysis. This is execution.",
+            "An active deal is in the pipeline. Acme Corp. One hundred eighty-four thousand dollars " +
+            "annual contract value. The system links cluster S R S dash one one four two directly to " +
+            "this deal. Status: at risk. Suggested actions appear instantly. Send clarification email. " +
+            "Reduce pricing complexity. Trigger follow-up call within twenty-four hours. The mode " +
+            "toggles to autonomous. The system executes immediately. Email sent. Task assigned. CRM " +
+            "updated. Audit trail logged. This is the moment intelligence becomes execution.",
     },
     {
         id: "global-dashboard",
-        section: "Scene 9 · Global Behavioral Intelligence",
-        title: "Behavioral intelligence becomes a measurable business KPI.",
+        section: "Scene 11 · Global Behavioral Intelligence",
+        title: "Behavioral intelligence becomes a measurable enterprise KPI.",
         focus: "global-dashboard",
-        fallback_ms: 40000,
+        fallback_ms: 45000,
         narration:
-            "The view expands to the global dashboard. United States, Europe, Asia — each region with live performance metrics. " +
-            "One thousand two hundred forty-eight active behavioral sessions. Eighteen thousand four hundred forty-two signals detected. " +
-            "Twelve point four million dollars in revenue influenced. " +
-            "For the first time, behavioral intelligence becomes a measurable business KPI.",
+            "The view expands to the global dashboard. United States. Europe. Asia. Each region with " +
+            "live performance metrics. One thousand two hundred forty-eight active behavioral sessions. " +
+            "Eighteen thousand four hundred forty-two structured signal clusters. Twelve point four " +
+            "million dollars in revenue influenced by the signal stack this quarter. Behavioral " +
+            "intelligence becomes a measurable enterprise KPI.",
     },
     {
         id: "rep-grid",
-        section: "Scene 10 · Per-Rep Performance",
-        title: "Track not just what teams say — but how they respond.",
+        section: "Scene 12 · Team Intelligence Scoring",
+        title: "Signal Accuracy · Response Efficiency · Outcome Impact.",
         focus: "rep-grid",
-        fallback_ms: 36000,
+        fallback_ms: 40000,
         narration:
-            "We zoom into a corporate view. Each rep is scored on three dimensions. " +
-            "Signal accuracy. Decision efficiency. Revenue impact. " +
-            "Organizations can now track not just what their teams say — but how effectively they respond to human signals.",
+            "Zoom into the team layer. Each operator scored on three dimensions. Signal Accuracy — " +
+            "how well they read the anatomical data. Response Efficiency — how quickly they act on " +
+            "the structured output. Outcome Impact — the revenue effect of their decisions. " +
+            "Organizations now measure how their teams respond to human signals — not just what " +
+            "they say.",
     },
     {
         id: "training-mode",
-        section: "Scene 11 · Training Mode",
-        title: "Every interaction becomes measurable, coachable, repeatable.",
+        section: "Scene 13 · Training Replay System",
+        title: "Every cluster, every frame, fully replayable and coachable.",
         focus: "training-mode",
-        fallback_ms: 36000,
+        fallback_ms: 40000,
         narration:
-            "We enter training mode. A recorded interaction plays back, with signals overlaid in real time on every frame. " +
-            "This enables standardized training across the entire enterprise. " +
-            "Every interaction becomes measurable, coachable, and repeatable.",
+            "Training replay engages. A recorded interaction plays back, with S R S, C P S, and E O S " +
+            "clusters overlaid frame-by-frame. Operators see exactly which signals fired, when, and " +
+            "how they responded. Every interaction becomes measurable, coachable, and standardized " +
+            "across the organization. This is enterprise-grade behavioral training.",
     },
     {
-        id: "closing",
-        section: "Scene 12 · Closing",
-        title: "The first complete Human Intelligence Execution System.",
-        focus: "closing",
-        fallback_ms: 38000,
+        id: "accuracy-closing",
+        section: "Scene 14 · Accuracy + Closing",
+        title: "Up to 96% non-subjective classification · Up to 98% signal-level accuracy.",
+        focus: "accuracy-closing",
+        fallback_ms: 52000,
         narration:
-            "Noldus measures behavior. " +
-            "BodyIQ-AI defines it. " +
-            "CreatorBoostAI executes on it. " +
-            "Together, this becomes the first complete Human Intelligence Execution System. " +
-            "This is not an upgrade to your platform. This is the next layer of value your platform enables.",
+            "Two numbers define this system. Up to ninety-six percent non-subjective classification — " +
+            "meaning ninety-six out of every one hundred outputs are structured signals, not adjectives. " +
+            "Up to ninety-eight percent signal-level accuracy — meaning the underlying Action Unit " +
+            "detection is as precise as the world's leading behavioral measurement systems. Human " +
+            "communication is largely driven by nonverbal signals. This system operates directly on " +
+            "that layer — anatomical, measurement-based, and objective. Noldus measures. BodyIQ-AI " +
+            "defines. CreatorBoostAI executes. Together, this is the first complete Human Intelligence " +
+            "Execution System.",
     },
 ];
 
@@ -414,7 +467,7 @@ export default function NoldusDemoPage() {
                             </div>
                         </div>
 
-                        {(current.focus === "closing" || done) && (
+                        {(current.focus === "accuracy-closing" || current.focus === "closing" || done) && (
                             <div className="mt-6"><ShareModule onReplay={handleRestart} trackEvent={trackEvent} /></div>
                         )}
                     </div>
@@ -443,9 +496,10 @@ const Hero = ({ personalization }) => (
             <span className="text-cyan-400">BodyIQ-AI defines it. CreatorBoostAI executes on it.</span>
         </h1>
         <p className="mt-5 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base lg:text-lg">
-            A 6-minute walkthrough of the first complete Human Intelligence Execution System — the layer that
-            converts FaceReader-grade behavioral measurement into real-time enterprise decisions and automated
-            execution.
+            A 10-minute walkthrough of the first complete Human Intelligence Execution System — the layer
+            that converts FaceReader-grade behavioral measurement into structured signal clusters
+            (SRS · CPS · EOS), real-time enterprise decisions, and automated execution. Anatomical.
+            Measurement-based. Objective.
         </p>
     </section>
 );
@@ -460,11 +514,12 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                         {personalization.greeting}
                     </p>
                 )}
-                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 12-scene Noldus walkthrough.</h2>
+                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 14-scene Noldus walkthrough.</h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                    A fully automated 12-scene cinematic walkthrough — narrated by Nova (female · American) —
-                    designed for Noldus, enterprise partners, and investor conversations. No clicks. No demos
-                    that stall. Approximately 6 to 7 minutes.
+                    A fully automated 14-scene cinematic walkthrough — narrated by Nova (female · American) —
+                    designed for Noldus, enterprise partners, and investor conversations. Built around the
+                    SRS · CPS · EOS structured signal framework. No clicks. No demos that stall.
+                    Approximately 9 to 10 minutes.
                 </p>
                 <div className="mt-7 flex flex-wrap items-center gap-3">
                     <button
@@ -483,13 +538,13 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                         )}
                     </button>
                     <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                        Auto-plays · ~6.5 min · Voice: Nova
+                        Auto-plays · ~10 min · Voice: Nova
                     </span>
                 </div>
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
                     {[
-                        "12 cinematic scenes",
-                        "Noldus / FaceReader integration story",
+                        "14 cinematic scenes",
+                        "SRS · CPS · EOS structured framework",
                         "BodyIQ-AI · Intelligence Layer",
                         "CreatorBoostAI · Execution Layer",
                     ].map((b) => (
@@ -505,14 +560,18 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                     <ol className="mt-4 space-y-2 text-sm">
                         {[
                             "Measurement at the highest level (Noldus / FaceReader)",
-                            "The problem: data without decisions",
-                            "BodyIQ-AI activates — signal cascade",
-                            "Decision engine + recommended action",
+                            "The subjectivity problem — why adjectives don't scale",
+                            "SRS · CPS · EOS — the structured signal framework",
+                            "Subjective vs Structured — side-by-side comparison",
+                            "Live SRS cluster · AU 4 + AU 7 · negative",
+                            "Live CPS cluster · AU 1 + AU 2 · mixed",
+                            "Live EOS cluster · AU 15 + AU 17 · negative",
+                            "Decision engine · structured & auditable",
                             "CreatorBoostAI command center opens",
-                            "Deal at risk → suggested actions → autonomous execution",
+                            "Deal at risk → autonomous execution",
                             "Global behavioral KPI dashboard",
-                            "Per-rep scoring + training mode",
-                            "Closing: Human Intelligence Execution System",
+                            "Team intelligence scoring · training replay",
+                            "Up to 96% non-subjective · 98% signal-level accuracy",
                         ].map((b, i) => (
                             <li key={b} className="flex items-start gap-2 text-slate-300">
                                 <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm border border-cyan-500/30 bg-cyan-500/5 font-mono text-[9px] text-cyan-300">{i + 1}</span>
@@ -595,19 +654,27 @@ const SceneIndex = ({ current, total }) => (
 // =================================================================
 const SceneStage = ({ scene }) => {
     switch (scene.focus) {
-        case "facereader":          return <FaceReaderStage active />;
-        case "problem":             return <FaceReaderStage dimmed />;
-        case "bodyiq-activate":     return <BodyIQActivateStage />;
-        case "signals-cascade":     return <SignalsCascadeStage />;
-        case "decision-panel":      return <DecisionPanelStage />;
-        case "creatorboost-arrives":return <CommandCenterStage initial />;
-        case "deal-at-risk":        return <DealAtRiskStage />;
-        case "autonomous":          return <AutonomousExecuteStage />;
-        case "global-dashboard":    return <GlobalDashboardStage />;
-        case "rep-grid":            return <RepGridStage />;
-        case "training-mode":       return <TrainingModeStage />;
-        case "closing":             return <ClosingStage />;
-        default:                    return null;
+        case "facereader":            return <FaceReaderStage active />;
+        case "subjectivity-problem":  return <SubjectivityProblemStage />;
+        case "framework-intro":       return <FrameworkIntroStage />;
+        case "comparison":            return <ComparisonStage />;
+        case "srs-detect":            return <ClusterDetectStage state="SRS" />;
+        case "cps-detect":            return <ClusterDetectStage state="CPS" />;
+        case "eos-detect":            return <ClusterDetectStage state="EOS" />;
+        case "decision-panel":        return <DecisionPanelStage />;
+        case "creatorboost-arrives":  return <CommandCenterStage initial />;
+        case "deal-at-risk":          return <DealAtRiskStage />;
+        case "global-dashboard":      return <GlobalDashboardStage />;
+        case "rep-grid":               return <RepGridStage />;
+        case "training-mode":         return <TrainingModeStage />;
+        case "accuracy-closing":      return <AccuracyClosingStage />;
+        // Backward compat (old keys, still rendered if referenced)
+        case "problem":               return <SubjectivityProblemStage />;
+        case "bodyiq-activate":       return <ClusterDetectStage state="SRS" />;
+        case "signals-cascade":       return <ClusterDetectStage state="CPS" />;
+        case "autonomous":            return <DealAtRiskStage />;
+        case "closing":               return <AccuracyClosingStage />;
+        default:                      return null;
     }
 };
 
@@ -681,67 +748,272 @@ const FaceReaderStage = ({ active, dimmed }) => {
     );
 };
 
-// ---- Stage 3: BodyIQ activation
-const BodyIQActivateStage = () => (
-    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-ink-700/50 to-ink-900/80 p-5 fade-in-up shadow-[0_0_50px_rgba(6,182,212,0.15)]">
-        <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
-            <div className="flex items-center gap-2">
-                <Brain size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">BodyIQ Signal Intelligence Layer · ACTIVATED</span>
-            </div>
-            <span className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">PATENT-PENDING</span>
-        </div>
-
-        <div className="mt-5 rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-4 fade-in-up">
-            <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Signal Detected</span>
-                <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">live</span>
-            </div>
-            <p className="font-heading mt-2 text-2xl font-semibold text-white">Negotiation Friction</p>
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <KV label="Confidence" value="0.62" />
-                <KV label="Source" value="AU 4 + AU 7 + Lip Compression" />
-                <KV label="Type" value="Resistance" />
-            </div>
-        </div>
-        <p className="mt-5 text-sm leading-relaxed text-slate-300">
-            <span className="text-cyan-300">BodyIQ-AI does not describe behavior — it defines it.</span>{" "}
-            Each signal is built from objective anatomical measurements, removing subjectivity and replacing
-            it with structured intelligence.
-        </p>
-    </div>
-);
-
-// ---- Stage 4: Signals cascade
-const SignalsCascadeStage = () => {
-    const signals = [
-        { name: "Negotiation Friction",   confidence: 0.62, source: "AU 4 + AU 7 + Lip Comp.", type: "Resistance",    delay: 0 },
-        { name: "Cognitive Gap",          confidence: 0.71, source: "AU 1 + AU 4 + Gaze Drift", type: "Confusion",     delay: 250 },
-        { name: "Evaluative Skepticism",  confidence: 0.58, source: "AU 7 + AU 24 + Head Tilt", type: "Skepticism",    delay: 500 },
+// ---- Stage 2: Subjectivity Problem (legacy quotes overlay on dimmed face capture)
+const SubjectivityProblemStage = () => {
+    const quotes = [
+        { who: "Reviewer A", text: "“The buyer looked confused.”" },
+        { who: "Reviewer B", text: "“The candidate seemed nervous.”" },
+        { who: "Reviewer C", text: "“The witness appeared evasive.”" },
+        { who: "Reviewer D", text: "“He seemed defensive in the meeting.”" },
     ];
     return (
         <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
                 <div className="flex items-center gap-2">
-                    <Activity size={13} className="text-cyan-400" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Signal Cascade · Last 4.2s</span>
+                    <AlertTriangle size={13} className="text-amber-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Legacy Behavioral Output · Subjective</span>
                 </div>
-                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Stream · objective</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Cannot be standardized · cannot be audited</span>
             </div>
-            <div className="mt-5 space-y-3">
-                {signals.map((s) => (
-                    <div key={s.name} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-4 fade-in-up" style={{ animationDelay: `${s.delay}ms` }}>
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                            <div className="flex items-center gap-3">
-                                <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">{s.type}</span>
-                                <span className="font-heading text-base font-semibold text-white">{s.name}</span>
-                            </div>
-                            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300">conf {s.confidence.toFixed(2)}</span>
-                        </div>
-                        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">{s.source}</p>
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {quotes.map((q, i) => (
+                    <div key={q.who} className="rounded-sm border border-amber-500/20 bg-amber-500/5 p-4 fade-in-up" style={{ animationDelay: `${i * 120}ms` }}>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">{q.who}</p>
+                        <p className="mt-2 font-heading text-base text-slate-100">{q.text}</p>
+                        <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">No cluster · No AU anchor · No intensity · No classification</p>
                     </div>
                 ))}
             </div>
+            <p className="mt-5 rounded-sm border border-amber-500/30 bg-amber-500/5 p-3 font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">
+                Measurement is rigorous. Interpretation has been improvisational. That gap is what BodyIQ-AI was built to close.
+            </p>
+        </div>
+    );
+};
+
+// ---- Stage 3: SRS / CPS / EOS framework intro (three structured states)
+const FrameworkIntroStage = () => {
+    const states = [
+        {
+            code: "SRS",
+            title: "Signal Response State",
+            tag: "First measurable reaction to stimulus",
+            anchors: ["AU 4 · Brow Lowerer", "AU 7 · Lid Tightener", "Lip Pressor"],
+            tone: "cyan",
+            Icon: Activity,
+        },
+        {
+            code: "CPS",
+            title: "Cognitive Processing State",
+            tag: "Brain working through the input",
+            anchors: ["AU 1 · Inner Brow Raiser", "AU 2 · Outer Brow Raiser", "Gaze Drift"],
+            tone: "amber",
+            Icon: Brain,
+        },
+        {
+            code: "EOS",
+            title: "Evaluation Outcome State",
+            tag: "Final evaluative resolution",
+            anchors: ["AU 15 · Lip Corner Depressor", "AU 17 · Chin Raiser", "Sustained Head Tilt"],
+            tone: "cyan",
+            Icon: Target,
+        },
+    ];
+    return (
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-ink-700/50 to-ink-900/80 p-5 fade-in-up shadow-[0_0_50px_rgba(6,182,212,0.15)]">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <Brain size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">BodyIQ Signal Intelligence Layer · Framework</span>
+                </div>
+                <span className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">PATENT-PENDING</span>
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
+                {states.map((s, i) => (
+                    <div key={s.code} className={`rounded-sm border p-4 fade-in-up ${s.tone === "amber" ? "border-amber-500/30 bg-amber-500/5" : "border-cyan-500/30 bg-cyan-500/5"}`} style={{ animationDelay: `${i * 200}ms` }}>
+                        <div className="flex items-center gap-2">
+                            <s.Icon size={13} className={s.tone === "amber" ? "text-amber-300" : "text-cyan-300"} />
+                            <span className={`font-mono text-[10px] uppercase tracking-[0.22em] ${s.tone === "amber" ? "text-amber-300" : "text-cyan-300"}`}>{s.code}</span>
+                        </div>
+                        <p className="font-heading mt-2 text-lg font-semibold text-white">{s.title}</p>
+                        <p className="mt-1 text-xs text-slate-300">{s.tag}</p>
+                        <ul className="mt-3 space-y-1">
+                            {s.anchors.map((a) => (
+                                <li key={a} className="flex items-start gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">
+                                    <span className="mt-1 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400" />{a}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                ))}
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-4">
+                <KV label="Output Format" value="Signal Cluster" />
+                <KV label="Anchored To" value="Action Units" />
+                <KV label="Scored By" value="Intensity" />
+                <KV label="Classification" value="+ / − / mixed" />
+            </div>
+        </div>
+    );
+};
+
+// ---- Stage 4: Subjective vs Structured comparison (split panel)
+const ComparisonStage = () => (
+    <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up">
+        <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <div className="flex items-center gap-2">
+                <Layers size={13} className="text-cyan-400" />
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Same human · Same frame · Two different outputs</span>
+            </div>
+        </div>
+        <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* LEFT: legacy subjective */}
+            <div className="rounded-sm border border-amber-500/30 bg-amber-500/5 p-4 fade-in-up">
+                <div className="flex items-center gap-2">
+                    <X size={13} className="text-amber-300" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Legacy · Subjective</span>
+                </div>
+                <ul className="mt-3 space-y-2">
+                    {[
+                        "“The buyer seemed unsure.”",
+                        "“The candidate appeared defensive.”",
+                        "“The witness looked uncomfortable.”",
+                    ].map((q) => (
+                        <li key={q} className="rounded-sm border border-amber-500/20 bg-ink-900/40 p-3 text-sm text-slate-200">{q}</li>
+                    ))}
+                </ul>
+                <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">Opinion · cannot be audited</p>
+            </div>
+            {/* RIGHT: BodyIQ structured */}
+            <div className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-4 fade-in-up" style={{ animationDelay: "200ms" }}>
+                <div className="flex items-center gap-2">
+                    <CheckCircle2 size={13} className="text-cyan-300" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">BodyIQ-AI · Structured</span>
+                </div>
+                <div className="mt-3 rounded-sm border border-cyan-500/30 bg-ink-900/40 p-3 space-y-2">
+                    <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em]">
+                        <span className="text-cyan-300">Cluster ID</span>
+                        <span className="text-white">SRS-1142</span>
+                    </div>
+                    <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em]">
+                        <span className="text-cyan-300">Action Units</span>
+                        <span className="text-white">AU 4 + AU 7</span>
+                    </div>
+                    <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em]">
+                        <span className="text-cyan-300">Intensity</span>
+                        <span className="text-white">0.62</span>
+                    </div>
+                    <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em]">
+                        <span className="text-cyan-300">Classification</span>
+                        <span className="rounded-sm border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 text-cyan-300">negative</span>
+                    </div>
+                </div>
+                <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">Anatomical evidence · auditable · deployable</p>
+            </div>
+        </div>
+    </div>
+);
+
+// ---- Stages 5/6/7: SRS / CPS / EOS cluster detection (parameterized)
+const CLUSTER_DEFS = {
+    SRS: {
+        title: "Signal Response State",
+        clusterId: "SRS-1142",
+        Icon: Activity,
+        aus: [
+            { code: "AU 4", label: "Brow Lowerer", value: 0.71 },
+            { code: "AU 7", label: "Lid Tightener", value: 0.63 },
+            { code: "AU 24", label: "Lip Pressor", value: 0.55 },
+        ],
+        intensity: 0.62,
+        classification: "negative",
+        descriptor: "First measurable reaction to stimulus",
+    },
+    CPS: {
+        title: "Cognitive Processing State",
+        clusterId: "CPS-2073",
+        Icon: Brain,
+        aus: [
+            { code: "AU 1", label: "Inner Brow Raiser", value: 0.66 },
+            { code: "AU 2", label: "Outer Brow Raiser", value: 0.58 },
+            { code: "Gaze", label: "Drift Vector", value: 0.74 },
+        ],
+        intensity: 0.71,
+        classification: "mixed",
+        descriptor: "Brain working through the input",
+    },
+    EOS: {
+        title: "Evaluation Outcome State",
+        clusterId: "EOS-3408",
+        Icon: Target,
+        aus: [
+            { code: "AU 15", label: "Lip Corner Depressor", value: 0.61 },
+            { code: "AU 17", label: "Chin Raiser", value: 0.49 },
+            { code: "Head", label: "Sustained Tilt", value: 0.57 },
+        ],
+        intensity: 0.58,
+        classification: "negative",
+        descriptor: "Final evaluative resolution",
+    },
+};
+
+const ClusterDetectStage = ({ state }) => {
+    const def = CLUSTER_DEFS[state] || CLUSTER_DEFS.SRS;
+    const tone =
+        def.classification === "positive" ? "cyan"
+        : def.classification === "mixed" ? "amber"
+        : "rose";
+    const toneClasses =
+        tone === "rose" ? "border-rose-500/40 bg-rose-500/5 text-rose-300"
+        : tone === "amber" ? "border-amber-500/40 bg-amber-500/5 text-amber-300"
+        : "border-cyan-500/40 bg-cyan-500/5 text-cyan-300";
+    return (
+        <div className={`rounded-md border ${toneClasses.split(" ")[0]} bg-gradient-to-b from-ink-700/50 to-ink-900/80 p-5 fade-in-up shadow-[0_0_50px_rgba(6,182,212,0.15)]`} data-testid={`cluster-stage-${state.toLowerCase()}`}>
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                    <def.Icon size={13} className={tone === "rose" ? "text-rose-300" : tone === "amber" ? "text-amber-300" : "text-cyan-300"} />
+                    <span className={`font-mono text-[10px] uppercase tracking-[0.22em] ${tone === "rose" ? "text-rose-300" : tone === "amber" ? "text-amber-300" : "text-cyan-300"}`}>
+                        {state} · {def.title}
+                    </span>
+                </div>
+                <span className="rounded-full border border-white/10 bg-ink-900 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-300">live capture</span>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                {/* Cluster header */}
+                <div className={`rounded-sm border ${toneClasses.split(" ")[0]} ${toneClasses.split(" ")[1]} p-4`}>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">Cluster ID</p>
+                    <p className="font-heading mt-1 text-2xl font-semibold text-white">{def.clusterId}</p>
+                    <p className="mt-2 text-xs text-slate-300">{def.descriptor}</p>
+                    <div className="mt-4 flex items-center gap-2">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Classification</span>
+                        <span className={`rounded-sm border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] ${toneClasses}`}>
+                            {def.classification}
+                        </span>
+                    </div>
+                    <div className="mt-3">
+                        <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">
+                            <span>Intensity</span>
+                            <span className="text-white">{def.intensity.toFixed(2)}</span>
+                        </div>
+                        <div className="mt-1 h-1 overflow-hidden rounded-full bg-ink-800">
+                            <div className={`h-full ${tone === "rose" ? "bg-rose-400/70" : tone === "amber" ? "bg-amber-400/70" : "bg-cyan-400/70"} transition-all duration-700`} style={{ width: `${def.intensity * 100}%` }} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* AU breakdown */}
+                <div className="lg:col-span-2 rounded-sm border border-white/10 bg-ink-900 p-4">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Action Unit anchors</p>
+                    <div className="mt-3 space-y-2">
+                        {def.aus.map((a, i) => (
+                            <div key={a.code} className="fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
+                                <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em]">
+                                    <span className="text-cyan-300">{a.code}</span>
+                                    <span className="text-slate-400">{a.label}</span>
+                                    <span className="text-slate-200">{a.value.toFixed(2)}</span>
+                                </div>
+                                <div className="mt-1 h-1 overflow-hidden rounded-full bg-ink-800">
+                                    <div className={`h-full ${tone === "rose" ? "bg-rose-400/70" : tone === "amber" ? "bg-amber-400/70" : "bg-cyan-400/70"} transition-all duration-500`} style={{ width: `${a.value * 100}%` }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+            <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                Anatomical · measurement-based · objective. No interpretation has been applied.
+            </p>
         </div>
     );
 };
@@ -764,10 +1036,11 @@ const DecisionPanelStage = () => (
         <div className="mt-5 rounded-sm border border-white/10 bg-ink-900 p-4">
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Rationale · derived from signal stack</p>
             <ul className="mt-3 space-y-1.5 text-sm text-slate-200">
-                <li className="flex items-start gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400" /> Negotiation friction is rising while comprehension is dropping.</li>
-                <li className="flex items-start gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400" /> Evaluative skepticism + cognitive gap → buyer is defending, not deciding.</li>
-                <li className="flex items-start gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400" /> Closing now risks loss; clarifying now restores trajectory.</li>
+                <li className="flex items-start gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400" /> SRS-1142 intensity 0.62 · classification negative — body's first response is resistant.</li>
+                <li className="flex items-start gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400" /> CPS-2073 intensity 0.71 · classification mixed — cognitive processing has not resolved.</li>
+                <li className="flex items-start gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400" /> EOS-3408 intensity 0.58 · classification negative — evaluative outcome trending against close.</li>
             </ul>
+            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">Decision is structured, anchored to clusters, and fully auditable.</p>
         </div>
     </div>
 );
@@ -821,7 +1094,7 @@ const DealAtRiskStage = () => (
                 <p className="font-heading mt-2 text-lg font-semibold text-white">Acme Corp · Q3 Renewal</p>
                 <KV label="Value" value="$184,000 ARR" />
                 <KV label="Stage" value="Negotiation · 2nd round" />
-                <KV label="Reason at risk" value="Negotiation friction detected" />
+                <KV label="Reason at risk" value="Cluster SRS-1142 · classification negative" />
             </div>
             <div className="lg:col-span-2 rounded-sm border border-white/10 bg-ink-900 p-4">
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Suggested Actions</p>
@@ -1005,20 +1278,33 @@ const TrainingModeStage = () => (
     </div>
 );
 
-// ---- Stage 12: Closing slate
-const ClosingStage = () => (
-    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-7 lg:p-12 fade-in-up shadow-[0_0_60px_rgba(6,182,212,0.18)]">
-        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Closing</p>
-        <div className="mt-6 space-y-3">
-            <p className="font-heading text-2xl font-semibold text-white sm:text-3xl"><span className="text-slate-400">Noldus</span> measures behavior.</p>
-            <p className="font-heading text-2xl font-semibold text-white sm:text-3xl"><span className="text-cyan-300">BodyIQ-AI</span> defines it.</p>
-            <p className="font-heading text-2xl font-semibold text-white sm:text-3xl"><span className="text-cyan-300">CreatorBoostAI</span> executes on it.</p>
+// ---- Stage 14: Accuracy + Closing slate
+const AccuracyClosingStage = () => (
+    <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-7 lg:p-12 fade-in-up shadow-[0_0_60px_rgba(6,182,212,0.18)]" data-testid="accuracy-closing-stage">
+        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Accuracy · Closing</p>
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-5">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Non-subjective Classification</p>
+                <p className="font-heading mt-3 text-5xl font-semibold text-white">up to 96%</p>
+                <p className="mt-3 text-xs text-slate-300">96 of every 100 system outputs are structured signal clusters — not adjectives or interpretations.</p>
+            </div>
+            <div className="rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-5">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Signal-level Accuracy</p>
+                <p className="font-heading mt-3 text-5xl font-semibold text-white">up to 98%</p>
+                <p className="mt-3 text-xs text-slate-300">Underlying Action Unit detection is as precise as the world's leading behavioral measurement systems.</p>
+            </div>
         </div>
-        <p className="mt-7 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg">
-            Together, this becomes the first complete <span className="text-cyan-300">Human Intelligence Execution System</span>.
+        <p className="mt-7 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base">
+            Human communication is largely driven by nonverbal signals. This system operates directly on
+            that layer — <span className="text-cyan-300">anatomical, measurement-based, and objective.</span>
         </p>
-        <p className="mt-5 max-w-3xl text-sm leading-relaxed text-slate-400 sm:text-base">
-            This is not an upgrade to your platform. <span className="text-white">This is the next layer of value your platform enables.</span>
+        <div className="mt-7 space-y-2.5">
+            <p className="font-heading text-2xl font-semibold text-white sm:text-3xl"><span className="text-slate-400">Noldus</span> measures.</p>
+            <p className="font-heading text-2xl font-semibold text-white sm:text-3xl"><span className="text-cyan-300">BodyIQ-AI</span> defines.</p>
+            <p className="font-heading text-2xl font-semibold text-white sm:text-3xl"><span className="text-cyan-300">CreatorBoostAI</span> executes.</p>
+        </div>
+        <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg">
+            Together, this is the first complete <span className="text-cyan-300">Human Intelligence Execution System</span>.
         </p>
     </div>
 );

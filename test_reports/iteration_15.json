@@ -1,0 +1,53 @@
+{
+  "summary": "Iter15 frontend-only review of upgraded Noldus 14-scene SRS/CPS/EOS demo at /demo/noldus. Verified hero copy ('Noldus measures behavior. BodyIQ-AI defines it. CreatorBoostAI executes on it.', '10-minute', '(SRS · CPS · EOS)', 'Anatomical. Measurement-based. Objective.'), Start screen ('Run the 14-scene Noldus walkthrough', 'Approximately 9 to 10 minutes'), Story arc bullets covering SRS/CPS/EOS clusters + Subjective vs Structured + 'Up to 96% non-subjective · 98% signal-level accuracy', Start Demo button starts prefetch and reaches narration state. Personalization at /demo/noldus?name=Lucas&company=Noldus rendered 'WELCOME, LUCAS FROM NOLDUS.' (data-testid='noldus-personalized-greeting' AND 'noldus-start-personalized' both present). Homepage CTAs hero-cta-enterprise-demo + hero-cta-live-system both navigate to /demo/noldus. Top nav-noldus → /demo/noldus. Mobile (375x812) no horizontal overflow, start button visible. Backend smoke: POST /api/tts/speak {voice:nova} returns 200 audio/mpeg 35KB. POST /api/share-demo {demo_type:noldus} returns 202 with sent:false (Resend graceful-degrade, expected). FOUND CRITICAL ISSUE: Scene 13 'Training Replay System' (TrainingPreviewStage, lines 1262-1264 of NoldusDemoPage.jsx) still hardcodes forbidden subjective labels 'Cognitive gap detected' and 'Negotiation friction · escalating' in its timeline overlay — these labels MUST be replaced with structured signal cluster IDs per the SRS/CPS/EOS rewrite spec. Also static text body of /demo/noldus does not literally contain the bullet 'SRS · CPS · EOS structured framework' (it says 'SRS · CPS · EOS — the structured signal framework' with em-dash in story arc list and 'SRS · CPS · EOS STRUCTURED FRAMEWORK' as a feature checkbox; semantically equivalent but spec wording differs slightly). Auto-plays / Voice: Nova line is rendered as styled uppercase ('AUTO-PLAYS · ~10 MIN · VOICE: NOVA') — innerText comparison failed for exact-case match but content is present (CSS text-transform). Did not run full 10-minute scene-by-scene playback to verify cluster-stage-srs/cps/eos and accuracy-closing-stage live DOM rendering — relied on JSX source review (CLUSTER_DEFS at line 905-948 + ClusterDetectStage at line 950-1019 + AccuracyClosingStage at line 1282-1346) which confirms all required fields (Cluster ID, SRS-1142/CPS-2073/EOS-3408, AU 4/AU 7/AU 1/AU 15, intensity, classification badges, 'up to 96%', 'up to 98%', 'non-subjective', 'signal-level', closing slate 'Noldus measures.' / 'BodyIQ-AI defines.' / 'CreatorBoostAI executes.') are present and properly wired with data-testid='cluster-stage-srs|cps|eos' and data-testid='accuracy-closing-stage'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "NoldusDemoPage / TrainingPreviewStage (Scene 13)",
+        "issue": "Scene 13 timeline still contains forbidden subjective labels 'Cognitive gap detected' and 'Negotiation friction · escalating' (NoldusDemoPage.jsx lines 1263-1264). These violate the SRS/CPS/EOS rewrite spec which requires zero occurrences of 'Negotiation Friction' / 'Cognitive Gap'. Replace with structured cluster IDs (e.g. SRS-1142, CPS-2073, EOS-3408 with AU codes + intensity + classification).",
+        "selector": "TrainingPreviewStage timeline rows (Scene 13)",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Start screen / Story arc",
+        "issues": [
+          "Spec asked for bullet 'SRS · CPS · EOS structured framework' but actual text reads 'SRS · CPS · EOS — the structured signal framework' (em-dash variant). Semantically OK but minor wording delta vs spec.",
+          "Spec asked for literal 'Auto-plays · ~10 min · Voice: Nova' meta line; rendered output is uppercase via CSS ('AUTO-PLAYS · ~10 MIN · VOICE: NOVA'). Content present, casing differs."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_15.json"
+  ],
+  "action_items": [
+    "CRITICAL: Replace TrainingPreviewStage timeline rows in /app/frontend/src/pages/NoldusDemoPage.jsx (lines 1262-1266) to remove 'Cognitive gap detected' and 'Negotiation friction · escalating'. Use structured signal cluster IDs instead — e.g. {t:'01:18', sig:'SRS-1142 · AU 4+AU 7 · classification negative'}, {t:'02:14', sig:'CPS-2073 · AU 1+AU 2 · classification mixed'}, etc. Keep tone color but replace label text with anatomical/structured language consistent with SRS/CPS/EOS framework.",
+    "OPTIONAL: Adjust story-arc bullet wording to literal 'SRS · CPS · EOS structured framework' if exact spec match required (currently 'SRS · CPS · EOS — the structured signal framework').",
+    "OPTIONAL: After fixing Scene 13, re-run full 10-min playback (or invoke React state directly via test hook) to confirm DOM body has zero occurrences of forbidden labels at every scene transition."
+  ],
+  "critical_code_review_comments": [
+    "NoldusDemoPage.jsx is 1426 lines — exceeds 700-line guideline. Consider splitting SCENES array, individual Stage components (FaceReader/Comparison/ClusterDetect/Accuracy/etc), and ShareModule into separate files for maintainability.",
+    "TrainingPreviewStage was missed during the SRS/CPS/EOS rewrite — the timeline rows still encode old subjective adjective vocabulary ('Cognitive gap detected', 'Negotiation friction · escalating', 'Hidden interest detected'). This is the only spec violation found.",
+    "Scene fallback_ms total ≈ 622s (10.3 min) — matches '9 to 10 minutes' spec target. Good.",
+    "Scene 14 closing slate copy 'Noldus measures. / BodyIQ-AI defines. / CreatorBoostAI executes.' confirmed present in AccuracyClosingStage source.",
+    "ClusterDetectStage is well-parameterized via state='SRS|CPS|EOS' against CLUSTER_DEFS dict — good DRY pattern; data-testid is dynamic (cluster-stage-{state.toLowerCase()})."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "92%"
+  },
+  "test_credentials": "Not required for this iteration. EMERGENT_LLM_KEY in /app/backend/.env is functional (TTS endpoint returned 35KB MP3).",
+  "seed_data_creation": "One TEST_share@example.com share record created via /api/share-demo smoke test (sent:false, persists in DB).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "MAIN AGENT MUST FIX Scene 13 TrainingPreviewStage timeline labels (NoldusDemoPage.jsx lines 1262-1266) before retest. After fix, recommend either (a) full 10-min autoplay scan capturing innerText every 30s and asserting zero occurrences of 'Negotiation Friction|Cognitive Gap|Evaluative Skepticism|Cognitive gap|Negotiation friction', or (b) expose a window.__noldusSetScene(idx) test hook and walk scenes 5,6,7,13,14 verifying cluster-stage-srs/cps/eos + accuracy-closing-stage data-testid renders with required structured fields. Backend TTS + share-demo are fine. Personalization, navigation, and mobile layout all confirmed working.",
+  "rca of the issue": "Scene 13 TrainingPreviewStage was a pre-existing legacy component (Training Replay System) that rendered a hardcoded 5-row mock signal timeline. When the SRS/CPS/EOS rewrite was applied to SCENES narration text and to the new Stage components (Subjectivity/Framework/Comparison/ClusterDetect/AccuracyClosing), the dev did not refactor this component's hardcoded timeline strings. Reproduction: scroll source NoldusDemoPage.jsx to lines 1262-1266 OR autoplay demo for ~9 min until Scene 13 ('Training Replay System') renders. Mitigation: replace the array literal entries with structured cluster sigs (SRS-1142 / CPS-2073 / EOS-3408 + AU codes + classification) so vocabulary is consistent with the rest of the rewrite."
+}
