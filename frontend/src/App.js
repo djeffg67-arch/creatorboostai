@@ -18,6 +18,7 @@ import InsuranceDemoPage from "@/pages/InsuranceDemoPage";
 import CreatorDemoPage from "@/pages/CreatorDemoPage";
 import NoldusDemoPage from "@/pages/NoldusDemoPage";
 import SitaDemoPage from "@/pages/SitaDemoPage";
+import SupermarketDemoPage from "@/pages/SupermarketDemoPage";
 import VerticalPickerPage from "@/pages/VerticalPickerPage";
 import PressPage from "@/pages/PressPage";
 import ApplyPage from "@/pages/ApplyPage";
@@ -47,6 +48,10 @@ function App() {
                     <Route path="/demo/enterprise" element={<NoldusDemoPage />} />
                     <Route path="/demo/sita" element={<SitaDemoPage />} />
                     <Route path="/demo/airports" element={<SitaDemoPage />} />
+                    <Route path="/demo/supermarket" element={<SupermarketDemoPage />} />
+                    <Route path="/demo/retail" element={<SupermarketDemoPage />} />
+                    <Route path="/demo/c-store" element={<SupermarketDemoPage />} />
+                    <Route path="/demo/grocery" element={<SupermarketDemoPage />} />
                     <Route path="/demo/:variant" element={<DemoPage />} />
                     <Route path="/press" element={<PressPage />} />
                     <Route path="/training" element={<TrainingPage />} />

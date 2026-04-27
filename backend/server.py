@@ -687,7 +687,7 @@ class ShareDemoRequest(BaseModel):
     recipient_email: EmailStr
     recipient_name: Optional[str] = Field(None, max_length=120)
     sender_name: Optional[str] = Field("A colleague", max_length=120)
-    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|enterprise|sita)$")
+    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|enterprise|sita|supermarket)$")
     company: Optional[str] = Field(None, max_length=120)
     message: Optional[str] = Field(None, max_length=1000)
     origin_url: Optional[str] = None
@@ -1505,11 +1505,11 @@ async def analyze_lead(payload: LeadAnalyzeRequest):
 # Storage is MongoDB (the project's actual datastore — note the user said
 # "Supabase" but the codebase has always been MongoDB; PRD reflects this).
 
-VALID_DEMO_TYPES = {"realtor", "insurance", "creator", "noldus", "sita", "enterprise"}
+VALID_DEMO_TYPES = {"realtor", "insurance", "creator", "noldus", "sita", "enterprise", "supermarket"}
 
 
 class DemoSessionStart(BaseModel):
-    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|sita|enterprise)$")
+    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|sita|enterprise|supermarket)$")
     recipient_id: Optional[str] = Field(None, max_length=120)
     recipient_name: Optional[str] = Field(None, max_length=120)
     recipient_company: Optional[str] = Field(None, max_length=160)

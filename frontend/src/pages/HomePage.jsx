@@ -8,7 +8,7 @@ import {
     ArrowRight, Play, Building2, ShieldCheck, Mic, ShoppingBag, Plane,
     HardHat, Briefcase, Layers, Brain, TrendingUp, DollarSign, Target,
     Network, Activity, Sparkles, CheckCircle2, Workflow, Users, Scale,
-    UserCog, Package, Video, FileText,
+    UserCog, Package, Video, FileText, ShoppingCart, Fuel,
 } from "lucide-react";
 
 // Real-world business imagery (Unsplash CDN, optimized)
@@ -97,6 +97,21 @@ const INDUSTRIES = [
         ],
         href: "/contact",
         cta: "Request services brief",
+    },
+    {
+        id: "retail",
+        Icon: ShoppingCart,
+        title: "Supermarket · C-Store · Retail",
+        sub: "Grocery · convenience · forecourt · loyalty",
+        outcomes: [
+            "CreatorBoostAI sits on top of SAP, Oracle Retail, Salesforce, Blue Yonder, ServiceChannel, Manhattan TMS",
+            "BodyIQ-AI defines shelf hesitation, checkout friction, and forecourt behavior at the SRS · CPS · EOS signal level",
+            "18-scene cinematic walkthrough · ~12 min · supermarket + C-store + fuel + fleet · share + QR ready",
+        ],
+        href: "/demo/supermarket",
+        cta: "Watch Retail Demo",
+        live: true,
+        highlight: true,
     },
     {
         id: "enterprise",
@@ -273,6 +288,21 @@ export default function HomePage() {
                                 >
                                     <Building2 size={14} /> Watch Enterprise Demo
                                     <span className="ml-1 rounded-sm border border-cyan-400/40 bg-ink-900 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-400">Noldus</span>
+                                </Link>
+                                <Link
+                                    to="/demo/supermarket"
+                                    data-testid="hero-cta-retail-demo"
+                                    className="relative inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/60 bg-gradient-to-r from-cyan-500/15 via-cyan-500/5 to-transparent px-6 py-3.5 text-sm font-semibold text-cyan-200 shadow-[0_0_18px_rgba(6,182,212,0.25)] transition-all hover:border-cyan-400 hover:bg-cyan-500/20 hover:text-white hover:shadow-[0_0_30px_rgba(6,182,212,0.45)]"
+                                >
+                                    <ShoppingCart size={14} /> Retail Demo
+                                    <span className="ml-1 rounded-sm border border-cyan-400/40 bg-ink-900 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-400">Supermarket · C-Store</span>
+                                </Link>
+                                <Link
+                                    to="/demo/supermarket"
+                                    data-testid="hero-cta-supermarket-cstore"
+                                    className="inline-flex items-center justify-center gap-2 rounded-md border border-white/15 bg-transparent px-6 py-3.5 text-sm font-medium text-slate-200 transition-all hover:border-cyan-500/50 hover:text-cyan-300"
+                                >
+                                    <Fuel size={14} /> Supermarket &amp; C-Store Demo
                                 </Link>
                                 <Link
                                     to="/demo/noldus"
