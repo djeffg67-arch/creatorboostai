@@ -73,3 +73,33 @@ export const shareDemo = (payload) =>
 
 export const portalBillingSession = (payload) =>
     api.post("/portal/billing-session", payload).then((r) => r.data);
+
+// ---------- Lighting Upgrade Engine ----------
+export const listLightingSkus = () =>
+    api.get("/lighting/skus").then((r) => r.data);
+
+export const createLightingProposal = (payload) =>
+    api.post("/lighting/proposal", payload).then((r) => r.data);
+
+export const getLightingProposal = (actionId) =>
+    api.get(`/lighting/proposal/${actionId}`).then((r) => r.data);
+
+export const approveLightingProposal = (actionId) =>
+    api.post(`/lighting/proposal/${actionId}/approve`).then((r) => r.data);
+
+export const getLightingPortfolio = (tenant = "acme-retail") =>
+    api.get(`/lighting/portfolio?tenant=${encodeURIComponent(tenant)}`).then((r) => r.data);
+
+export const createLightingWarrantyEvent = (payload) =>
+    api.post("/lighting/warranty-event", payload).then((r) => r.data);
+
+export const listLightingWarrantyEvents = (actionId) => {
+    const qs = actionId ? `?action_id=${encodeURIComponent(actionId)}` : "";
+    return api.get(`/lighting/warranty-events${qs}`).then((r) => r.data);
+};
+
+export const notifyLightingContractor = (payload) =>
+    api.post("/lighting/notify-contractor", payload).then((r) => r.data);
+
+export const getLightingStats = () =>
+    api.get("/lighting/stats").then((r) => r.data);

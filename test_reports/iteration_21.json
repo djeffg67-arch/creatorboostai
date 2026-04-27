@@ -1,0 +1,34 @@
+{
+  "summary": "Iter 21 — Lighting Upgrade Engine: full backend + frontend testing. All 12 pytest tests pass (catalog/proposal/portfolio/warranty/notify/stats). Frontend page loads cleanly, all required data-testids present, calculator email-gate validation works, proposal generation + approve API integration works end-to-end, regional rollup + warranty system render, homepage CTA visible, mobile 390x844 has zero horizontal overflow. Supermarket demo still loads (no regression).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_lighting_engine.py",
+    "/app/test_reports/pytest/iter21_lighting.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "lighting_engine.py is 450 lines and single-file; acceptable for now but could split into models/compute/router if it grows further.",
+    "Action ID alphabet correctly excludes I/O/0/1 (confirmed by regex test [A-HJ-NP-Z2-9]).",
+    "Subscription premium (12% blended) and 22% install estimate are hard-coded constants — fine for demo but flag if customer asks for tunability.",
+    "Approve button is inside a sticky-ish header strip; on small/mid scroll positions a force-click without scroll_into_view can miss it. Real users will scroll naturally so not user-impacting, but documented for future Playwright authors.",
+    "Backend correctly excludes MongoDB _id via projection {\"_id\": 0} on all reads. Good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_lighting_engine.py (NEW)"
+  ],
+  "success_rate": {"backend": "100% (12/12 pytest)", "frontend": "100% (all required testids + flows verified)"},
+  "test_credentials": "none required (public endpoints; email-gate uses any valid email)",
+  "seed_data_creation": "Tests create real proposals + warranty events + contractor notifications under TEST email cfo@example.com / test@example.com. Records are persisted in lighting_projects / lighting_warranty_events / lighting_contractor_notifications collections — no cleanup performed (acceptable for demo data; aligns with portfolio rollup which lists recent saves).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All /api/lighting/* endpoints proven via /app/backend/tests/test_lighting_engine.py. Frontend approve button requires scroll-into-view before clicking in Playwright (do NOT use force=True without scrolling — element is in a flex header that can sit at top of viewport with sticky nav on top). The calculator pre-fills every numeric field; only email + (optionally) contractor name need typing. Page testid is 'lighting-upgrade-engine-page'. The portfolio rollup is partially seeded (184 stores, 6 regions) so it is populated even on a fresh DB — verified.",
+  "rca of the issue": "No production issues. One self-inflicted test issue: initial Playwright run used force=True click on approve-proposal-btn while the button was outside the viewport — the click landed but did not propagate to the React onClick handler in some browsers. Resolved by using scroll_into_view_if_needed() + plain click(). Backend POST /proposal/{id}/approve confirmed 200 + status flips to 'approved' both via API and via UI."
+}

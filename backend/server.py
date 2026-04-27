@@ -41,6 +41,9 @@ from email_service import (
 # ---------- TTS ----------
 from tts_service import generate_or_cache as tts_generate, ALLOWED_VOICES, DEFAULT_VOICE
 
+# ---------- Lighting Upgrade Engine ----------
+from lighting_engine import make_router as make_lighting_router
+
 # ---------- LLM ----------
 from emergentintegrations.llm.chat import LlmChat, UserMessage as LlmUserMessage
 import json as _json
@@ -1724,6 +1727,7 @@ async def admin_list_demo_notifications(
 
 
 app.include_router(api_router)
+app.include_router(make_lighting_router(db), prefix="/api")
 
 
 app.add_middleware(
