@@ -661,15 +661,15 @@ async def portal_billing_session(payload: BillingPortalRequest, http_request: Re
 # ---------- Demo share (Resend) ----------
 class ShareDemoRequest(BaseModel):
     recipient_email: EmailStr
-    sender_name: str = Field(..., min_length=1, max_length=120)
-    demo_type: str = Field(..., pattern=r"^(realtor|insurance)$")
+    sender_name: Optional[str] = Field("A colleague", max_length=120)
+    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|enterprise)$")
     company: Optional[str] = Field(None, max_length=120)
     message: Optional[str] = Field(None, max_length=1000)
     origin_url: Optional[str] = None
-    # "demo" → links to /demo/{demo_type}; "preview" → links to /preview
-    # Used by /preview's "Send to my agent" button to share the read-only
-    # Command Center with managers/booking agents/decision-makers.
-    share_target: str = Field("demo", pattern=r"^(demo|preview)$")
+    # "demo" → links to /demo/{demo_type}; "preview" → links to /preview;
+    # any other value (typically a full URL like window.location.href) is
+    # accepted verbatim — used by the Noldus / Creator share modules.
+    share_target: Optional[str] = Field("demo", max_length=500)
 
 
 @api_router.post("/share-demo", status_code=202)
@@ -686,13 +686,18 @@ async def share_demo(payload: ShareDemoRequest, http_request: Request):
     base = (payload.origin_url or os.environ.get("SITE_URL") or str(http_request.base_url)).rstrip("/")
     if payload.share_target == "preview":
         demo_url = f"{base}/preview"
+    elif payload.share_target and payload.share_target.startswith(("http://", "https://")):
+        # Caller passed a full URL (e.g. window.location.href from /demo/noldus)
+        demo_url = payload.share_target
     else:
         demo_url = f"{base}/demo/{payload.demo_type}"
+
+    sender_name_clean = (payload.sender_name or "A colleague").strip() or "A colleague"
 
     log_doc = {
         "id": str(uuid.uuid4()),
         "recipient_email": payload.recipient_email,
-        "sender_name": payload.sender_name,
+        "sender_name": sender_name_clean,
         "company": payload.company,
         "message": payload.message,
         "demo_type": payload.demo_type,
@@ -710,7 +715,7 @@ async def share_demo(payload: ShareDemoRequest, http_request: Request):
     try:
         sent = await send_demo_share(
             recipient_email=payload.recipient_email,
-            sender_name=payload.sender_name.strip(),
+            sender_name=sender_name_clean,
             demo_url=demo_url,
             demo_type=payload.demo_type,
             company=(payload.company.strip() if payload.company else None),

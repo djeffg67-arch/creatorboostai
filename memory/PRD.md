@@ -1,9 +1,59 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-04-27 (Iter 15 — Decision Intelligence System repositioning + Signal Pack commerce)
+**Last update:** 2026-04-27 (Iter 16 — Noldus / Investor Cut cinematic demo + Share/QR shipped)
 **Project status:** 🟢 Code-complete. Awaiting Stripe + Resend Live Keys.
 **Site URL:** https://bodyiq-training.preview.emergentagent.com
-**Supervisor:** backend + frontend RUNNING. Iter 9 testing 18/18 pass.
+**Supervisor:** backend + frontend RUNNING. Iter 10 testing 12/12 frontend + 2/2 pytest pass.
+
+---
+
+## 🆕 ITER 16 (2026-04-27) — Noldus / Investor Demo + Schema Generalization
+
+User requested a specialized cinematic demo for Noldus, enterprise partners, and investor conversations following an exact 11-beat script. Built as a dedicated 12-scene auto-played walkthrough with Share + QR.
+
+**New page: `/demo/noldus` (and `/demo/enterprise` alias)**
+- 12 scenes · ~6.5 min total runtime · Nova female-American voice · zero clicks required.
+- Scene arc 1:1 with user's script:
+  1. Measurement Floor — FaceReader-style live AU/gaze/head-pose capture
+  2. The Problem — measurement alone doesn't drive decisions (panel dimmed)
+  3. BodyIQ Activation — first signal "Negotiation Friction · 0.62 · AU 4 + AU 7 + Lip Compression"
+  4. Signal Cascade — Cognitive Gap + Evaluative Skepticism fire in sequence
+  5. Decision Engine — "Do not proceed to close. Provide clarification. Reduce complexity."
+  6. CreatorBoostAI Command Center opens with live KPIs
+  7. Deal at Risk — Acme Corp · $184K ARR · 78% AI confidence + 3 Suggested Actions + Execute button
+  8. Autonomous mode — toggle flips, system executes (email sent, task assigned, CRM updated)
+  9. Global Dashboard — US/Europe/Asia · 1,248 sessions · 18,442 signals · $12.4M revenue
+  10. Per-Rep Performance grid (Signal Accuracy / Decision Efficiency / Revenue Impact)
+  11. Training Mode — recorded interaction with timeline overlays
+  12. Closing slate — "Noldus measures. BodyIQ-AI defines. CreatorBoostAI executes. Together = first complete Human Intelligence Execution System."
+- Same architecture as Realtor/Insurance/Creator demos: prefetch TTS via `/api/tts/speak` voice=nova → audio.ended + fallback_ms timer drives auto-advance.
+- Pause / Resume / Mute / Replay controls + sticky scene header + global timeline + scene index sidebar.
+
+**Share Module** (appears at scene 12 / closing)
+- "Send Private Link" via Resend (calls existing `/api/share-demo` with new `demo_type='noldus'`)
+- Copy link button
+- QR code via `api.qrserver.com` (no library, dark navy + cyan brand colors) — trade-show ready
+- Replay button to restart the demo
+
+**Backend schema generalization (`server.py` `ShareDemoRequest`)**
+- `demo_type` regex extended: `^(realtor|insurance|creator|noldus|enterprise)$`
+- `sender_name` made Optional with default "A colleague"
+- `share_target` accepts arbitrary string; if it starts with http(s):// the URL is used verbatim, otherwise behavior preserved (`demo` / `preview`)
+- All upstream call sites updated to use `sender_name_clean`
+- 2/2 new pytest tests in `/app/backend/tests/test_noldus_share.py` pass; legacy realtor share test remains green.
+
+**Wiring**
+- `App.js` — added 2 routes (`/demo/noldus`, `/demo/enterprise`)
+- `VerticalPickerPage.jsx` — added 5th card (Cpu icon, "Enterprise · Noldus / Investor Cut", `/demo/noldus`, "12 scenes · ~6.5 min", badge "New · Enterprise")
+
+**Verification (Iter 10 testing report)**
+- Frontend: 12/12 review items pass · Scene 1 → Scene 2 auto-advanced in ~15s
+- Backend: 2/2 pytest pass — Noldus payload returns 202 with correct URL · Realtor preview regression still works
+- Hand-off: Critical share-demo schema bug caught and fixed; PRD now reflects relaxed validator.
+
+**Code review notes (non-blocking)**
+- `NoldusDemoPage.jsx` is ~1100 lines — same threshold as `CreatorDemoPage.jsx`. Both use the duplicated cinematic-demo architecture. P3: extract `useCinematicDemo()` hook + shared `<SceneHeader/>`/`<NarrationPanel/>`/`<SceneIndex/>` into `/components/demo/cinematic/` (~400 LOC removable across 4 demo pages).
+- Noldus header comment was off-by-one ("11 scenes" vs 12) — corrected.
 
 ---
 
