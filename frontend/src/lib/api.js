@@ -129,3 +129,58 @@ export const adminLightingLocations = (token) =>
 
 export const adminLightingLifecycle = (token, actionId) =>
     api.get(`/lighting/admin/lifecycle/${actionId}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+
+// ---------- Ops Center (Founder / Executive / Employee) ----------
+export const opsFounderAccess = (key) =>
+    api.post("/ops/founder-access", { key }).then((r) => r.data);
+
+export const opsExecutiveAccess = (key) =>
+    api.post("/ops/executive-access", { key }).then((r) => r.data);
+
+export const opsEmployeeAcceptInvite = (invite_token) =>
+    api.post("/ops/employee-accept-invite", { invite_token }).then((r) => r.data);
+
+export const opsMe = (auth) =>
+    api.post("/ops/me", auth).then((r) => r.data);
+
+export const opsListLeads = (auth) =>
+    api.post("/ops/leads/list", auth).then((r) => r.data);
+
+export const opsCreateLead = (payload) =>
+    api.post("/ops/leads/create", payload).then((r) => r.data);
+
+export const opsUpdateLeadStatus = (payload) =>
+    api.post("/ops/leads/status", payload).then((r) => r.data);
+
+export const opsAddLeadNote = (payload) =>
+    api.post("/ops/leads/note", payload).then((r) => r.data);
+
+export const opsAddLeadTask = (payload) =>
+    api.post("/ops/leads/task", payload).then((r) => r.data);
+
+export const opsReassignLead = (payload) =>
+    api.post("/ops/leads/reassign", payload).then((r) => r.data);
+
+export const opsSendOutreach = (payload) =>
+    api.post("/ops/outreach/send", payload).then((r) => r.data);
+
+export const opsListOutreach = (auth) =>
+    api.post("/ops/outreach/list", auth).then((r) => r.data);
+
+export const opsCreateDemoLink = (payload) =>
+    api.post("/ops/demo-links/create", payload).then((r) => r.data);
+
+export const opsListDemoLinks = (auth) =>
+    api.post("/ops/demo-links/list", auth).then((r) => r.data);
+
+export const opsPerformance = (auth) =>
+    api.post("/ops/performance", auth).then((r) => r.data);
+
+export const opsAIChat = (payload) =>
+    api.post("/ops/ai/chat", payload).then((r) => r.data);
+
+export const opsListEmployees = (auth) =>
+    api.post("/ops/employees/list", auth).then((r) => r.data);
+
+export const opsInviteEmployee = (payload) =>
+    api.post("/ops/employees/invite", payload).then((r) => r.data);

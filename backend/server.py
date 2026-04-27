@@ -44,6 +44,9 @@ from tts_service import generate_or_cache as tts_generate, ALLOWED_VOICES, DEFAU
 # ---------- Lighting Upgrade Engine ----------
 from lighting_engine import make_router as make_lighting_router
 
+# ---------- Ops Center (Founder / Executive / Employee CRM) ----------
+from ops_center import make_router as make_ops_router
+
 # ---------- LLM ----------
 from emergentintegrations.llm.chat import LlmChat, UserMessage as LlmUserMessage
 import json as _json
@@ -1728,6 +1731,25 @@ async def admin_list_demo_notifications(
 
 app.include_router(api_router)
 app.include_router(make_lighting_router(db, verify_admin=verify_admin), prefix="/api")
+
+
+class _OpsEmailAdapter:
+    """Thin wrapper so ops_center can send emails via the existing Resend
+    service without coupling to its async signature."""
+    @staticmethod
+    def send(to: str, subject: str, html: str):
+        try:
+            from email_service import _send  # type: ignore
+            import asyncio
+            loop = asyncio.new_event_loop()
+            try:
+                return loop.run_until_complete(_send(to, subject, html))
+            finally:
+                loop.close()
+        except Exception:
+            return False
+
+app.include_router(make_ops_router(db, email_service=_OpsEmailAdapter), prefix="/api")
 
 
 app.add_middleware(

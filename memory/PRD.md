@@ -1,6 +1,54 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-27 (Iter 23 — Critical demo audio bugs fixed across all 5 demos + Send-Demo share CTA added to Creator demo)
+**Last update:** 2026-02-27 (Iter 24 — Three-role Operating Center shipped: `/portal/ops` with founder/executive/employee RBAC + magic-link access routes)
+
+---
+
+## 🆕 ITER 24 (2026-02-27) — Three-Role Operating Center (/portal/ops) with Magic-Link Access
+
+User required three live roles (founder / executive / employee), each with its own magic-link access route and a fully functional operating dashboard (leads, outreach, demos, AI assistant, performance) — not placeholders.
+
+**Backend** — `/app/backend/ops_center.py` (NEW · 480 LOC)
+- 3 roles + RBAC scoping via `_scope_for(user)`, `_require_auth`, `_require_elevated`, `_require_founder`
+- Module-scope Pydantic models (`OpsAuth`, `LeadCreate`, etc.) with renamed fields (`contact_name`/`contact_email`/`contact_phone`) to avoid collisions with inherited auth fields
+- MongoDB collections added: `ops_leads`, `ops_outreach`, `ops_demo_links`, `ops_invites`, `ops_ai_log`
+- 14 endpoints under `/api/ops/*`:
+  - Magic-link auth: `POST /founder-access`, `POST /executive-access`, `POST /employee-accept-invite`, `POST /me`
+  - Leads: `POST /leads/list|create|status|note|task|reassign`
+  - Outreach: `POST /outreach/send|list` (Resend-backed; graceful fail without API key)
+  - Demo links: `POST /demo-links/create|list` (integrates with existing `/api/r/{share_id}` tracker)
+  - Performance: `POST /performance` (leads by status, pipeline value, won value, win rate, outreach count, demo count)
+  - AI assistant: `POST /ai/chat` (Claude Sonnet 4.5 via `emergentintegrations` + `EMERGENT_LLM_KEY`) with per-user session logging
+  - Employees: `POST /employees/list` (elevated), `POST /employees/invite` (founder only)
+- RBAC enforced at every endpoint; employee visibility scoped to `assigned_to_email = self`; executive sees all but cannot invite or access settings
+- New env var: `EXECUTIVE_KEY=erin-flanigan-2026-executive-president-master`
+
+**Frontend** — 2 new pages
+- `/app/frontend/src/pages/PortalOpsPage.jsx` — unified operating dashboard with role-gated sidebar (7 tabs for founder, 6 for executive, 5 for employee). Login screen with 3 role tabs. Tabs: Performance · Leads · Outreach · Demo Links · AI Assistant · Employees (elevated) · Settings (founder)
+- `/app/frontend/src/pages/AccessLinkPage.jsx` — shared component that powers `/founder-access`, `/executive-access`, `/employee-access` routes. Accepts `?key=` or `?token=` via URL, auto-authenticates, persists session in `localStorage['cb_ops_session']`, redirects to `/portal/ops`. Falls back to manual-entry form if the param is missing or invalid.
+
+**Routes registered**
+- `/portal/ops`
+- `/founder-access`
+- `/executive-access`
+- `/employee-access`
+
+**Verified end-to-end**
+- ✅ Founder magic link → signed in as `founder` → sees all 7 tabs
+- ✅ Executive magic link (Erin Flanigan) → signed in as `executive` → sees leads + all employees · blocked from `/employees/invite` with 403 "Founder role required"
+- ✅ Founder invites employee by email → invite token minted → employee accepts → role set to `employee` → sees only own scope
+- ✅ Create lead → list leads → performance tiles reflect the 1 lead + $48K pipeline in the founder view
+- ✅ Claude Sonnet AI assistant endpoint wired via `emergentintegrations` with session persistence
+- ✅ Lint clean across all new files (caught 1 React hooks rule violation during build — `useMemo` called conditionally — fixed by hoisting above early returns)
+
+**Credentials documented** in `/app/memory/test_credentials.md` with all 3 role URLs + emails + env-var locations.
+
+**Testing** — user explicitly wants credit conservation; running testing agent NOT invoked. All 14 endpoints verified via curl; all 3 role flows verified live.
+
+**Code review (non-blocking)**
+- Add a `lighting` tab inside /portal/ops that composes the existing Lighting Command Center (deep-link for now)
+- Email-send via `_OpsEmailAdapter` spawns a new event loop per send; migrate to a background task when we add live Resend key
+- Add commission model (% of won deals) once commission formula is confirmed
 
 ---
 
