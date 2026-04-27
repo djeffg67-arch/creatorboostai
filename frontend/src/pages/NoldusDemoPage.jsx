@@ -198,6 +198,14 @@ export default function NoldusDemoPage() {
         []
     );
 
+    // Demo-delivery tracking (founder dashboard, half-view notifications)
+    const { personalization, trackEvent } = useDemoTracking({
+        demoType: "noldus",
+        started, scene, totalScenes: total,
+        watchSeconds: Math.round((elapsedBeforeScene + sceneElapsed) / 1000),
+        overallProgress, done,
+    });
+
     const prefetchAll = useCallback(async () => {
         setPrefetching(true);
         setPrefetchProgress(0);

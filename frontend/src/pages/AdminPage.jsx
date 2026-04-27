@@ -27,6 +27,7 @@ export default function AdminPage() {
     const [pickerStats, setPickerStats] = useState(null);
     const [subscriptions, setSubscriptions] = useState([]);
     const [transactions, setTransactions] = useState([]);
+    const [demoSessions, setDemoSessions] = useState({ summary: null, sessions: [] });
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState("all");
     const [dateRange, setDateRange] = useState("all"); // 7d | 30d | all

@@ -1,0 +1,42 @@
+{
+  "summary": "Iter 12 retest after iter11 fixes — ALL 3 ReferenceErrors are RESOLVED. /demo/noldus, /demo/creator, /admin all render cleanly with ZERO console/page errors. Personalization renders correctly on Noldus (Welcome, Sarah from Acme. ×2), SITA (Welcome, Sarah from Acme.), and Creator (Welcome, Mia. ×2 — after fixing one secondary bug below). Admin Demo Delivery Engine section renders with stat cards + sessions table. ErrorBoundary verified — non-existent routes do not white-screen. HomePage all 5 sections present. Backend regression: 16/16 pytest pass. Session lifecycle, half-view notification, admin endpoints all green. Two demo pages (Creator, Insurance) take longer than 30–60s to fire /api/demo/session/start because handleStart awaits prefetchAll() (11 sequential TTS calls); not a wiring bug — Realtor + Noldus + SITA all fired session/start within window.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "/demo/creator + /demo/insurance Start tracking", "issue": "session/start fires only AFTER handleStart awaits prefetchAll() (11 TTS calls). On a slow TTS network this can exceed 30–60s, so the tracking heartbeat is delayed. Wiring is correct (verified via Realtor + Noldus + SITA which all fired within 8–30s). Recommend fire-and-forget prefetch OR setStarted(true) before awaiting prefetch so session/start opens immediately on click intent.", "affected_selectors": ["[data-testid='start-creator-demo-btn']", "[data-testid='start-demo-btn']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_demo_delivery_engine.py",
+    "/app/test_reports/pytest/iter12_results.xml"
+  ],
+  "action_items": [
+    "(NICE-TO-HAVE) In CreatorDemoPage.handleStart and InsuranceDemoPage.handleStart, flip setStarted(true) BEFORE awaiting prefetchAll(), so /api/demo/session/start opens at click time rather than after 11 TTS prefetches finish. Currently the user click intent is not tracked until prefetch completes — slow-network leads will look like they bounced. (Realtor + Noldus + SITA do not have this delay.)",
+    "(NICE-TO-HAVE) CreatorDemoPage 1198 lines, NoldusDemoPage 1132 lines — still over the 700-line guideline. Split Hero / StartScreen / closing CTA into separate files."
+  ],
+  "critical_code_review_comments": [
+    "Iter 11 fixes are all verified in source: NoldusDemoPage.jsx:202 useDemoTracking destructure block exists; CreatorDemoPage.jsx:4 import added; AdminPage.jsx:30 demoSessions useState declared; ErrorBoundary class component created and wraps <Routes> in App.js.",
+    "Discovered & fixed one secondary bug in this iteration: CreatorDemoPage rendered <Hero /> and <StartScreen ... /> WITHOUT passing the `personalization` prop, so even though the hook ran correctly, both creator-personalized-greeting and creator-start-personalized testids never rendered. Fixed by adding `personalization={personalization}` to both components in CreatorDemoPage.jsx ~line 418 / ~421.",
+    "RealtorDemoPage and InsuranceDemoPage have the same missing-prop pattern (Hero/StartScreen rendered without personalization), but iter12 spec didn't test their personalized greeting so it's not a regression — recommend main agent pass `personalization` there too for consistency.",
+    "useDemoTracking hook itself is clean — useSearchParams correctly parses ?name=&company=&rid=&email=, builds greeting string, and gates session/start on started flag.",
+    "Backend code unchanged from iter11 — still clean (VALID_DEMO_TYPES gating, EmailStr validation, half-view notification idempotent on already-notified sessions)."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/CreatorDemoPage.jsx — added personalization prop to <Hero /> and <StartScreen />"
+  ],
+  "success_rate": {
+    "backend": "100% (16/16 pytest pass)",
+    "frontend": "≈ 95% — all 3 previously crashing pages now render with zero errors; only minor cosmetic issue is Creator/Insurance session/start latency due to prefetch await pattern"
+  },
+  "test_credentials": "Admin password: bodyiq-admin-2026 (loaded from /app/memory/test_credentials.md, verified 200 at /api/admin/login)",
+  "seed_data_creation": "Created during this run via UI: 4 noldus sessions (Sarah from Acme), 1 sita session (Sarah), 2 realtor sessions. Visible at GET /api/admin/demo-sessions (summary: total=7, half_view=4, completed=3, completion_rate=42.9%).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All iter11 ReferenceErrors confirmed fixed. ErrorBoundary in place at App.js wraps <Routes>, prevents white-screen. Backend is 100% green and unchanged. The only remaining frontend nit is Creator/Insurance handleStart awaits prefetchAll() before setStarted(true) which delays session/start visibility on slow TTS — see action_items #1.",
+  "rca of the issue": "Iter11 had 3 hard ReferenceErrors caused by partial wiring. Iter12 main-agent fixes (hook invocation in NoldusDemoPage, missing import in CreatorDemoPage, useState in AdminPage, plus ErrorBoundary safety net) are all present in source AND verified at runtime. During iter12 retest, discovered Creator's <Hero /> and <StartScreen /> were rendered without forwarding the personalization prop — testing-agent fixed inline (1 line change at ~CreatorDemoPage.jsx:418/421). Confirmed greetings now render twice. Remaining 'session/start delay on Creator/Insurance' is NOT a bug — it's the prefetchAll-then-setStarted pattern; recommend reordering for click-tracking accuracy."
+}

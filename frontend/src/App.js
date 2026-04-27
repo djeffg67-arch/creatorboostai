@@ -2,6 +2,7 @@ import React from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
+import { ErrorBoundary } from "@/components/site/ErrorBoundary";
 
 import HomePage from "@/pages/HomePage";
 import DemoPage from "@/pages/DemoPage";
@@ -32,6 +33,7 @@ function App() {
     return (
         <div className="App">
             <BrowserRouter>
+                <ErrorBoundary>
                 <Routes>
                     <Route path="/" element={<HomePage />} />
                     <Route path="/demo" element={<VerticalPickerPage />} />
@@ -63,6 +65,7 @@ function App() {
                     <Route path="/admin" element={<AdminPage />} />
                     <Route path="*" element={<HomePage />} />
                 </Routes>
+                </ErrorBoundary>
                 <Toaster
                     theme="dark"
                     position="bottom-right"

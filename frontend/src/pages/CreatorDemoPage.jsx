@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Layout } from "@/components/site/Layout";
 import { DemoConversionCTA } from "@/components/site/DemoConversionCTA";
+import { useDemoTracking } from "@/lib/useDemoTracking";
 import {
     Play, Pause, Volume2, VolumeX, Check, ArrowRight, Sparkles,
     Mic, TrendingUp, DollarSign, Users, Brain, Activity, Zap,
@@ -414,10 +415,10 @@ export default function CreatorDemoPage() {
                     <div className="glow-orb glow-orb--blue" style={{ width: 420, height: 420, bottom: -180, right: -100 }} />
                 </div>
 
-                <Hero />
+                <Hero personalization={personalization} />
 
                 {!started ? (
-                    <StartScreen onStart={handleStart} prefetching={prefetching} progress={prefetchProgress} />
+                    <StartScreen onStart={handleStart} prefetching={prefetching} progress={prefetchProgress} personalization={personalization} />
                 ) : (
                     <div className="mt-6">
                         <SceneHeader
