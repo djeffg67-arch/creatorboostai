@@ -1259,11 +1259,11 @@ const TrainingModeStage = () => (
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Timeline · signals overlaid</p>
             <div className="mt-3 space-y-2">
                 {[
-                    { t: "00:42", sig: "Hidden interest detected",          tone: "cyan"  },
-                    { t: "01:18", sig: "Cognitive gap detected",            tone: "amber" },
-                    { t: "02:14", sig: "Negotiation friction · escalating", tone: "amber" },
-                    { t: "02:39", sig: "Recommended: clarify, do not close", tone: "cyan" },
-                    { t: "03:01", sig: "Buyer alignment restored",          tone: "cyan"  },
+                    { t: "00:42", sig: "SRS-1108 · AU 12 + AU 6 · 0.54 · positive",   tone: "cyan"  },
+                    { t: "01:18", sig: "CPS-2073 · AU 1 + AU 2 · 0.71 · mixed",        tone: "amber" },
+                    { t: "02:14", sig: "SRS-1142 · AU 4 + AU 7 · 0.62 · negative",     tone: "amber" },
+                    { t: "02:39", sig: "Decision · clarify · do not close",            tone: "cyan"  },
+                    { t: "03:01", sig: "EOS-3401 · AU 12 + AU 25 · 0.69 · positive",   tone: "cyan"  },
                 ].map((m, i) => (
                     <div key={m.t} className="flex items-center gap-3 rounded-sm border border-white/5 bg-ink-800 p-2.5 fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
                         <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">{m.t}</span>
