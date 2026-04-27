@@ -460,10 +460,10 @@ export default function InsuranceDemoPage() {
                     <div className="glow-orb glow-orb--blue" style={{ width: 420, height: 420, bottom: -180, right: -100 }} />
                 </div>
 
-                <Hero />
+                <Hero personalization={personalization} />
 
                 {!started ? (
-                    <StartScreen onStart={handleStart} prefetching={prefetching} progress={prefetchProgress} />
+                    <StartScreen onStart={handleStart} prefetching={prefetching} progress={prefetchProgress} personalization={personalization} />
                 ) : (
                     <div className="mt-6">
                         <SceneHeader
@@ -481,6 +481,9 @@ export default function InsuranceDemoPage() {
                                     narration={current.narration}
                                     speaking={speaking} muted={muted} paused={paused}
                                     onMute={handleMute}
+                                    personalGreeting={scene === 0 && personalization?.name
+                                        ? `Hello ${personalization.name}${personalization.company ? ` from ${personalization.company}` : ""} — this walkthrough was prepared just for you.`
+                                        : null}
                                 />
                                 <SceneIndex current={scene} total={total} />
                             </div>
@@ -512,7 +515,7 @@ export default function InsuranceDemoPage() {
 // =================================================================
 // Hero + start screen
 // =================================================================
-const Hero = () => (
+const Hero = ({ personalization }) => (
     <section className="relative" data-testid="insurance-hero">
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5">
             <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" />
@@ -527,15 +530,29 @@ const Hero = () => (
             AMS360, EZLynx, Microsoft 365, Strike Graph, HubSpot, Salesforce — and unifies them into one executive
             command center. No replacement, no migration, no disruption.
         </p>
+        {personalization?.greeting && (
+            <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.22em] text-cyan-200" data-testid="insurance-personalized-greeting">
+                {personalization.greeting}
+            </p>
+        )}
     </section>
 );
 
-const StartScreen = ({ onStart, prefetching, progress }) => (
+const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
     <div className="mt-8 rounded-md border border-white/10 bg-ink-700/40 p-6 lg:p-12">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Cinematic Demo Console</p>
-                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 16-scene insurance walkthrough.</h2>
+                {personalization?.greeting && (
+                    <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.22em] text-cyan-200" data-testid="insurance-start-personalized">
+                        {personalization.greeting}
+                    </p>
+                )}
+                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">
+                    {personalization?.name
+                        ? <>This walkthrough was prepared for <span className="text-cyan-400">{personalization.name}</span>.</>
+                        : "Run the 16-scene insurance walkthrough."}
+                </h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
                     A fully automated 16-scene cinematic walkthrough — narrated by Nova, an executive A.I. voice —
                     showing how CreatorBoostAI sits on top of your CRM, AMS, compliance, and communications stack
@@ -1642,7 +1659,7 @@ const SceneIndex = ({ current, total }) => (
     </div>
 );
 
-const AvatarPanel = ({ narration, speaking, muted, paused, onMute }) => (
+const AvatarPanel = ({ narration, speaking, muted, paused, onMute, personalGreeting }) => (
     <div className="rounded-md border border-white/10 bg-ink-700/40 p-4 backdrop-blur-sm" data-testid="avatar-panel">
         <div className="flex items-center gap-2 border-b border-white/5 pb-3">
             <Sparkles size={13} className="text-cyan-400" />
@@ -1661,6 +1678,11 @@ const AvatarPanel = ({ narration, speaking, muted, paused, onMute }) => (
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">{paused ? "Paused" : speaking ? "Narrating…" : muted ? "Muted" : "Explaining demo"}</p>
             </div>
         </div>
+        {personalGreeting && (
+            <p className="mt-4 rounded-sm border border-cyan-500/30 bg-cyan-500/5 px-3 py-2 text-sm leading-relaxed text-cyan-100" data-testid="avatar-personal-greeting">
+                {personalGreeting}
+            </p>
+        )}
         <p className="mt-4 max-h-64 overflow-y-auto pr-1 text-base font-medium leading-relaxed text-white scrollbar-cyan" key={narration}>
             <span className="fade-in-up inline-block">{narration}</span>
         </p>
@@ -1716,6 +1738,7 @@ const DemoEmailSection = () => {
         try {
             const res = await shareDemo({
                 recipient_email: form.email,
+                recipient_name: form.name || undefined,
                 sender_name: "Jeffrey Garcia",
                 company: form.company || undefined,
                 message: form.note || undefined,

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -661,15 +661,32 @@ async def portal_billing_session(payload: BillingPortalRequest, http_request: Re
 # ---------- Demo share (Resend) ----------
 class ShareDemoRequest(BaseModel):
     recipient_email: EmailStr
+    recipient_name: Optional[str] = Field(None, max_length=120)
     sender_name: Optional[str] = Field("A colleague", max_length=120)
-    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|enterprise)$")
+    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|enterprise|sita)$")
     company: Optional[str] = Field(None, max_length=120)
     message: Optional[str] = Field(None, max_length=1000)
     origin_url: Optional[str] = None
-    # "demo" → links to /demo/{demo_type}; "preview" → links to /preview;
+    # "demo" → links to /demo/{realtor|insurance}; "preview" → links to /preview;
     # any other value (typically a full URL like window.location.href) is
     # accepted verbatim — used by the Noldus / Creator share modules.
     share_target: Optional[str] = Field("demo", max_length=500)
+
+
+def _append_personalization(url: str, *, name: Optional[str], company: Optional[str], email: Optional[str]) -> str:
+    """Append ?name=&company=&email= to a URL while preserving any existing query."""
+    from urllib.parse import urlparse, urlencode, parse_qsl, urlunparse
+    if not (name or company or email):
+        return url
+    parts = urlparse(url)
+    q = dict(parse_qsl(parts.query, keep_blank_values=True))
+    if name and "name" not in q:
+        q["name"] = name
+    if company and "company" not in q:
+        q["company"] = company
+    if email and "email" not in q:
+        q["email"] = email
+    return urlunparse(parts._replace(query=urlencode(q)))
 
 
 @api_router.post("/share-demo", status_code=202)
@@ -692,22 +709,40 @@ async def share_demo(payload: ShareDemoRequest, http_request: Request):
     else:
         demo_url = f"{base}/demo/{payload.demo_type}"
 
+    # Personalize the demo URL with recipient name/company so the demo greets
+    # them directly when they click through.
+    demo_url = _append_personalization(
+        demo_url,
+        name=(payload.recipient_name.strip() if payload.recipient_name else None),
+        company=(payload.company.strip() if payload.company else None),
+        email=payload.recipient_email,
+    )
+
     sender_name_clean = (payload.sender_name or "A colleague").strip() or "A colleague"
 
+    share_id = str(uuid.uuid4())
+    # Trackable click-through URL (logs the click and 302s to demo_url).
+    tracked_url = f"{base}/api/r/{share_id}"
+
     log_doc = {
-        "id": str(uuid.uuid4()),
+        "id": share_id,
         "recipient_email": payload.recipient_email,
+        "recipient_name": (payload.recipient_name.strip() if payload.recipient_name else None),
         "sender_name": sender_name_clean,
         "company": payload.company,
         "message": payload.message,
         "demo_type": payload.demo_type,
         "share_target": payload.share_target,
         "demo_url": demo_url,
+        "tracked_url": tracked_url,
         "ip": http_request.client.host if http_request.client else None,
         "ua": (http_request.headers.get("user-agent", "") or "")[:200],
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "sent": False,
         "error": None,
+        "click_count": 0,
+        "first_clicked_at": None,
+        "last_clicked_at": None,
     }
 
     sent = False
@@ -716,7 +751,7 @@ async def share_demo(payload: ShareDemoRequest, http_request: Request):
         sent = await send_demo_share(
             recipient_email=payload.recipient_email,
             sender_name=sender_name_clean,
-            demo_url=demo_url,
+            demo_url=tracked_url,
             demo_type=payload.demo_type,
             company=(payload.company.strip() if payload.company else None),
             message=(payload.message.strip() if payload.message else None),
@@ -732,7 +767,44 @@ async def share_demo(payload: ShareDemoRequest, http_request: Request):
     log_doc["error"] = error_msg
     await db.demo_shares.insert_one(log_doc)
 
-    return {"sent": sent, "demo_url": demo_url, "reason": error_msg}
+    return {"sent": sent, "demo_url": demo_url, "tracked_url": tracked_url, "share_id": share_id, "reason": error_msg}
+
+
+@api_router.get("/r/{share_id}")
+async def track_share_click(share_id: str, request: Request):
+    """Trackable redirect — recipients click the email link, we log the click,
+    then 302 them straight into the personalized demo. Falls back to the
+    homepage if the share record is missing/malformed.
+    """
+    share = await db.demo_shares.find_one({"id": share_id}, {"_id": 0})
+    fallback = (os.environ.get("SITE_URL") or str(request.base_url)).rstrip("/")
+    if not share or not share.get("demo_url"):
+        return RedirectResponse(url=fallback, status_code=302)
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    update = {
+        "$inc": {"click_count": 1},
+        "$set": {"last_clicked_at": now_iso},
+    }
+    if not share.get("first_clicked_at"):
+        update["$set"]["first_clicked_at"] = now_iso
+    try:
+        await db.demo_shares.update_one({"id": share_id}, update)
+        # Also append a click record so we have full audit trail.
+        await db.demo_share_clicks.insert_one({
+            "id": str(uuid.uuid4()),
+            "share_id": share_id,
+            "recipient_email": share.get("recipient_email"),
+            "demo_type": share.get("demo_type"),
+            "ip": request.client.host if request.client else None,
+            "ua": (request.headers.get("user-agent", "") or "")[:200],
+            "referrer": request.headers.get("referer"),
+            "timestamp": now_iso,
+        })
+    except Exception as e:
+        logging.getLogger(__name__).error(f"share click tracking failed: {e}")
+
+    return RedirectResponse(url=share["demo_url"], status_code=302)
 
 
 @api_router.get("/admin/demo-shares")

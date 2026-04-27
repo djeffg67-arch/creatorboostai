@@ -1,0 +1,44 @@
+{
+  "summary": "Iter 13 — Email click-tracking + 5-demo personalization + half-view idempotency. Backend 10/10 pytest pass. Frontend personalization renders correctly on all 5 demos (Realtor, Insurance, Creator, Noldus, SITA) — both Hero and StartScreen. Realtor heading correctly reads 'This walkthrough was prepared for Sarah.' Admin Demo Email Shares · Click-through section visible with 34 rows and stat cards (Sent/Queued/Clicked/Click Rate). Click-tracking redirect (302) preserves personalization params; click_count + first_clicked_at + last_clicked_at populate after first click. Half-view notification fires exactly ONCE on first ≥50% heartbeat, suppressed on subsequent calls. Graceful degradation works: RESEND_API_KEY empty → sent:false but tracked_url + share_id still returned. demo_type=sita is now accepted by ShareDemoRequest regex. Avatar-personal-greeting JSX wired correctly in RealtorDemoPage.jsx:1639 (gated on personalGreeting prop) — runtime visibility blocked only by the pre-existing 15-scene TTS prefetch latency (iter12 known issue). Without ?name param, all greetings gracefully don't render.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "AvatarPanel personal greeting visibility on Realtor/Insurance",
+        "issue": "avatar-personal-greeting JSX is correctly wired (RealtorDemoPage.jsx:1638-1642, InsuranceDemoPage.jsx:1682) and gated on personalGreeting prop. Could NOT be verified at runtime within 90s because handleStart awaits prefetchAll() which sequentially fetches 15 TTS clips before scene 0 renders. This is the same prefetch-vs-setStarted ordering issue flagged in iter12 action_items #1. Not a regression — code path is correct. Recommend flipping setStarted(true) BEFORE awaiting prefetchAll() so scene 0 (and the avatar greeting) becomes visible immediately on click.",
+        "affected_selectors": ["[data-testid='avatar-personal-greeting']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter13_share_tracking.py",
+    "/app/test_reports/pytest/iter13_results.xml"
+  ],
+  "action_items": [
+    "(NICE-TO-HAVE, carryover from iter12) In Realtor/Insurance/Creator handleStart, call setStarted(true) BEFORE awaiting prefetchAll() so scene 0 + avatar-personal-greeting become visible immediately on user click. Currently 15 TTS prefetches (~30-90s on slow networks) gate the demo open."
+  ],
+  "critical_code_review_comments": [
+    "Backend share-demo endpoint (server.py:692) correctly logs ALL shares to demo_shares collection regardless of email send success — graceful degradation works as designed.",
+    "/api/r/{share_id} (server.py:773) correctly: finds share, $inc click_count, sets last_clicked_at, sets first_clicked_at only if absent (idempotent on field), records full audit entry in demo_share_clicks collection, then 302s to demo_url. Falls back to homepage on missing share_id.",
+    "_append_personalization helper (server.py:676) preserves existing query params and only adds name/company/email if absent — safe against double-personalization.",
+    "Half-view trigger (server.py:1604) uses 'progress_pct >= 50 AND not half_view_notified' — atomically idempotent because half_view_notified is set in same $set update before _maybe_queue_half_view_notification fires.",
+    "All 5 demo pages now consistently pass `personalization` prop into Hero and StartScreen (verified via grep). useDemoTracking emits {name, company, recipient_id, recipient_email, greeting} and gates session/start on the started flag.",
+    "AdminPage.jsx:393 admin-demo-shares table renders click_count column, stat cards (Sent/Queued/Clicked/Click Rate) — all 4 stat cards verified visible at runtime."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (10/10 pytest pass)",
+    "frontend": "≈ 95% — personalization confirmed on all 5 demos, admin shares table confirmed, only avatar-greeting runtime visibility blocked by known prefetch latency (code wiring verified)"
+  },
+  "test_credentials": "Admin password: bodyiq-admin-2026 (from /app/memory/test_credentials.md). RESEND_API_KEY intentionally empty — graceful degrade returns sent:false. STRIPE_API_KEY=sk_test_emergent test key only.",
+  "seed_data_creation": "Created during run: 4 demo_shares (realtor/sita/creator/sita) — each creates a click record on /api/r/{share_id}. 3 demo_sessions (TEST_HalfView, TEST_NoTrigger, etc) for half-view idempotency tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All iter13 features (click-tracking redirect, recipient_name field, sita demo_type, half-view idempotency, admin-demo-shares section, 5-demo personalization) verified working. Backend test file at /app/backend/tests/test_iter13_share_tracking.py is reusable as regression suite. Only carryover nit is the prefetch-await pattern in handleStart on Realtor/Insurance/Creator — recommend reordering to fire-and-forget for click-tracking accuracy.",
+  "rca of the issue": "N/A — no defects in iter13. The single integration concern (avatar-greeting runtime visibility) is a pre-existing UX latency (handleStart awaits 15 sequential TTS prefetches before opening scene 0). Code wiring is correct: AvatarPanel JSX gated on personalGreeting prop; useDemoTracking computes greeting from ?name=&company=. Mitigation: setStarted(true) BEFORE awaiting prefetchAll() so scene 0 (and the avatar greeting) become visible at click time, then prefetch streams audio in the background."
+}

@@ -9,12 +9,14 @@ import {
     adminListSubscriptions,
     adminListTransactions,
     adminListDemoSessions,
+    adminListDemoShares,
 } from "@/lib/api";
 import { toast } from "sonner";
 import {
     LogIn, Download, RefreshCw, Loader2, Users, Mail, Inbox,
     Building2, ShieldCheck, MousePointerClick, CreditCard, Repeat,
     Activity, Eye, Flame,
+    Send, Link as LinkIcon,
 } from "lucide-react";
 
 const STORAGE_KEY = "bodyiq_admin_token";
@@ -28,6 +30,7 @@ export default function AdminPage() {
     const [subscriptions, setSubscriptions] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [demoSessions, setDemoSessions] = useState({ summary: null, sessions: [] });
+    const [demoShares, setDemoShares] = useState([]);
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState("all");
     const [dateRange, setDateRange] = useState("all"); // 7d | 30d | all
@@ -35,13 +38,14 @@ export default function AdminPage() {
     const loadData = useCallback(async (t, range = "all") => {
         setLoading(true);
         try {
-            const [leadsRes, statsRes, pickerRes, subsRes, txRes, demoRes] = await Promise.all([
+            const [leadsRes, statsRes, pickerRes, subsRes, txRes, demoRes, sharesRes] = await Promise.all([
                 adminListLeads(t),
                 adminStats(t),
                 adminPickerStats(t).catch(() => null),
                 adminListSubscriptions(t, range).catch(() => []),
                 adminListTransactions(t, range).catch(() => []),
                 adminListDemoSessions(t, range === "all" ? "90d" : range).catch(() => ({ summary: null, sessions: [] })),
+                adminListDemoShares(t, range).catch(() => []),
             ]);
             setLeads(leadsRes);
             setStats(statsRes);
@@ -49,6 +53,7 @@ export default function AdminPage() {
             setSubscriptions(subsRes || []);
             setTransactions(txRes || []);
             setDemoSessions(demoRes || { summary: null, sessions: [] });
+            setDemoShares(sharesRes || []);
         } catch (err) {
             if (err?.response?.status === 401) {
                 localStorage.removeItem(STORAGE_KEY);
@@ -381,6 +386,42 @@ export default function AdminPage() {
                             </tbody>
                         </table>
                     </div>
+                </div>
+
+                {/* DEMO EMAIL SHARES — sent + click-through tracking */}
+                <SectionHeading icon={Send} label="Demo Email Shares · Click-through" badge={`${demoShares.length} shares · ${dateRange}`} />
+                <div data-testid="admin-demo-shares" className="mt-3 overflow-x-auto rounded-md border border-white/10">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 p-3 border-b border-white/5">
+                        <PickerStatCard icon={Send}      label="Sent"        value={demoShares.filter(s => s.sent).length} />
+                        <PickerStatCard icon={Mail}      label="Queued"      value={demoShares.filter(s => !s.sent).length} />
+                        <PickerStatCard icon={LinkIcon}  label="Clicked"     value={demoShares.filter(s => (s.click_count || 0) > 0).length} />
+                        <PickerStatCard icon={Activity}  label="Click Rate"  value={`${demoShares.length ? Math.round((demoShares.filter(s => (s.click_count || 0) > 0).length / demoShares.length) * 100) : 0}%`} />
+                    </div>
+                    <table className="w-full min-w-[920px] text-left text-sm">
+                        <thead className="bg-ink-700/60">
+                            <tr><Th>Sent</Th><Th>Demo</Th><Th>Recipient</Th><Th>Company</Th><Th>Email Status</Th><Th>Clicks</Th><Th>First Click</Th></tr>
+                        </thead>
+                        <tbody>
+                            {demoShares.slice(0, 50).map((s) => (
+                                <tr key={s.id} className="border-t border-white/5">
+                                    <Td className="font-mono text-[10px] text-slate-400">{s.timestamp?.slice(0, 16).replace("T", " ")}</Td>
+                                    <Td><span className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 px-2 py-0.5 font-mono text-[10px] uppercase text-cyan-300">{s.demo_type}</span></Td>
+                                    <Td className="text-white">{s.recipient_name || s.recipient_email || "—"}</Td>
+                                    <Td className="text-slate-300">{s.company || "—"}</Td>
+                                    <Td>
+                                        {s.sent
+                                            ? <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase text-emerald-300">Sent</span>
+                                            : <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase text-amber-300">Queued</span>}
+                                    </Td>
+                                    <Td className="font-mono text-[11px] text-cyan-300">{s.click_count || 0}</Td>
+                                    <Td className="font-mono text-[10px] text-slate-400">{s.first_clicked_at ? new Date(s.first_clicked_at).toLocaleString() : "—"}</Td>
+                                </tr>
+                            ))}
+                            {demoShares.length === 0 && (
+                                <tr><Td className="text-slate-500" colSpan={7}>No demo emails shared yet.</Td></tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </section>
         </Layout>
