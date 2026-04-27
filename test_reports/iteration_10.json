@@ -1,0 +1,45 @@
+{
+  "summary": "Tested Noldus demo (Iter 10). Frontend page works flawlessly: /demo/noldus + /demo/enterprise alias load, hero tagline correct, start button + Voice:Nova label visible, Scene 1 of 12 renders FaceReader stage, pause toggles to Resume, mute control present, global timeline fixed at top:0, auto-advance to Scene 2 within ~15s, ShareModule pre-start hidden as expected. Vertical picker shows Noldus card. Regression on /demo/realtor, /demo/insurance, /demo/creator OK. Homepage Iter15 messaging intact. CRITICAL backend issue: /api/share-demo rejects the Noldus payload (422) — review request stated 'no changes needed' but the existing Pydantic model only allows demo_type=realtor|insurance and share_target=demo|preview, and requires sender_name (which the new ShareModule does not send).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/share-demo",
+        "issue": "Returns 422 for Noldus payload {recipient_email,demo_type:'noldus',share_target:'<url>'}. ShareDemoRequest enforces demo_type=^(realtor|insurance)$, share_target=^(demo|preview)$, and requires sender_name. Frontend ShareModule on /demo/noldus does NOT send sender_name and uses demo_type='noldus' + share_target=window.location.href. Result: 'Send Private Link' button will always toast 'Could not record share. Please try again.'",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Noldus demo · Share via email",
+        "issue": "shareDemo() POST returns 422; toast.error 'Could not record share' fires. Either (a) widen backend ShareDemoRequest to allow demo_type='noldus' and share_target as URL/free text, dropping sender_name as mandatory, OR (b) update NoldusDemoPage ShareModule send() to pass sender_name + demo_type=realtor|insurance + share_target='demo' (option b would lose the actual /demo/noldus link).",
+        "affected_selectors": ["[data-testid='noldus-share-send']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_noldus_share.py",
+    "/app/test_reports/pytest/iter10_results.xml"
+  ],
+  "action_items": [
+    "Widen backend ShareDemoRequest to accept demo_type='noldus' (and 'creator'/'enterprise' for future), make sender_name optional with sane default, allow share_target to be a URL or keep it as enum and have backend build the URL. Recommended: extend regex to ^(realtor|insurance|creator|noldus|enterprise)$ and accept share_target as Optional[str] (URL allowed) — fall back to constructing demo_url from base+demo_type when not provided.",
+    "After backend fix, re-run /app/backend/tests/test_noldus_share.py (test_share_demo_noldus_payload_from_frontend) to confirm 200/202."
+  ],
+  "critical_code_review_comments": [
+    "NoldusDemoPage.jsx is 1119 lines — exceeds 700-line guideline; consider splitting Stages/ShareModule into separate files for maintainability.",
+    "Header comment in NoldusDemoPage.jsx says '11 scenes · ~6.5 min' but SCENES has 12 entries (review_request says 12). Comment is misleading; matches behavior, just wrong text.",
+    "VerticalPickerPage.jsx watch-demo-noldus testid is on inner button while href is on parent Link — fine, but consider lifting testid to the Link for cleaner href introspection in tests."
+  ],
+  "updated_files": ["/app/backend/tests/test_noldus_share.py"],
+  "success_rate": {"backend": "50% (1 of 2 share-demo cases — Noldus payload fails)", "frontend": "100% (all 12 review items pass)"},
+  "test_credentials": "Founder bypass /founder?key=jeffrey-2026-bodyiq-founder-master not exercised (not needed for these tests).",
+  "seed_data_creation": "None.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All Noldus frontend flows verified end-to-end. Only blocker is backend ShareDemoRequest schema. After main agent widens the validator (or changes frontend payload), curl POST /api/share-demo with {recipient_email,demo_type:'noldus',share_target:'<url>'} should return 200/202 with {sent:bool}. Re-run /app/backend/tests/test_noldus_share.py to confirm.",
+  "rca of the issue": "Iter 10 introduced /demo/noldus + ShareModule reusing the existing Iter5 /api/share-demo endpoint. The endpoint was hard-coded to realtor|insurance demo_type and demo|preview share_target enums and required sender_name. NoldusDemoPage ShareModule sends demo_type='noldus' and share_target=window.location.href without sender_name — Pydantic 422s before any business logic runs. Reproduction: curl -X POST $BASE/api/share-demo -d '{\"recipient_email\":\"a@b.c\",\"demo_type\":\"noldus\",\"share_target\":\"https://x/demo/noldus\"}'. Mitigation: relax ShareDemoRequest in /app/backend/server.py L662-672 (extend demo_type regex, make sender_name optional, accept share_target as URL or sentinel)."
+}

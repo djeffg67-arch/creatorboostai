@@ -4,7 +4,7 @@ import { Layout } from "@/components/site/Layout";
 import { PAGE_HERO, DEMO_IMG } from "@/lib/images";
 import {
     Sparkles, Play, ArrowRight, Building2, ShieldCheck, Brain, Globe2,
-    Layers, TrendingUp, Lock, Zap
+    Layers, TrendingUp, Lock, Zap, Cpu
 } from "lucide-react";
 
 const VERTICALS = [
@@ -58,6 +58,23 @@ const VERTICALS = [
         highlight: "from-cyan-500/20 via-purple-500/10",
         ringClass: "hover:ring-cyan-400/50",
         badge: "New",
+    },
+    {
+        id: "noldus",
+        href: "/demo/noldus",
+        Icon: Cpu,
+        kicker: "Enterprise · Noldus / Investor Cut",
+        title: "Behavioral measurement → decisions → execution.",
+        copy: "The walkthrough engineered for Noldus, enterprise partners, and investor conversations. FaceReader-grade behavioral measurement enters BodyIQ-AI's Signal Intelligence Layer, becomes a structured decision, and executes inside the CreatorBoostAI command center — autonomously.",
+        bullets: [
+            { Icon: Brain, text: "FaceReader-style live capture · Action Units · gaze · head pose" },
+            { Icon: Layers, text: "Signal cascade → decision panel → CreatorBoostAI execution" },
+            { Icon: Globe2, text: "Global behavioral KPI dashboard · per-rep scoring · training mode" },
+        ],
+        runtime: "12 scenes · ~6.5 min",
+        highlight: "from-cyan-500/25 via-blue-500/10",
+        ringClass: "hover:ring-cyan-400/50",
+        badge: "New · Enterprise",
     },
     {
         id: "airports",
