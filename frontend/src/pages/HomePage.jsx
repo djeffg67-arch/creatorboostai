@@ -101,15 +101,17 @@ const INDUSTRIES = [
     {
         id: "enterprise",
         Icon: Briefcase,
-        title: "Enterprise",
-        sub: "Multi-region · regulated industries",
+        title: "Enterprise · Noldus / Investor Cut",
+        sub: "Behavioral measurement · decision intelligence · autonomous execution",
         outcomes: [
-            "Dedicated infrastructure, SOC 2, custom integrations",
-            "Multi-tenant Command Center for divisions and regions",
-            "Named CSM and executive sponsor for every deployment",
+            "Noldus FaceReader-grade signals enter the BodyIQ-AI Intelligence Layer",
+            "Decisions execute autonomously inside CreatorBoostAI — global KPIs visible in one command center",
+            "12-scene cinematic walkthrough · ~6.5 min · Nova voice · share + QR ready for trade shows",
         ],
-        href: "/pricing",
-        cta: "Talk to sales",
+        href: "/demo/noldus",
+        cta: "Watch Enterprise Demo",
+        live: true,
+        highlight: true,
     },
 ];
 

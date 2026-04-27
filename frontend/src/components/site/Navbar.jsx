@@ -18,6 +18,7 @@ export const Navbar = () => {
         { to: "/products/signal-pack", label: "Signal Pack", testid: "nav-signal-pack" },
         { to: "/services/audit", label: "Audit", testid: "nav-audit" },
         { to: "/demo", label: t("nav.demo"), testid: "nav-demo" },
+        { to: "/demo/noldus", label: "Enterprise Demo", testid: "nav-noldus", highlight: true },
         { to: "/preview", label: "Command Center", testid: "nav-preview" },
         { to: "/pricing", label: t("nav.pricing"), testid: "nav-pricing" },
         { to: "/contact", label: t("nav.contact"), testid: "nav-contact" },
@@ -59,11 +60,20 @@ export const Navbar = () => {
                             data-testid={l.testid}
                             className={({ isActive }) =>
                                 `text-[13px] font-medium tracking-wide transition-colors ${
-                                    isActive ? "text-cyan-400" : "text-slate-300 hover:text-white"
+                                    isActive
+                                        ? "text-cyan-400"
+                                        : l.highlight
+                                            ? "text-cyan-300 hover:text-cyan-200"
+                                            : "text-slate-300 hover:text-white"
                                 }`
                             }
                         >
-                            {l.label}
+                            {l.highlight ? (
+                                <span className="inline-flex items-center gap-1.5">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 pulse-dot" />
+                                    {l.label}
+                                </span>
+                            ) : l.label}
                         </NavLink>
                     ))}
                 </nav>
