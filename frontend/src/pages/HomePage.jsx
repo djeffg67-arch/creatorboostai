@@ -245,7 +245,7 @@ export default function HomePage() {
                         <div className="lg:col-span-7">
                             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5 fade-in-up">
                                 <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Decision Intelligence System · Live</span>
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Operational Intelligence · Execution Layer</span>
                             </div>
 
                             <h1
@@ -253,8 +253,8 @@ export default function HomePage() {
                                 style={{ animationDelay: "80ms" }}
                                 data-testid="hero-headline"
                             >
-                                The AI System That Turns Human Signals Into{" "}
-                                <span className="text-cyan-400">Decisions, Insight, and Execution.</span>
+                                The AI That Connects Human Perception and Business Software Operations —{" "}
+                                <span className="text-cyan-400">Turning Signals into Decisions, Insights, and Execution.</span>
                             </h1>
 
                             <p
@@ -262,9 +262,9 @@ export default function HomePage() {
                                 style={{ animationDelay: "160ms" }}
                                 data-testid="hero-sub"
                             >
-                                CreatorBoostAI™ + BodyIQ-AI™ detect buying decisions, resistance, confusion, alignment,
-                                and decision shifts <em>before they are spoken</em> — and convert those signals into real
-                                actions, automation, and revenue outcomes.
+                                CreatorBoostAI connects your existing software systems and real-world signals
+                                to drive smarter decisions, coordinated actions, and measurable business
+                                outcomes — without adding more complexity.
                             </p>
 
                             <CountrySelector />
