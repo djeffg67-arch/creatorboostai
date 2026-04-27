@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Layout } from "@/components/site/Layout";
 import { shareDemo } from "@/lib/api";
 import { useDemoTracking } from "@/lib/useDemoTracking";
+import { SCENE_IMG_RETAIL } from "@/lib/images";
 import { toast } from "sonner";
 import {
     Play, Pause, Volume2, VolumeX, Check, ArrowRight, Sparkles, Mic,
@@ -199,6 +200,24 @@ const SCENES = [
 ];
 
 const SCENE_GAP_MS = 600;
+
+// Maps scene focus key → curated background image (used as opacity layer).
+const SCENE_BG_MAP = {
+    "opening":          SCENE_IMG_RETAIL.opening,
+    "existing-systems": SCENE_IMG_RETAIL.existingSystems,
+    "command-center":   SCENE_IMG_RETAIL.commandCenter,
+    "money-saving":     SCENE_IMG_RETAIL.moneySaving,
+    "revenue-making":   SCENE_IMG_RETAIL.revenueMaking,
+    "store-example":    SCENE_IMG_RETAIL.storeExample,
+    "regional-view":    SCENE_IMG_RETAIL.regionalView,
+    "executive-view":   SCENE_IMG_RETAIL.executiveView,
+    "autonomous":       SCENE_IMG_RETAIL.autonomous,
+    "c-store":          SCENE_IMG_RETAIL.cStore,
+    "fleet-supply":     SCENE_IMG_RETAIL.fleetSupply,
+    "maintenance":      SCENE_IMG_RETAIL.maintenance,
+    "financial-impact": SCENE_IMG_RETAIL.financialImpact,
+    "closing":          SCENE_IMG_RETAIL.closing,
+};
 
 // =================================================================
 // PAGE
@@ -613,27 +632,68 @@ const SceneIndex = ({ current, total }) => (
     </div>
 );
 
+// Per-stage hero strip — a 16:9 photo placed above the structured cards.
+const StageImage = ({ src, alt, badge }) => (
+    <div className="relative mb-3 h-32 w-full overflow-hidden rounded-md border border-cyan-500/20 sm:h-40 lg:h-48" data-testid="stage-image">
+        <img src={src} alt={alt} className="h-full w-full object-cover" loading="lazy" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-900/80 via-ink-900/30 to-transparent" />
+        {badge && (
+            <span className="absolute bottom-2 left-2 rounded-full border border-cyan-500/40 bg-ink-900/85 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300 backdrop-blur-md">
+                {badge}
+            </span>
+        )}
+    </div>
+);
+
+// Per-stage badge labels for the StageImage strip
+const STAGE_BADGES = {
+    "opening":          "Modern Retail Operation",
+    "existing-systems": "Enterprise Stack · SAP · Oracle · Salesforce",
+    "command-center":   "Operations Command Center",
+    "money-saving":     "Money-Saving Scenarios",
+    "revenue-making":   "Revenue-Making Scenarios",
+    "store-example":    "Store 1142 · Live View",
+    "regional-view":    "Regional Manager · 184 Stores",
+    "executive-view":   "CEO · COO · CFO · Regional · Store",
+    "autonomous":       "Assisted ⇄ Autonomous Mode",
+    "c-store":          "C-Store + Forecourt",
+    "fleet-supply":     "Fleet + Supply Chain",
+    "maintenance":      "Maintenance + Facilities",
+    "financial-impact": "Financial Impact Dashboard",
+    "closing":          "The Execution Layer for Retail",
+};
+
 // =================================================================
 // SCENE STAGES — CreatorBoostAI operational layer (no behavioral signals)
 // =================================================================
 const SceneStage = ({ scene }) => {
-    switch (scene.focus) {
-        case "opening":          return <OpeningStage />;
-        case "existing-systems": return <ExistingSystemsStage />;
-        case "command-center":   return <CommandCenterStage />;
-        case "money-saving":     return <MoneySavingStage />;
-        case "revenue-making":   return <RevenueMakingStage />;
-        case "store-example":    return <StoreExampleStage />;
-        case "regional-view":    return <RegionalViewStage />;
-        case "executive-view":   return <ExecutiveViewStage />;
-        case "autonomous":       return <AutonomousModeStage />;
-        case "c-store":          return <CStoreStage />;
-        case "fleet-supply":     return <FleetSupplyStage />;
-        case "maintenance":      return <MaintenanceStage />;
-        case "financial-impact": return <FinancialImpactStage />;
-        case "closing":          return <ClosingStage />;
-        default:                 return null;
-    }
+    const StageBody = (() => {
+        switch (scene.focus) {
+            case "opening":          return <OpeningStage />;
+            case "existing-systems": return <ExistingSystemsStage />;
+            case "command-center":   return <CommandCenterStage />;
+            case "money-saving":     return <MoneySavingStage />;
+            case "revenue-making":   return <RevenueMakingStage />;
+            case "store-example":    return <StoreExampleStage />;
+            case "regional-view":    return <RegionalViewStage />;
+            case "executive-view":   return <ExecutiveViewStage />;
+            case "autonomous":       return <AutonomousModeStage />;
+            case "c-store":          return <CStoreStage />;
+            case "fleet-supply":     return <FleetSupplyStage />;
+            case "maintenance":      return <MaintenanceStage />;
+            case "financial-impact": return <FinancialImpactStage />;
+            case "closing":          return <ClosingStage />;
+            default:                 return null;
+        }
+    })();
+    const img = SCENE_BG_MAP[scene.focus];
+    const badge = STAGE_BADGES[scene.focus];
+    return (
+        <div className="space-y-0">
+            {img && <StageImage src={img} alt={badge || scene.section} badge={badge} />}
+            {StageBody}
+        </div>
+    );
 };
 
 const KV = ({ label, value }) => (

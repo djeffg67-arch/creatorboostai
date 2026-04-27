@@ -3,6 +3,7 @@ import { Layout } from "@/components/site/Layout";
 import { shareDemo } from "@/lib/api";
 import { useDemoTracking } from "@/lib/useDemoTracking";
 import { toast } from "sonner";
+import { SCENE_IMG_NOLDUS } from "@/lib/images";
 import {
     Play, Pause, Volume2, VolumeX, Check, ArrowRight, Sparkles, Mic,
     Eye, Activity, Brain, Zap, Globe2, Send, Copy, QrCode, Cpu, Target,
@@ -436,6 +437,14 @@ export default function NoldusDemoPage() {
 
             <div className="relative mx-auto max-w-[1600px] px-4 py-8 lg:px-8" data-testid="noldus-demo-page">
                 <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                    <img
+                        src={started ? (NOLDUS_BG_MAP[current.focus] || SCENE_IMG_NOLDUS.hero) : SCENE_IMG_NOLDUS.hero}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover opacity-20 transition-opacity duration-700"
+                        loading="eager"
+                        data-testid="noldus-scene-bg"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-ink-900/70 via-ink-900/85 to-ink-900" />
                     <div className="absolute inset-0 ambient-grid opacity-50" />
                     <div className="glow-orb glow-orb--cyan animate-float-slow" style={{ width: 480, height: 480, top: -160, left: -120 }} />
                     <div className="glow-orb glow-orb--blue" style={{ width: 420, height: 420, bottom: -180, right: -100 }} />
@@ -652,7 +661,55 @@ const SceneIndex = ({ current, total }) => (
 // =================================================================
 // SCENE STAGES — one per narrative beat
 // =================================================================
-const SceneStage = ({ scene }) => {
+// Maps Noldus scene focus → backdrop image + small badge for the StageImage strip
+const NOLDUS_BG_MAP = {
+    "facereader":            SCENE_IMG_NOLDUS.facereader,
+    "subjectivity-problem":  SCENE_IMG_NOLDUS.subjectivity,
+    "framework-intro":       SCENE_IMG_NOLDUS.framework,
+    "comparison":            SCENE_IMG_NOLDUS.comparison,
+    "srs-detect":            SCENE_IMG_NOLDUS.cluster,
+    "cps-detect":            SCENE_IMG_NOLDUS.cluster,
+    "eos-detect":            SCENE_IMG_NOLDUS.cluster,
+    "decision-panel":        SCENE_IMG_NOLDUS.decision,
+    "creatorboost-arrives":  SCENE_IMG_NOLDUS.commandCenter,
+    "deal-at-risk":          SCENE_IMG_NOLDUS.dealRisk,
+    "global-dashboard":      SCENE_IMG_NOLDUS.globalDashboard,
+    "rep-grid":              SCENE_IMG_NOLDUS.repGrid,
+    "training-mode":         SCENE_IMG_NOLDUS.training,
+    "accuracy-closing":      SCENE_IMG_NOLDUS.closing,
+    "closing":               SCENE_IMG_NOLDUS.closing,
+};
+
+const NOLDUS_STAGE_BADGES = {
+    "facereader":            "FaceReader · Live Capture",
+    "subjectivity-problem":  "The Subjectivity Problem",
+    "framework-intro":       "SRS · CPS · EOS Framework",
+    "comparison":            "Subjective vs Structured",
+    "srs-detect":            "Live SRS Cluster",
+    "cps-detect":            "Live CPS Cluster",
+    "eos-detect":            "Live EOS Cluster",
+    "decision-panel":        "Decision Engine",
+    "creatorboost-arrives":  "CreatorBoostAI Command Center",
+    "deal-at-risk":          "Deal at Risk · Autonomous",
+    "global-dashboard":      "Global Behavioral Dashboard",
+    "rep-grid":              "Team Intelligence Scoring",
+    "training-mode":         "Training Replay System",
+    "accuracy-closing":      "Up to 96% / 98% Accuracy",
+};
+
+const NoldusStageImage = ({ src, alt, badge }) => (
+    <div className="relative mb-3 h-32 w-full overflow-hidden rounded-md border border-cyan-500/20 sm:h-40 lg:h-48" data-testid="noldus-stage-image">
+        <img src={src} alt={alt} className="h-full w-full object-cover" loading="lazy" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-900/80 via-ink-900/30 to-transparent" />
+        {badge && (
+            <span className="absolute bottom-2 left-2 rounded-full border border-cyan-500/40 bg-ink-900/85 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300 backdrop-blur-md">
+                {badge}
+            </span>
+        )}
+    </div>
+);
+
+const InnerSceneStage = ({ scene }) => {
     switch (scene.focus) {
         case "facereader":            return <FaceReaderStage active />;
         case "subjectivity-problem":  return <SubjectivityProblemStage />;
@@ -676,6 +733,17 @@ const SceneStage = ({ scene }) => {
         case "closing":               return <AccuracyClosingStage />;
         default:                      return null;
     }
+};
+
+const SceneStage = ({ scene }) => {
+    const img = NOLDUS_BG_MAP[scene.focus];
+    const badge = NOLDUS_STAGE_BADGES[scene.focus];
+    return (
+        <div className="space-y-0">
+            {img && <NoldusStageImage src={img} alt={badge || scene.section} badge={badge} />}
+            <InnerSceneStage scene={scene} />
+        </div>
+    );
 };
 
 // ---- Stage 1+2: FaceReader-style live capture

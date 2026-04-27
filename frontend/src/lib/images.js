@@ -55,3 +55,41 @@ export const SECTION_BG = {
     demoSelector:  u("photo-1492684223066-81342ee5ff30", 1800, 65), // event crowd
     cta:           u("photo-1496564203457-11bb12075d90", 1800, 65), // skyline
 };
+
+// Per-scene backdrops for the supermarket / C-store retail demo. Curated
+// editorial photography — used as opacity-15 layers under each scene stage
+// so the dark-navy + cyan UI cards remain the focal element.
+export const SCENE_IMG_RETAIL = {
+    hero:               "/generated/industry-retail.jpg",                 // brand-styled hero bg
+    opening:            u("photo-1604719312566-8912e9227c6a", 1800, 70),   // overhead supermarket aisle
+    existingSystems:    u("photo-1518770660439-4636190af475", 1800, 70),   // circuit / data center
+    commandCenter:      u("photo-1551288049-bebda4e38f71", 1800, 70),      // analytics dashboard
+    moneySaving:        u("photo-1554224155-6726b3ff858f", 1800, 70),      // financial charts
+    revenueMaking:      u("photo-1454165804606-c3d57bc86b40", 1800, 70),   // upward chart
+    storeExample:       u("photo-1542838132-92c53300491e", 1800, 70),      // grocery aisle wide
+    regionalView:       u("photo-1486312338219-ce68d2c6f44d", 1800, 70),   // map / regional
+    executiveView:      u("photo-1497366216548-37526070297c", 1800, 70),   // corporate office
+    autonomous:         u("photo-1518770660439-4636190af475", 1800, 70),   // tech grid
+    cStore:             u("photo-1545459720-aac8509eb02c", 1800, 70),      // fuel station forecourt
+    fleetSupply:        u("photo-1591768793355-74d04bb6608f", 1800, 70),   // truck on road
+    maintenance:        u("photo-1581092335397-9583eb92d232", 1800, 70),   // industrial / warehouse
+    financialImpact:    u("photo-1454165804606-c3d57bc86b40", 1800, 70),   // charts up
+    closing:            "/generated/industry-retail.jpg",
+};
+
+// Per-scene backdrops for the Noldus / Enterprise demo (investor cut)
+export const SCENE_IMG_NOLDUS = {
+    hero:               "/generated/industry-enterprise.jpg",
+    facereader:         u("photo-1518770660439-4636190af475", 1800, 70),   // tech circuit
+    subjectivity:       u("photo-1497366216548-37526070297c", 1800, 70),   // boardroom
+    framework:          u("photo-1551288049-bebda4e38f71", 1800, 70),      // dashboards
+    comparison:         u("photo-1454165804606-c3d57bc86b40", 1800, 70),   // analytics
+    cluster:            u("photo-1518770660439-4636190af475", 1800, 70),   // tech grid
+    decision:           u("photo-1551288049-bebda4e38f71", 1800, 70),      // dashboards
+    commandCenter:      u("photo-1497366216548-37526070297c", 1800, 70),
+    dealRisk:           u("photo-1554224155-6726b3ff858f", 1800, 70),      // financial
+    globalDashboard:    u("photo-1486312338219-ce68d2c6f44d", 1800, 70),   // map
+    repGrid:            u("photo-1521737604893-d14cc237f11d", 1800, 70),   // team
+    training:           u("photo-1517245386807-bb43f82c33c4", 1800, 70),   // mentorship
+    closing:            "/generated/industry-enterprise.jpg",
+};
