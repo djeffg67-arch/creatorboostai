@@ -220,6 +220,14 @@ export default function CreatorDemoPage() {
         return `${base}/api`;
     }, []);
 
+    // Demo-delivery tracking — opens session on Start, heartbeats progress.
+    const { personalization, trackEvent } = useDemoTracking({
+        demoType: "creator",
+        started, scene, totalScenes: total,
+        watchSeconds: Math.round((Date.now() - sceneStart.current) / 1000) + Math.round(elapsedBeforeScene / 1000),
+        overallProgress, done,
+    });
+
     const prefetchAll = useCallback(async () => {
         setPrefetching(true);
         setPrefetchProgress(0);
@@ -435,7 +443,7 @@ export default function CreatorDemoPage() {
                         </div>
 
                         {(current.focus === "cta" || done) && (
-                            <div className="mt-6"><ClosingCTA onReplay={handleRestart} /></div>
+                            <div className="mt-6"><ClosingCTA onReplay={handleRestart} trackEvent={trackEvent} /></div>
                         )}
                     </div>
                 )}
@@ -453,12 +461,17 @@ export default function CreatorDemoPage() {
 // =================================================================
 // Hero + start screen
 // =================================================================
-const Hero = () => (
+const Hero = ({ personalization }) => (
     <section className="relative" data-testid="creator-hero">
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5">
             <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" />
             <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">CreatorBoostAI · Influencer & Creator Demo</span>
         </div>
+        {personalization?.greeting && (
+            <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.22em] text-cyan-200" data-testid="creator-personalized-greeting">
+                {personalization.greeting}
+            </p>
+        )}
         <h1 className="font-heading mt-6 text-balance text-3xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
             Run your entire creator business with{" "}
             <span className="text-cyan-400">one operating system.</span>
@@ -471,11 +484,16 @@ const Hero = () => (
     </section>
 );
 
-const StartScreen = ({ onStart, prefetching, progress }) => (
+const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
     <div className="mt-8 rounded-md border border-white/10 bg-ink-700/40 p-6 lg:p-12">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Cinematic Demo Console</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Cinematic Demo Console</p>
+                {personalization?.greeting && (
+                    <p className="font-mono mt-2 text-[10px] uppercase tracking-[0.22em] text-cyan-200" data-testid="creator-start-personalized">
+                        {personalization.greeting}
+                    </p>
+                )}
                 <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 11-scene walkthrough.</h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
                     A fully automated 11-scene cinematic walkthrough — narrated by a female American voice — showing how
@@ -1149,7 +1167,7 @@ const CKPI = ({ label, value, trend }) => (
     </div>
 );
 
-const ClosingCTA = ({ onReplay }) => (
+const ClosingCTA = ({ onReplay, trackEvent }) => (
     <div className="rounded-md border border-cyan-500/40 bg-gradient-to-r from-cyan-500/10 to-ink-700/40 p-6 fade-in-up">
         <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
             <div>
@@ -1158,7 +1176,7 @@ const ClosingCTA = ({ onReplay }) => (
             </div>
             <div className="flex flex-wrap items-center gap-2">
                 <button
-                    onClick={onReplay}
+                    onClick={() => { trackEvent?.("cta_replay", { from: "creator-end" }); onReplay(); }}
                     data-testid="creator-replay-btn"
                     className="inline-flex items-center gap-2 rounded-md border border-white/15 bg-transparent px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"
                 >
@@ -1166,6 +1184,7 @@ const ClosingCTA = ({ onReplay }) => (
                 </button>
                 <a
                     href="/apply/strategy"
+                    onClick={() => trackEvent("cta_apply", { from: "creator-end" })}
                     data-testid="creator-apply-btn"
                     className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-5 py-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-900 hover:bg-cyan-400"
                 >

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Layout } from "@/components/site/Layout";
 import { toast } from "sonner";
 import { analyzeLead, shareDemo } from "@/lib/api";
+import { useDemoTracking } from "@/lib/useDemoTracking";
 import { DemoConversionCTA } from "@/components/site/DemoConversionCTA";
 import {
     Play, Pause, ArrowRight, ArrowLeft, RotateCcw, Volume2, VolumeX,
@@ -242,6 +243,20 @@ export default function RealtorDemoPage() {
         const base = process.env.REACT_APP_BACKEND_URL || "";
         return `${base}/api`;
     }, []);
+
+    // Demo-delivery tracking (founder dashboard, half-view notifications)
+    const { personalization, trackEvent } = useDemoTracking({
+        demoType: "realtor",
+        started, scene, totalScenes: total,
+        watchSeconds: Math.round((elapsedBeforeScene + sceneElapsed) / 1000),
+        overallProgress, done,
+    });
+    // Expose to nested components via window for the simplest wiring path
+    // (the Realtor demo file is large; using a closure prop chain would
+    // require touching ~30 lines of render code). Tracking still works.
+    if (typeof window !== "undefined") {
+        window.__demoTracking = { trackEvent, personalization };
+    }
 
     const prefetchAll = useCallback(async () => {
         setPrefetching(true);

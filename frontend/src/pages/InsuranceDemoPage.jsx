@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Layout } from "@/components/site/Layout";
 import { toast } from "sonner";
 import { shareDemo } from "@/lib/api";
+import { useDemoTracking } from "@/lib/useDemoTracking";
 import { DemoConversionCTA } from "@/components/site/DemoConversionCTA";
 import {
     Play, Pause, Sparkles, Users, MessageSquare, CalendarCheck, DollarSign,
@@ -260,6 +261,17 @@ export default function InsuranceDemoPage() {
         const base = process.env.REACT_APP_BACKEND_URL || "";
         return `${base}/api`;
     }, []);
+
+    // Demo-delivery tracking (founder dashboard, half-view notifications)
+    const { personalization, trackEvent } = useDemoTracking({
+        demoType: "insurance",
+        started, scene, totalScenes: total,
+        watchSeconds: Math.round((elapsedBeforeScene + sceneElapsed) / 1000),
+        overallProgress, done,
+    });
+    if (typeof window !== "undefined") {
+        window.__demoTracking = { trackEvent, personalization };
+    }
 
     const prefetchAll = useCallback(async () => {
         setPrefetching(true);

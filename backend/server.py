@@ -1390,6 +1390,234 @@ async def analyze_lead(payload: LeadAnalyzeRequest):
     )
 
 
+# =====================================================================
+# Demo Delivery & Tracking Engine — controlled, trackable, conversion-grade
+# =====================================================================
+# Each session gets a unique id. The frontend `useDemoTracking` hook fires
+# start → periodic heartbeats → events (CTA clicks, share, etc) →
+# (optionally) complete. When watch progress crosses 50% we set
+# `half_view_notified=True` and queue a notification for the founder.
+# Storage is MongoDB (the project's actual datastore — note the user said
+# "Supabase" but the codebase has always been MongoDB; PRD reflects this).
+
+VALID_DEMO_TYPES = {"realtor", "insurance", "creator", "noldus", "sita", "enterprise"}
+
+
+class DemoSessionStart(BaseModel):
+    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|sita|enterprise)$")
+    recipient_id: Optional[str] = Field(None, max_length=120)
+    recipient_name: Optional[str] = Field(None, max_length=120)
+    recipient_company: Optional[str] = Field(None, max_length=160)
+    recipient_email: Optional[EmailStr] = None
+    referrer: Optional[str] = Field(None, max_length=500)
+    utm: Optional[Dict[str, Any]] = None
+
+
+class DemoSessionStartOut(BaseModel):
+    session_id: str
+    started_at: str
+
+
+class DemoSessionHeartbeat(BaseModel):
+    session_id: str
+    progress_pct: int = Field(..., ge=0, le=100)
+    watch_seconds: int = Field(..., ge=0)
+    current_scene: Optional[int] = Field(None, ge=0)
+    total_scenes: Optional[int] = Field(None, ge=1)
+
+
+class DemoSessionEvent(BaseModel):
+    session_id: str
+    event_type: str = Field(..., max_length=64)  # "cta_click" | "share_click" | "share_send" | "cta_apply" | …
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class DemoSessionComplete(BaseModel):
+    session_id: str
+    watch_seconds: int = Field(..., ge=0)
+
+
+@api_router.post("/demo/session/start", response_model=DemoSessionStartOut, status_code=201)
+async def demo_session_start(payload: DemoSessionStart, http_request: Request):
+    """Open a tracked demo session. Returns a session_id the client uses for
+    all subsequent heartbeats / events / complete. Also logs IP + UA."""
+    sid = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    doc = {
+        "id": sid,
+        "demo_type": payload.demo_type,
+        "recipient_id": payload.recipient_id,
+        "recipient_name": payload.recipient_name,
+        "recipient_company": payload.recipient_company,
+        "recipient_email": payload.recipient_email,
+        "referrer": payload.referrer,
+        "utm": payload.utm or {},
+        "started_at": now.isoformat(),
+        "last_heartbeat_at": now.isoformat(),
+        "watch_seconds": 0,
+        "progress_pct": 0,
+        "current_scene": 0,
+        "total_scenes": None,
+        "events": [],
+        "completed": False,
+        "completed_at": None,
+        "half_view_notified": False,
+        "ip": http_request.client.host if http_request.client else None,
+        "ua": (http_request.headers.get("user-agent", "") or "")[:240],
+    }
+    await db.demo_sessions.insert_one(doc)
+    return DemoSessionStartOut(session_id=sid, started_at=now.isoformat())
+
+
+async def _maybe_queue_half_view_notification(session: Dict[str, Any]) -> None:
+    """When progress crosses 50% for the first time, persist a founder
+    notification record. Email delivery (via Resend) is best-effort and only
+    fires when keys are configured — graceful degradation otherwise."""
+    notif = {
+        "id": str(uuid.uuid4()),
+        "type": "demo_half_view",
+        "session_id": session["id"],
+        "demo_type": session["demo_type"],
+        "recipient_name": session.get("recipient_name"),
+        "recipient_company": session.get("recipient_company"),
+        "recipient_email": session.get("recipient_email"),
+        "progress_pct": session.get("progress_pct"),
+        "watch_seconds": session.get("watch_seconds"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "delivered": False,
+    }
+    await db.demo_notifications.insert_one(notif)
+    # Best-effort founder email — if Resend is configured it'll send,
+    # otherwise we just have the queued record on the dashboard.
+    founder_email = os.environ.get("FOUNDER_EMAIL", "").strip()
+    if not founder_email:
+        return
+    try:
+        from email_service import send_founder_alert  # optional helper
+        await send_founder_alert(
+            to_email=founder_email,
+            subject=f"🔥 {session.get('recipient_name') or 'A prospect'} watched 50% of the {session['demo_type']} demo",
+            body=(
+                f"Demo: {session['demo_type']}\n"
+                f"Recipient: {session.get('recipient_name') or '—'} "
+                f"({session.get('recipient_company') or '—'})\n"
+                f"Email: {session.get('recipient_email') or '—'}\n"
+                f"Progress: {session.get('progress_pct')}% · {session.get('watch_seconds')}s\n"
+                f"Session: {session['id']}\n"
+            ),
+        )
+        await db.demo_notifications.update_one(
+            {"id": notif["id"]}, {"$set": {"delivered": True}}
+        )
+    except Exception as e:  # pragma: no cover
+        logging.getLogger(__name__).info(f"founder alert deferred: {e}")
+
+
+@api_router.post("/demo/session/heartbeat", status_code=200)
+async def demo_session_heartbeat(payload: DemoSessionHeartbeat):
+    """Periodic progress update from the demo client. Triggers half-view
+    notification the first time progress crosses 50%."""
+    sess = await db.demo_sessions.find_one({"id": payload.session_id}, {"_id": 0})
+    if not sess:
+        raise HTTPException(404, "Demo session not found")
+    update: Dict[str, Any] = {
+        "last_heartbeat_at": datetime.now(timezone.utc).isoformat(),
+        "progress_pct": payload.progress_pct,
+        "watch_seconds": max(payload.watch_seconds, sess.get("watch_seconds", 0)),
+    }
+    if payload.current_scene is not None:
+        update["current_scene"] = payload.current_scene
+    if payload.total_scenes is not None:
+        update["total_scenes"] = payload.total_scenes
+    crossed_half = (
+        payload.progress_pct >= 50
+        and not sess.get("half_view_notified", False)
+    )
+    if crossed_half:
+        update["half_view_notified"] = True
+    await db.demo_sessions.update_one({"id": payload.session_id}, {"$set": update})
+    if crossed_half:
+        merged = {**sess, **update}
+        await _maybe_queue_half_view_notification(merged)
+    return {"ok": True, "half_view_triggered": crossed_half}
+
+
+@api_router.post("/demo/session/event", status_code=200)
+async def demo_session_event(payload: DemoSessionEvent):
+    """Append a discrete interaction event (CTA click, share, etc)."""
+    ev = {
+        "type": payload.event_type[:64],
+        "at": datetime.now(timezone.utc).isoformat(),
+        "metadata": payload.metadata or {},
+    }
+    res = await db.demo_sessions.update_one(
+        {"id": payload.session_id}, {"$push": {"events": ev}}
+    )
+    if res.matched_count == 0:
+        raise HTTPException(404, "Demo session not found")
+    return {"ok": True}
+
+
+@api_router.post("/demo/session/complete", status_code=200)
+async def demo_session_complete(payload: DemoSessionComplete):
+    """Mark a demo as fully watched (also acts as a final heartbeat)."""
+    res = await db.demo_sessions.update_one(
+        {"id": payload.session_id},
+        {"$set": {
+            "completed": True,
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "progress_pct": 100,
+            "watch_seconds": payload.watch_seconds,
+        }},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(404, "Demo session not found")
+    return {"ok": True}
+
+
+@api_router.get("/admin/demo-sessions")
+async def admin_list_demo_sessions(
+    _: str = Depends(verify_admin),
+    demo_type: Optional[str] = Query(None),
+    range: str = Query("30d", regex="^(7d|30d|90d|all)$"),
+    limit: int = Query(200, ge=1, le=2000),
+):
+    """Founder dashboard feed — all tracked demo sessions, newest first."""
+    query: Dict[str, Any] = {}
+    if demo_type and demo_type in VALID_DEMO_TYPES:
+        query["demo_type"] = demo_type
+    if range != "all":
+        days = int(range.replace("d", ""))
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        query["started_at"] = {"$gte": cutoff}
+    cursor = db.demo_sessions.find(query, {"_id": 0}).sort("started_at", -1).limit(limit)
+    sessions = [s async for s in cursor]
+    # Light summary stats
+    total = len(sessions)
+    half = sum(1 for s in sessions if s.get("half_view_notified"))
+    completed = sum(1 for s in sessions if s.get("completed"))
+    return {
+        "summary": {
+            "total": total,
+            "half_view": half,
+            "completed": completed,
+            "completion_rate": round((completed / total) * 100, 1) if total else 0.0,
+            "half_view_rate": round((half / total) * 100, 1) if total else 0.0,
+        },
+        "sessions": sessions,
+    }
+
+
+@api_router.get("/admin/demo-notifications")
+async def admin_list_demo_notifications(
+    _: str = Depends(verify_admin),
+    limit: int = Query(100, ge=1, le=500),
+):
+    """Half-view notifications queue — what to follow up on now."""
+    cursor = db.demo_notifications.find({}, {"_id": 0}).sort("created_at", -1).limit(limit)
+    return [n async for n in cursor]
+
+
 app.include_router(api_router)
 
 

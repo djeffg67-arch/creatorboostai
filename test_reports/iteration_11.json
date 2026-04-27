@@ -1,0 +1,47 @@
+{
+  "summary": "Iter 11 Demo Delivery Engine: BACKEND 100% green (16/16 pytest pass — session lifecycle, half-view notifications, admin endpoints, regression on /api/leads, /api/share-demo Noldus payload, /api/checkout/session). FRONTEND BLOCKED by 3 separate runtime ReferenceErrors that crash entire pages with no error boundary: (a) /demo/noldus throws 'personalization is not defined' (useDemoTracking imported but never invoked in NoldusDemoPage), (b) /demo/creator blank because useDemoTracking is referenced on line 224 but NEVER imported at top of CreatorDemoPage, (c) /admin throws 'demoSessions is not defined' inside AdminPage — the new Demo Delivery Engine section references a state variable that was never declared. /demo/sita + /demo/airports work flawlessly with personalization. /demo/realtor tracking-hook works (POST /api/demo/session/start fires on Start). /demo/insurance Start did not fire session/start within 12s — needs follow-up after the other crashes are fixed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "NoldusDemoPage", "issue": "ReferenceError: personalization is not defined. `import { useDemoTracking }` exists at line 4 but the hook is NEVER invoked inside the component, while lines 383 & 386 pass `personalization` to <Hero> / <StartScreen>. Missing: `const { personalization, trackEvent } = useDemoTracking({ demoType:'noldus', started, scene, totalScenes:total, watchSeconds, overallProgress, done });`. Result: blank page on /demo/noldus and /demo/enterprise; no error boundary so the crash cascades to whole route.", "selector": "[data-testid='noldus-personalized-greeting']", "priority": "CRITICAL"},
+      {"component": "CreatorDemoPage", "issue": "ReferenceError: useDemoTracking is not defined. Line 224 calls `useDemoTracking({...})` but there is NO `import { useDemoTracking } from '@/lib/useDemoTracking'` at the top of the file (verify: only lucide-react + Layout + DemoConversionCTA are imported). Result: /demo/creator and /demo/influencer render blank.", "selector": "[data-testid='creator-personalized-greeting']", "priority": "CRITICAL"},
+      {"component": "AdminPage", "issue": "ReferenceError: demoSessions is not defined (visible in red overlay after admin login at /admin → bundle.js:58270:45 inside AdminPage). The new 'Demo Delivery Engine' section reads `demoSessions` (and probably `demoSummary`/`demoNotifs`) without ever calling `useState`/`adminListDemoSessions`. Whole /admin route is unusable — no Transactions, no Demo Engine, just the red error overlay.", "selector": "[data-testid='admin-demo-sessions']", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [
+      {"flow": "/demo/insurance tracking", "issue": "After clicking 'Start', no POST /api/demo/session/start fired within 12s of observation. Likely the button matched in test was not the demo's true Start CTA, or the InsuranceDemoPage's `started` flag is never flipped — needs verification once the other crashes are unblocked.", "affected_selectors": ["button:has-text('Start')"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_demo_delivery_engine.py",
+    "/app/test_reports/pytest/iter11_results.xml"
+  ],
+  "action_items": [
+    "Fix NoldusDemoPage.jsx: invoke useDemoTracking inside the component to destructure { personalization, trackEvent } before line 383. Mirror the call signature already used in CreatorDemoPage line 224 / RealtorDemoPage line 248.",
+    "Fix CreatorDemoPage.jsx: add `import { useDemoTracking } from '@/lib/useDemoTracking';` to the import block at top (line 1–10).",
+    "Fix AdminPage.jsx: declare the demoSessions/demoSummary/demoNotifs state via useState + a useEffect that calls adminListDemoSessions(token,'30d') and adminListDemoNotifications(token) after admin login; render only when state is hydrated. Add a try/catch and a 'Loading…' fallback so a missing endpoint never blanks the whole admin.",
+    "Wrap each demo page (and AdminPage) in a <ErrorBoundary> so a single ReferenceError stops crashing the entire route — show a recoverable inline error instead of a blank screen.",
+    "After fixes: re-run /app/backend/tests/test_demo_delivery_engine.py (all green now) + retest /demo/noldus, /demo/creator, /admin Demo Delivery Engine table.",
+    "Verify /demo/insurance Start button actually flips the `started` flag wired to useDemoTracking — currently no POST /api/demo/session/start observed."
+  ],
+  "critical_code_review_comments": [
+    "Three runtime ReferenceErrors in newly-added code suggests no smoke test was run after edits — please run a quick `yarn build` (or just load each route once) before handing off; these would have surfaced immediately.",
+    "There is NO React error boundary in the app; any uncaught render error blanks the whole route. Add a top-level <ErrorBoundary> in App.js around <Routes> for safety.",
+    "useDemoTracking call sites pass `watchSeconds: Math.round((Date.now() - sceneStart.current)/1000) + Math.round(elapsedBeforeScene/1000)` — this recomputes every render and re-runs the heartbeat useEffect deps every paint. Consider memoising or computing watchSeconds inside the hook from a ref clock to avoid heartbeat-effect churn.",
+    "NoldusDemoPage.jsx is now 1132 lines; CreatorDemoPage.jsx is 1197; both exceed the 700-line guideline — split Hero/StartScreen/ClosingCTA into separate files to make missing imports impossible to miss.",
+    "Backend code review is clean: VALID_DEMO_TYPES gating, EmailStr validation, half-view notification persisted regardless of email delivery, admin-protected endpoints exclude _id correctly. No issues."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_demo_delivery_engine.py"
+  ],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "≈ 30% — SITA + airports + Realtor tracking pass; Noldus + Creator + Admin all crash with ReferenceErrors; Insurance start unverified"},
+  "test_credentials": "Admin: bodyiq-admin-2026 (loaded from /app/memory/test_credentials.md, confirmed working at POST /api/admin/login).",
+  "seed_data_creation": "Backend tests created one tracked demo_session for demo_type=noldus + recipient Sarah/Acme + half-view notification. Visible via GET /api/admin/demo-sessions and /api/admin/demo-notifications.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 6 backend endpoints (/api/demo/session/{start,heartbeat,event,complete}, /api/admin/demo-sessions, /api/admin/demo-notifications) are fully working and assertion-tested in /app/backend/tests/test_demo_delivery_engine.py. Half-view notification fires exactly once at progress_pct≥50. Stripe checkout still 200s for signal_pack_standard. The blocker is purely frontend wiring: 3 ReferenceErrors. After main agent fixes them, the next testing agent only needs to retest the 4 demo pages + AdminPage Demo Delivery Engine section + the /demo/insurance Start tracking flow.",
+  "rca of the issue": "Reproduction: load /demo/noldus, /demo/creator, /admin (after login). Each shows blank with overlay 'demoSessions is not defined' or page console pageerror 'personalization is not defined'. Root cause: when wiring useDemoTracking into existing pages, main agent (a) forgot to invoke the hook in NoldusDemoPage even though the JSX already consumed `personalization`; (b) forgot to import useDemoTracking in CreatorDemoPage even though the hook is destructured; (c) added an admin Demo Delivery Engine UI block that references `demoSessions` state that was never created via useState/useEffect+adminListDemoSessions. There is no <ErrorBoundary> in the app, so each ReferenceError unmounts the entire route to a blank screen, and React Router does not show the original URL content. Mitigation = three minimal edits described in action_items; an ErrorBoundary wrapper would have prevented total page blankouts."
+}

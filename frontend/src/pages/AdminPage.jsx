@@ -8,11 +8,13 @@ import {
     adminPickerStats,
     adminListSubscriptions,
     adminListTransactions,
+    adminListDemoSessions,
 } from "@/lib/api";
 import { toast } from "sonner";
 import {
     LogIn, Download, RefreshCw, Loader2, Users, Mail, Inbox,
     Building2, ShieldCheck, MousePointerClick, CreditCard, Repeat,
+    Activity, Eye, Flame,
 } from "lucide-react";
 
 const STORAGE_KEY = "bodyiq_admin_token";
@@ -32,18 +34,20 @@ export default function AdminPage() {
     const loadData = useCallback(async (t, range = "all") => {
         setLoading(true);
         try {
-            const [leadsRes, statsRes, pickerRes, subsRes, txRes] = await Promise.all([
+            const [leadsRes, statsRes, pickerRes, subsRes, txRes, demoRes] = await Promise.all([
                 adminListLeads(t),
                 adminStats(t),
                 adminPickerStats(t).catch(() => null),
                 adminListSubscriptions(t, range).catch(() => []),
                 adminListTransactions(t, range).catch(() => []),
+                adminListDemoSessions(t, range === "all" ? "90d" : range).catch(() => ({ summary: null, sessions: [] })),
             ]);
             setLeads(leadsRes);
             setStats(statsRes);
             setPickerStats(pickerRes);
             setSubscriptions(subsRes || []);
             setTransactions(txRes || []);
+            setDemoSessions(demoRes || { summary: null, sessions: [] });
         } catch (err) {
             if (err?.response?.status === 401) {
                 localStorage.removeItem(STORAGE_KEY);
@@ -326,6 +330,53 @@ export default function AdminPage() {
                                         <Td className="font-mono text-xs text-slate-500">{t.created_at ? new Date(t.created_at).toLocaleString() : "—"}</Td>
                                     </tr>
                                 ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* DEMO DELIVERY ENGINE — sessions + half-view alerts */}
+                <SectionHeading icon={Activity} label="Demo Delivery Engine" badge={`${demoSessions.sessions?.length || 0} sessions in window`} />
+                <div data-testid="admin-demo-sessions">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <PickerStatCard icon={Eye}  label="Total" value={demoSessions.summary?.total ?? 0} />
+                        <PickerStatCard icon={Flame} label="≥50% Watched" value={demoSessions.summary?.half_view ?? 0} />
+                        <PickerStatCard icon={MousePointerClick} label="Completed" value={demoSessions.summary?.completed ?? 0} />
+                        <PickerStatCard icon={Activity} label="Completion Rate" value={`${demoSessions.summary?.completion_rate ?? 0}%`} />
+                    </div>
+                    <div className="mt-5 overflow-x-auto rounded-md border border-white/10">
+                        <table className="w-full min-w-[920px] text-left text-sm">
+                            <thead className="bg-ink-700/60">
+                                <tr><Th>Started</Th><Th>Demo</Th><Th>Recipient</Th><Th>Company</Th><Th>Progress</Th><Th>Watch</Th><Th>Status</Th></tr>
+                            </thead>
+                            <tbody>
+                                {(demoSessions.sessions || []).slice(0, 50).map((s) => (
+                                    <tr key={s.id} className="border-t border-white/5">
+                                        <Td className="font-mono text-[10px] text-slate-400">{s.started_at?.slice(0, 16).replace("T", " ")}</Td>
+                                        <Td><span className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 px-2 py-0.5 font-mono text-[10px] uppercase text-cyan-300">{s.demo_type}</span></Td>
+                                        <Td className="text-white">{s.recipient_name || "—"}</Td>
+                                        <Td className="text-slate-300">{s.recipient_company || "—"}</Td>
+                                        <Td>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-1.5 w-24 overflow-hidden rounded-full bg-ink-800">
+                                                    <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-300" style={{ width: `${s.progress_pct || 0}%` }} />
+                                                </div>
+                                                <span className="font-mono text-[10px] text-cyan-300">{s.progress_pct || 0}%</span>
+                                            </div>
+                                        </Td>
+                                        <Td className="font-mono text-[11px] text-slate-300">{s.watch_seconds || 0}s</Td>
+                                        <Td>
+                                            {s.completed
+                                                ? <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase text-emerald-300">Completed</span>
+                                                : s.half_view_notified
+                                                    ? <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase text-amber-300">Hot · ≥50%</span>
+                                                    : <span className="rounded-full border border-white/10 bg-ink-800 px-2 py-0.5 font-mono text-[9px] uppercase text-slate-400">Open</span>}
+                                        </Td>
+                                    </tr>
+                                ))}
+                                {(!demoSessions.sessions || demoSessions.sessions.length === 0) && (
+                                    <tr><Td className="text-slate-500" colSpan={7}>No demo sessions in this window yet.</Td></tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

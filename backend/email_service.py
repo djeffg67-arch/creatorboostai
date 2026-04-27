@@ -179,3 +179,15 @@ async def send_demo_share(
 <p style="margin-top:24px;font-size:13px;color:#94A3B8;">{meta_line}</p>
 """
     return await _send(recipient_email, title, _wrap(title, body))
+
+
+async def send_founder_alert(*, to_email: str, subject: str, body: str) -> bool:
+    """Plain-text founder alert (e.g. half-view notifications). Uses the same
+    branded HTML wrapper for consistency. Best-effort: returns False if Resend
+    is not configured."""
+    safe = body.strip().replace("\n", "<br>")
+    html_body = (
+        f'<p style="font-family:JetBrains Mono,Consolas,monospace;color:#CBD5E1;'
+        f'font-size:13px;line-height:1.7;white-space:pre-wrap;">{safe}</p>'
+    )
+    return await _send(to_email, subject, _wrap("Founder Alert", html_body))

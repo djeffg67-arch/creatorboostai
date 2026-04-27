@@ -60,6 +60,14 @@ export const adminListTransactions = (token, range = "all") =>
 export const adminListDemoShares = (token, range = "all") =>
     api.get(`/admin/demo-shares?range=${range}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
 
+export const adminListDemoSessions = (token, range = "30d", demoType = "") => {
+    const qs = `range=${encodeURIComponent(range)}` + (demoType ? `&demo_type=${encodeURIComponent(demoType)}` : "");
+    return api.get(`/admin/demo-sessions?${qs}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+};
+
+export const adminListDemoNotifications = (token) =>
+    api.get(`/admin/demo-notifications`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+
 export const shareDemo = (payload) =>
     api.post("/share-demo", payload).then((r) => r.data);
 

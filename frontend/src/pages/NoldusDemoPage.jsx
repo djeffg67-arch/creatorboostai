@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Layout } from "@/components/site/Layout";
 import { shareDemo } from "@/lib/api";
+import { useDemoTracking } from "@/lib/useDemoTracking";
 import { toast } from "sonner";
 import {
     Play, Pause, Volume2, VolumeX, Check, ArrowRight, Sparkles, Mic,
@@ -379,10 +380,10 @@ export default function NoldusDemoPage() {
                     <div className="glow-orb glow-orb--blue" style={{ width: 420, height: 420, bottom: -180, right: -100 }} />
                 </div>
 
-                <Hero />
+                <Hero personalization={personalization} />
 
                 {!started ? (
-                    <StartScreen onStart={handleStart} prefetching={prefetching} progress={prefetchProgress} />
+                    <StartScreen onStart={handleStart} prefetching={prefetching} progress={prefetchProgress} personalization={personalization} />
                 ) : (
                     <div className="mt-6">
                         <SceneHeader
@@ -406,7 +407,7 @@ export default function NoldusDemoPage() {
                         </div>
 
                         {(current.focus === "closing" || done) && (
-                            <div className="mt-6"><ShareModule onReplay={handleRestart} /></div>
+                            <div className="mt-6"><ShareModule onReplay={handleRestart} trackEvent={trackEvent} /></div>
                         )}
                     </div>
                 )}
@@ -418,12 +419,17 @@ export default function NoldusDemoPage() {
 // =================================================================
 // HERO + START
 // =================================================================
-const Hero = () => (
+const Hero = ({ personalization }) => (
     <section className="relative" data-testid="noldus-hero">
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5">
             <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" />
             <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Enterprise · Noldus / Investor Cut</span>
         </div>
+        {personalization?.greeting && (
+            <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.22em] text-cyan-200" data-testid="noldus-personalized-greeting">
+                {personalization.greeting}
+            </p>
+        )}
         <h1 className="font-heading mt-6 text-balance text-3xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
             Noldus measures behavior.{" "}
             <span className="text-cyan-400">BodyIQ-AI defines it. CreatorBoostAI executes on it.</span>
@@ -436,11 +442,16 @@ const Hero = () => (
     </section>
 );
 
-const StartScreen = ({ onStart, prefetching, progress }) => (
+const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
     <div className="mt-8 rounded-md border border-white/10 bg-ink-700/40 p-6 lg:p-12">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Cinematic Demo Console</p>
+                {personalization?.greeting && (
+                    <p className="font-mono mt-2 text-[10px] uppercase tracking-[0.22em] text-cyan-200" data-testid="noldus-start-personalized">
+                        {personalization.greeting}
+                    </p>
+                )}
                 <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 12-scene Noldus walkthrough.</h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
                     A fully automated 12-scene cinematic walkthrough — narrated by Nova (female · American) —
@@ -1007,7 +1018,7 @@ const ClosingStage = () => (
 // =================================================================
 // SHARE + QR
 // =================================================================
-const ShareModule = ({ onReplay }) => {
+const ShareModule = ({ onReplay, trackEvent }) => {
     const [email, setEmail] = useState("");
     const [busy, setBusy] = useState(false);
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -1018,6 +1029,7 @@ const ShareModule = ({ onReplay }) => {
         setBusy(true);
         try {
             const res = await shareDemo({ recipient_email: email, demo_type: "noldus", share_target: url });
+            trackEvent?.("share_send", { recipient_email: email });
             if (res?.sent) toast.success(`Sent to ${email}.`);
             else toast.message("Share recorded — email service is configured to deliver once Resend keys land.");
             setEmail("");
@@ -1031,6 +1043,7 @@ const ShareModule = ({ onReplay }) => {
     const copy = async () => {
         try {
             await navigator.clipboard.writeText(url);
+            trackEvent?.("share_copy", {});
             toast.success("Link copied to clipboard");
         } catch {
             toast.error("Could not copy link");
