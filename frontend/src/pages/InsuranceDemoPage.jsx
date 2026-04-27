@@ -284,7 +284,7 @@ export default function InsuranceDemoPage() {
                 const res = await fetch(`${apiBase}/tts/speak`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: s.narration, voice: "nova" }),
+                    body: JSON.stringify({ text: s.narration, voice: "sage" }),
                 });
                 if (res.ok) {
                     const blob = await res.blob();
@@ -557,7 +557,7 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                         : "Run the 16-scene insurance walkthrough."}
                 </h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                    A fully automated 16-scene cinematic walkthrough — narrated by Nova, an executive A.I. voice —
+                    A fully automated 16-scene cinematic walkthrough — narrated by Sage, an executive A.I. voice —
                     showing how CreatorBoostAI sits on top of your CRM, AMS, compliance, and communications stack
                     and turns them into a single insurance operating system. No clicks required.
                 </p>
@@ -576,7 +576,7 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                         )}
                     </button>
                     <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                        Auto-plays · ~12 min · Voice: Nova
+                        Auto-plays · ~12 min · Voice: Sage
                     </span>
                 </div>
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
@@ -662,7 +662,7 @@ const SubtitleBar = ({ narration, muted }) => (
         <div className="mx-auto max-w-4xl rounded-md border border-white/10 bg-ink-900/85 px-4 py-3 backdrop-blur-xl shadow-[0_0_30px_rgba(0,0,0,0.5)] lg:px-6 lg:py-4">
             <div className="flex items-start gap-3">
                 <span className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-400">
-                    {muted ? "CC" : "Nova"}
+                    {muted ? "CC" : "Sage"}
                 </span>
                 <p className="text-sm leading-relaxed text-white sm:text-base lg:text-lg fade-in-up" key={narration}>
                     {narration}
@@ -1666,7 +1666,7 @@ const AvatarPanel = ({ narration, speaking, muted, paused, onMute, personalGreet
     <div className="rounded-md border border-white/10 bg-ink-700/40 p-4 backdrop-blur-sm" data-testid="avatar-panel">
         <div className="flex items-center gap-2 border-b border-white/5 pb-3">
             <Sparkles size={13} className="text-cyan-400" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">CreatorBoostAI Assistant · Nova</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">CreatorBoostAI Assistant · Sage</span>
         </div>
         <div className="mt-4 flex items-center gap-3">
             <div className="relative h-12 w-12 flex-shrink-0">

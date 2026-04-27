@@ -240,7 +240,7 @@ export default function CreatorDemoPage() {
                 const res = await fetch(`${apiBase}/tts/speak`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: s.narration, voice: "nova" }),
+                    body: JSON.stringify({ text: s.narration, voice: "sage" }),
                 });
                 if (res.ok) {
                     const blob = await res.blob();
@@ -519,7 +519,7 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                         )}
                     </button>
                     <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                        Auto-plays · ~6.5 min · Voice: Nova (female · American)
+                        Auto-plays · ~6.5 min · Voice: Sage (female · American)
                     </span>
                 </div>
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
@@ -611,7 +611,7 @@ const NarrationPanel = ({ narration, speaking, muted, paused, onMute }) => (
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
             <div className="flex items-center gap-2">
                 <Mic size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Narration · Nova</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Narration · Sage</span>
             </div>
             <button
                 onClick={onMute}

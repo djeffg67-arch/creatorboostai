@@ -248,7 +248,7 @@ export default function SupermarketDemoPage() {
                 const res = await fetch(`${apiBase}/tts/speak`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: s.narration, voice: "nova" }),
+                    body: JSON.stringify({ text: s.narration, voice: "sage" }),
                 });
                 if (res.ok) {
                     const blob = await res.blob();
@@ -485,7 +485,7 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                 )}
                 <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 14-scene Supermarket &amp; C-Store walkthrough.</h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                    A fully automated 14-scene cinematic walkthrough — narrated by Nova (female · American)
+                    A fully automated 14-scene cinematic walkthrough — narrated by Sage (female · American)
                     — designed for grocery, supermarket, and convenience-store enterprises. CreatorBoostAI
                     overlays your existing systems, prioritizes actions by financial impact, and helps
                     every level of the operation execute. No clicks. Approximately 10 to 13 minutes.
@@ -495,7 +495,7 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                         className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-7 py-4 text-sm font-semibold text-ink-900 shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] disabled:opacity-60">
                         {prefetching ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink-900 border-t-transparent" />Prefetching · {progress}%</> : <><Play size={14} fill="currentColor" />Start Demo</>}
                     </button>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">Auto-plays · ~12 min · Voice: Nova</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">Auto-plays · ~12 min · Voice: Sage</span>
                 </div>
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
                     {[
@@ -578,7 +578,7 @@ const NarrationPanel = ({ narration, speaking, muted, paused, onMute, personalGr
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
             <div className="flex items-center gap-2">
                 <Mic size={13} className="text-cyan-400" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Narration · Nova</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Narration · Sage</span>
             </div>
             <button onClick={onMute} className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400 hover:text-cyan-300">
                 {muted ? <VolumeX size={11} /> : <Volume2 size={11} />} <span>{muted ? "Off" : "On"}</span>

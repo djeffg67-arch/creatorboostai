@@ -14,7 +14,7 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "").strip()
 ALLOWED_VOICES = {"alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"}
-DEFAULT_VOICE = "nova"
+DEFAULT_VOICE = "sage"
 DEFAULT_MODEL = "tts-1"
 MAX_TEXT_LEN = 4000
 
