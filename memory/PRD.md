@@ -1,6 +1,61 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-04-27 (Iter 16 — Noldus / Investor Cut cinematic demo + Share/QR shipped)
+**Last update:** 2026-02-27 (Iter 19 — Supermarket demo extended to 15 scenes with new Cost Recovery + Asset Intelligence scene)
+
+---
+
+## 🆕 ITER 19 (2026-02-27) — Cost Recovery + Asset Intelligence Scene (Supermarket Demo)
+
+User requested a new dedicated scene in the Supermarket / C-Store demo focused on cost recovery and asset intelligence. Demo extended from 14 → 15 scenes.
+
+**New Scene 13: Cost Recovery + Asset Intelligence**
+- Inserted between "Maintenance and Facilities" (Scene 12) and "Financial Impact Dashboard" (now Scene 14)
+- 60-second narration (Sage TTS) describing how CreatorBoostAI reads purchasing logs, maintenance histories, vendor invoices, and equipment records
+- New `<CostRecoveryStage />` component (data-testid `stage-cost-recovery`) renders three structured panels:
+  - **6 flag cards** with recommended actions:
+    - Repeated service calls (Walk-in cooler · Store 2073 · 3 calls/90d → REPLACE, payback 8.2 mo)
+    - Maintenance cost climbing (Reach-in freezer · +34% YoY → REPLACE vs REPAIR queued)
+    - End-of-life equipment (HVAC RTU-2 · 14yr · manufacturer EOL → Capital plan, Q3 swap)
+    - Lighting upgrade opportunity (T8 → LED · 184 stores · 62% energy cut → Phase 1, ROI 22mo)
+    - Refrigeration efficiency (Open-case dairy · door retrofit · 38% energy cut → CFO queue)
+    - Vendor overcharging (FilterPro · +18% vs market · $184K overpaid → ESCALATE)
+  - **5-row Reactive vs Proactive comparison** (Trigger / Decision / Vendor / Energy / Outcome)
+  - **6-tile financial impact panel** ($6.4M cost savings, $3.6M avoided repairs, $3.5M energy, $1.2M vendor recovery, 238% ROI, $2.8M downtime savings)
+- Voiceover messaging: "CreatorBoostAI is not just tracking maintenance — it is actively reducing costs and recovering lost money across every store, every vendor, and every asset."
+
+**Wiring updates**
+- `SCENES` array — new entry `cost-recovery` (id, narration, fallback_ms 60000) inserted at index 12; `financial-impact` and `closing` renumbered to Scene 14 / Scene 15
+- `SCENE_BG_MAP` + `STAGE_BADGES` extended with `cost-recovery` keys
+- `SceneStage` switch extended with `case "cost-recovery": return <CostRecoveryStage />`
+- `SCENE_IMG_RETAIL.costRecovery` added to `/app/frontend/src/lib/images.js` (electrician/equipment audit Unsplash photo)
+- All "14 scenes" copy upgraded to "15 scenes" in Hero, StartScreen story arc, stat list
+- New imports: `TrendingUp`, `TrendingDown`, `DollarSign`, `Lightbulb`, `RefreshCcw`, `Snowflake` (lucide-react)
+
+**Verification (Iter 19 testing report)**
+- 100% pass · all 5 demos (`/demo/realtor`, `/demo/insurance`, `/demo/creator`, `/demo/noldus`, `/demo/supermarket`) load cleanly
+- New Scene 13 renders all 6 flags + 5 comparison rows + 6 financial-impact tiles + recommended actions
+- Auto-advance Scene 1 → Scene 2 confirmed; programmatically reached Scene 13/14/15 — all mount
+- TTS `/api/tts/speak` returns 200 audio/mpeg (221KB) for the new cost-recovery narration
+- StageImage strip visible on Scene 13
+
+**Bugs caught + auto-fixed by testing agent**
+- Pre-existing missing `Crown` and `Workflow` lucide-react imports in SupermarketDemoPage.jsx (used by ExecutiveViewStage / Scene 8). Latent — only surfaced once auto-advance reached Scene 8 because ErrorBoundary swallowed the render. Fix added to import list on line 13.
+
+**Code review notes (non-blocking)**
+- `SupermarketDemoPage.jsx` is now 1518 LOC — extract `SCENES` data + 15 stage components to `/pages/supermarket/scenes/*.jsx` later
+- Add `eslint-plugin-react` `jsx-no-undef` rule or centralize icon imports via barrel module to prevent future missing-import regressions
+
+---
+
+## 🆕 ITER 18 (2026-02-27) — Per-Stage Pictures (Supermarket + Noldus)
+
+(Earlier history retained — see entries below.)
+
+---
+
+## 🆕 ITER 16 (2026-04-27) — Noldus / Investor Cut cinematic demo + Share/QR
+
+**Initial baseline header:** Iter 16 — Noldus / Investor Cut cinematic demo + Share/QR shipped
 **Project status:** 🟢 Code-complete. Awaiting Stripe + Resend Live Keys.
 **Site URL:** https://bodyiq-training.preview.emergentagent.com
 **Supervisor:** backend + frontend RUNNING. Iter 10 testing 12/12 frontend + 2/2 pytest pass.
