@@ -49,6 +49,10 @@ const Hero = ({ stats }) => (
                     className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-6 py-3.5 text-sm font-semibold text-ink-900 shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all hover:bg-cyan-400">
                     <Calculator size={14} /> Run a Real Proposal
                 </a>
+                <a href="/portal/lighting" data-testid="cta-portal-command-center"
+                    className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-6 py-3.5 text-sm font-semibold text-cyan-300 transition-all hover:bg-cyan-500 hover:text-ink-900">
+                    <Cpu size={14} /> Command Center · Sign In
+                </a>
                 <a href="#three-layer" className="inline-flex items-center gap-2 rounded-md border border-white/15 px-6 py-3.5 text-sm font-medium text-slate-200 transition-all hover:border-cyan-500/50 hover:text-cyan-300">
                     <Layers size={14} /> See the Architecture
                 </a>

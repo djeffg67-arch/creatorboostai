@@ -1727,7 +1727,7 @@ async def admin_list_demo_notifications(
 
 
 app.include_router(api_router)
-app.include_router(make_lighting_router(db), prefix="/api")
+app.include_router(make_lighting_router(db, verify_admin=verify_admin), prefix="/api")
 
 
 app.add_middleware(

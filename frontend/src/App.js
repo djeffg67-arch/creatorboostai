@@ -32,6 +32,7 @@ import ReportPage from "@/pages/ReportPage";
 import JuryPage from "@/pages/JuryPage";
 import DownloadSignalPackPage from "@/pages/DownloadSignalPackPage";
 import LightingUpgradeEnginePage from "@/pages/LightingUpgradeEnginePage";
+import PortalLightingPage from "@/pages/PortalLightingPage";
 
 function App() {
     return (
@@ -69,6 +70,7 @@ function App() {
                     <Route path="/download/signal-pack" element={<DownloadSignalPackPage />} />
                     <Route path="/lighting-upgrade-engine" element={<LightingUpgradeEnginePage />} />
                     <Route path="/lighting" element={<LightingUpgradeEnginePage />} />
+                    <Route path="/portal/lighting" element={<PortalLightingPage />} />
                     <Route path="/success" element={<SuccessPage />} />
                     <Route path="/cancel" element={<CancelPage />} />
                     <Route path="/thank-you" element={<ThankYouPage />} />

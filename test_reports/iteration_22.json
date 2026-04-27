@@ -1,0 +1,36 @@
+{
+  "summary": "Iter 22 — Lighting Upgrade Engine dual-layer (public + /portal/lighting command center) + full 4-state lifecycle ledger + admin endpoints. Backend: 17/17 pytest pass (warranty=7yrs on all 4 Koollite SKUs; proposal creation writes to lighting_projects+lighting_action_ids+lighting_locations; approve/deploy/verify-savings transitions append ordered ledger rows; portal auth via founder token; admin endpoints gated by Bearer). Frontend: /portal/lighting login→command-center→approve→lifecycle→signout all verified end-to-end with real founder credentials; all required data-testids present (lighting-portal-login, lighting-portal-page, lighting-portal-header, decision-panel, portal-neutrality-strip with 3 layer chips, portal-projects-section, filter-all..filter-savings_verified, project-row-CBLU-*, approve-btn-*, lifecycle-btn-*); status badge flips to 'Approved' after API call; signOut clears localStorage['bodyiq_portal_user'] and returns to login. Public /lighting-upgrade-engine: 'Command Center · Sign In' CTA (data-testid=cta-portal-command-center) present and 4 SKU cards render '7-yr warranty'. Mobile 390x844 has zero horizontal overflow on the portal page.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/lighting-upgrade-engine calculator", "issues": ["React dev-mode hydration warning: '<span> cannot be a child of <option>' — originates from source-map instrumentation wrapping option text nodes with <span> in LightingUpgradeEnginePage.jsx Select labels. Development-only warning; no functional impact in production build. Low priority — consider passing plain string children to the Select option to suppress."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_lighting_iter22.py",
+    "/app/test_reports/pytest/iter22_lighting.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "lighting_engine.py is now 645 lines — approaching the 700-line guideline. If future iterations add more endpoints, split into models.py / compute.py / router.py.",
+    "PortalLightingPage.jsx is 448 lines including LoginScreen + DecisionPanel + ProjectRow + CommandCenter in one file — acceptable but extract to subcomponents if the file grows.",
+    "verify-savings endpoint transitions straight to 'savings_verified' regardless of prior state — no guard preventing e.g. jumping from 'identified' to 'savings_verified' without deploy. Flag if business rules require strict ordering.",
+    "_transition helper records actor string ad-hoc ('customer', 'contractor', 'ops', email) — consider an Enum to keep actor taxonomy consistent across the ledger.",
+    "Portal auth currently relies on db.users.portal_token equality match — no expiry, no rotation semantics beyond founder refresh. Acceptable for demo/internal use but flag before shipping to external customers."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_lighting_iter22.py (NEW)"
+  ],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% (all required testids + flows verified end-to-end)"},
+  "test_credentials": "Founder bypass via POST /api/founder/auth {key:'jeffrey-2026-bodyiq-founder-master'} returns rotating email=jeffrey@creatorboostai.com + token. Admin via POST /api/admin/login {password:'bodyiq-admin-2026'} returns Bearer token.",
+  "seed_data_creation": "Tests create multiple proposals under the founder email (tenant=creatorboostai.com) and leave them persisted: one progresses through identified→approved→deployed→savings_verified (with verified_annual_savings=12345). Another goes identified→approved via /portal/approve. Also a UI-seeded CBLU-GF2T-NBK6 project was approved via Playwright. No cleanup performed (aligns with prior iteration's approach).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All iter22 endpoints covered by /app/backend/tests/test_lighting_iter22.py (plus iter21 /app/backend/tests/test_lighting_engine.py still valid). Founder token rotates each /api/founder/auth call — always mint fresh at test start. The lighting_engine.py portal endpoint derives tenant = company||email_domain.lower() — so founder (no company) → tenant='creatorboostai.com'. Frontend portal persists auth via localStorage['bodyiq_portal_user']; to test a clean login flow start with page.evaluate(() => localStorage.clear()). Approve button uses scroll_into_view_if_needed pattern — works without force=True.",
+  "rca of the issue": "No issues found. Initial Playwright innerText count for '7-yr warranty' appeared as 0 because the SKU grid hadn't fully rendered; after scrolling the page the rendered innerText shows 4 occurrences — functionality is correct, just needed explicit wait/scroll in the test."
+}

@@ -19,11 +19,20 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 import secrets
 import string
 import uuid
+
+
+# Allowed lifecycle states (and their order)
+LIFECYCLE_STATES: List[str] = [
+    "identified",       # proposal generated
+    "approved",         # CFO/exec approved the upgrade
+    "deployed",         # contractor finished install
+    "savings_verified", # measured savings confirmed
+]
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +57,7 @@ KOOLLITE_SKUS: List[Dict[str, Any]] = [
         "lumens": 7800,
         "watts": 60,
         "lifetime_hours": 80000,
-        "warranty_years": 5,
+        "warranty_years": 7,
         "unit_cost": 142.00,
         "best_for": "Sales floor · aisles · checkout · 9–14 ft ceilings",
     },
@@ -59,7 +68,7 @@ KOOLLITE_SKUS: List[Dict[str, Any]] = [
         "lumens": 2400,
         "watts": 22,
         "lifetime_hours": 70000,
-        "warranty_years": 5,
+        "warranty_years": 7,
         "unit_cost": 78.00,
         "best_for": "Open & reach-in cases · cooler doors · low-temp rated",
     },
@@ -183,6 +192,16 @@ class ContractorNotificationCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class PortalAuth(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+    token: str
+
+
+class PortalApprovalRequest(PortalAuth):
+    action_id: str
+
+
 # ---------------------------------------------------------------------------
 # Calculation engine
 # ---------------------------------------------------------------------------
@@ -262,8 +281,35 @@ def _compute(inputs: ProposalInputs, sku: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Router factory — `db` is injected by server.py at startup
 # ---------------------------------------------------------------------------
-def make_router(db) -> APIRouter:
+def make_router(db, verify_admin=None) -> APIRouter:
     router = APIRouter(prefix="/lighting", tags=["lighting"])
+
+    async def _log_lifecycle(action_id: str, from_state: Optional[str], to_state: str, actor: str, note: Optional[str] = None):
+        """Append-only ledger of every Action ID state transition."""
+        await db.lighting_action_ids.insert_one({
+            "action_id": action_id,
+            "from_state": from_state,
+            "to_state": to_state,
+            "actor": actor,
+            "note": note,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    async def _upsert_location(tenant: str, location_label: str, sqft: int, fixture_count: int, action_id: str):
+        """Register/refresh a customer location row tied to its current Action ID."""
+        await db.lighting_locations.update_one(
+            {"tenant": tenant, "location_label": location_label},
+            {"$set": {
+                "tenant": tenant,
+                "location_label": location_label,
+                "sqft": sqft,
+                "fixture_count": fixture_count,
+                "current_action_id": action_id,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+             "$setOnInsert": {"created_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True,
+        )
 
     # ------------------ Catalog ------------------
     @router.get("/skus")
@@ -281,9 +327,14 @@ def make_router(db) -> APIRouter:
 
         action_id = _make_action_id()
         now_iso = datetime.now(timezone.utc).isoformat()
+        # Use the customer's company (or email domain fallback) as their tenant
+        # key so proposals from the same buyer roll up cleanly in the portal.
+        tenant = (payload.company or payload.email.split("@")[1]).strip().lower()
 
         record: Dict[str, Any] = {
             "action_id": action_id,
+            "tenant": tenant,
+            "owner_email": payload.email,
             "created_at": now_iso,
             "updated_at": now_iso,
             "status": "identified",
@@ -294,9 +345,13 @@ def make_router(db) -> APIRouter:
 
         # Insert; mongo mutates input dict adding _id, so build a clean response.
         await db.lighting_projects.insert_one(record)
+        await _log_lifecycle(action_id, None, "identified", payload.email, "Proposal generated")
+        await _upsert_location(tenant, payload.location_label, payload.sqft, payload.fixture_count, action_id)
 
         return {
             "action_id": action_id,
+            "tenant": tenant,
+            "owner_email": payload.email,
             "created_at": now_iso,
             "status": "identified",
             "inputs": payload.model_dump(),
@@ -313,16 +368,53 @@ def make_router(db) -> APIRouter:
 
     @router.post("/proposal/{action_id}/approve")
     async def approve_proposal(action_id: str):
+        return await _transition(action_id, "approved", "approved_at", actor="customer", note="Upgrade approved")
+
+    @router.post("/proposal/{action_id}/deploy")
+    async def deploy_proposal(action_id: str):
+        return await _transition(action_id, "deployed", "deployed_at", actor="contractor", note="Install completed by customer's contractor")
+
+    @router.post("/proposal/{action_id}/verify-savings")
+    async def verify_savings(action_id: str, verified_annual_savings: float = Query(..., ge=0)):
+        # Append the measured value alongside the transition.
         now_iso = datetime.now(timezone.utc).isoformat()
         result = await db.lighting_projects.find_one_and_update(
             {"action_id": action_id},
-            {"$set": {"status": "approved", "approved_at": now_iso, "updated_at": now_iso}},
+            {"$set": {
+                "status": "savings_verified",
+                "verified_at": now_iso,
+                "updated_at": now_iso,
+                "verified_annual_savings": float(verified_annual_savings),
+            }},
             projection={"_id": 0},
             return_document=True,
         )
         if not result:
             raise HTTPException(status_code=404, detail="Action ID not found")
+        await _log_lifecycle(action_id, None, "savings_verified", "ops", f"verified={verified_annual_savings}")
         return result
+
+    async def _transition(action_id: str, new_state: str, ts_field: str, actor: str, note: str):
+        if new_state not in LIFECYCLE_STATES:
+            raise HTTPException(status_code=400, detail=f"Unknown state: {new_state}")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        existing = await db.lighting_projects.find_one({"action_id": action_id}, {"status": 1, "_id": 0})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Action ID not found")
+        from_state = existing.get("status")
+        result = await db.lighting_projects.find_one_and_update(
+            {"action_id": action_id},
+            {"$set": {"status": new_state, ts_field: now_iso, "updated_at": now_iso}},
+            projection={"_id": 0},
+            return_document=True,
+        )
+        await _log_lifecycle(action_id, from_state, new_state, actor, note)
+        return result
+
+    @router.get("/proposal/{action_id}/lifecycle")
+    async def get_lifecycle(action_id: str):
+        cursor = db.lighting_action_ids.find({"action_id": action_id}, {"_id": 0}).sort("created_at", 1)
+        return {"action_id": action_id, "events": [e async for e in cursor]}
 
     # ------------------ Multi-location portfolio rollup ------------------
     @router.get("/portfolio")
@@ -436,14 +528,117 @@ def make_router(db) -> APIRouter:
     async def stats():
         total_projects = await db.lighting_projects.count_documents({})
         approved = await db.lighting_projects.count_documents({"status": "approved"})
+        deployed = await db.lighting_projects.count_documents({"status": "deployed"})
+        verified = await db.lighting_projects.count_documents({"status": "savings_verified"})
         total_warranty_events = await db.lighting_warranty_events.count_documents({})
         return {
             "total_projects": total_projects,
             "approved_projects": approved,
+            "deployed_projects": deployed,
+            "savings_verified_projects": verified,
             "total_warranty_events": total_warranty_events,
             "manufacturer": "Koollite",
             "execution_layer": "Customer's existing contractors",
             "intelligence_layer": "CreatorBoostAI",
         }
+
+    # ------------------ Portal (email + portal_token) ------------------
+    async def _verify_portal(payload: PortalAuth) -> Dict[str, Any]:
+        user = await db.users.find_one(
+            {"email": payload.email, "portal_token": payload.token}, {"_id": 0}
+        )
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid email or access token")
+        return user
+
+    @router.post("/portal/projects")
+    async def portal_list_projects(payload: PortalAuth):
+        """Authenticated portal view — returns the user's full project portfolio
+        plus a financial decision panel rollup. Emails are matched to the
+        `owner_email` field set when proposals are created.
+        """
+        await _verify_portal(payload)
+
+        cursor = db.lighting_projects.find(
+            {"owner_email": payload.email}, {"_id": 0}
+        ).sort("created_at", -1)
+        projects: List[Dict[str, Any]] = [p async for p in cursor]
+
+        # Decision-panel rollup
+        total_project_cost = sum(float(p.get("total_project_cost", 0)) for p in projects)
+        annual_total_savings = sum(float(p.get("annual_total_savings", 0)) for p in projects)
+        annual_payment = sum(float(p.get("annual_payment") or 0) for p in projects)
+        net_annual_cash_flow = annual_total_savings - annual_payment
+
+        # Locations registered for this tenant
+        first = projects[0] if projects else None
+        tenant = first.get("tenant") if first else None
+        location_cursor = db.lighting_locations.find({"tenant": tenant}, {"_id": 0}) if tenant else None
+        locations = [loc async for loc in location_cursor] if location_cursor is not None else []
+
+        by_status = {s: 0 for s in LIFECYCLE_STATES}
+        for p in projects:
+            st = p.get("status", "identified")
+            by_status[st] = by_status.get(st, 0) + 1
+
+        return {
+            "tenant": tenant,
+            "email": payload.email,
+            "projects": projects,
+            "locations": locations,
+            "rollup": {
+                "total_projects": len(projects),
+                "total_project_cost": round(total_project_cost, 2),
+                "annual_total_savings": round(annual_total_savings, 2),
+                "annual_payment": round(annual_payment, 2),
+                "net_annual_cash_flow": round(net_annual_cash_flow, 2),
+                "by_status": by_status,
+            },
+        }
+
+    @router.post("/portal/approve")
+    async def portal_approve(payload: PortalApprovalRequest):
+        """Authenticated 'Approve Upgrade' action from the executive command
+        center. Verifies ownership before transitioning the Action ID.
+        """
+        await _verify_portal(PortalAuth(email=payload.email, token=payload.token))
+        proj = await db.lighting_projects.find_one(
+            {"action_id": payload.action_id, "owner_email": payload.email},
+            {"_id": 0, "status": 1},
+        )
+        if not proj:
+            raise HTTPException(status_code=404, detail="Action ID not owned by this user")
+        return await _transition(payload.action_id, "approved", "approved_at",
+                                 actor=payload.email, note="Approved via portal command center")
+
+    # ------------------ Admin (verify_admin from server.py) ------------------
+    if verify_admin is not None:
+        @router.get("/admin/projects")
+        async def admin_list_projects(_: str = Depends(verify_admin),
+                                      status: Optional[str] = Query(default=None),
+                                      limit: int = Query(200, ge=1, le=1000)):
+            q: Dict[str, Any] = {}
+            if status:
+                q["status"] = status
+            cursor = db.lighting_projects.find(q, {"_id": 0}).sort("created_at", -1).limit(limit)
+            projects = [p async for p in cursor]
+            agg = {
+                "total": len(projects),
+                "by_status": {s: sum(1 for p in projects if p.get("status") == s) for s in LIFECYCLE_STATES},
+                "total_project_cost": round(sum(float(p.get("total_project_cost", 0)) for p in projects), 2),
+                "annual_total_savings": round(sum(float(p.get("annual_total_savings", 0)) for p in projects), 2),
+            }
+            return {"projects": projects, "summary": agg}
+
+        @router.get("/admin/locations")
+        async def admin_list_locations(_: str = Depends(verify_admin),
+                                       limit: int = Query(500, ge=1, le=2000)):
+            cursor = db.lighting_locations.find({}, {"_id": 0}).sort("updated_at", -1).limit(limit)
+            return [loc async for loc in cursor]
+
+        @router.get("/admin/lifecycle/{action_id}")
+        async def admin_lifecycle(action_id: str, _: str = Depends(verify_admin)):
+            cursor = db.lighting_action_ids.find({"action_id": action_id}, {"_id": 0}).sort("created_at", 1)
+            return [e async for e in cursor]
 
     return router

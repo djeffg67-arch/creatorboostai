@@ -87,6 +87,15 @@ export const getLightingProposal = (actionId) =>
 export const approveLightingProposal = (actionId) =>
     api.post(`/lighting/proposal/${actionId}/approve`).then((r) => r.data);
 
+export const deployLightingProposal = (actionId) =>
+    api.post(`/lighting/proposal/${actionId}/deploy`).then((r) => r.data);
+
+export const verifyLightingSavings = (actionId, verifiedAnnualSavings) =>
+    api.post(`/lighting/proposal/${actionId}/verify-savings?verified_annual_savings=${verifiedAnnualSavings}`).then((r) => r.data);
+
+export const getLightingLifecycle = (actionId) =>
+    api.get(`/lighting/proposal/${actionId}/lifecycle`).then((r) => r.data);
+
 export const getLightingPortfolio = (tenant = "acme-retail") =>
     api.get(`/lighting/portfolio?tenant=${encodeURIComponent(tenant)}`).then((r) => r.data);
 
@@ -103,3 +112,20 @@ export const notifyLightingContractor = (payload) =>
 
 export const getLightingStats = () =>
     api.get("/lighting/stats").then((r) => r.data);
+
+export const portalLightingProjects = (payload) =>
+    api.post("/lighting/portal/projects", payload).then((r) => r.data);
+
+export const portalLightingApprove = (payload) =>
+    api.post("/lighting/portal/approve", payload).then((r) => r.data);
+
+export const adminLightingProjects = (token, status = "") => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    return api.get(`/lighting/admin/projects${qs}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+};
+
+export const adminLightingLocations = (token) =>
+    api.get("/lighting/admin/locations", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+
+export const adminLightingLifecycle = (token, actionId) =>
+    api.get(`/lighting/admin/lifecycle/${actionId}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
