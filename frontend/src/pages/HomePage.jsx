@@ -102,11 +102,11 @@ const INDUSTRIES = [
         id: "retail",
         Icon: ShoppingCart,
         title: "Supermarket · C-Store · Retail",
-        sub: "Grocery · convenience · forecourt · loyalty",
+        sub: "Grocery · convenience · forecourt · fleet · maintenance · cost recovery",
         outcomes: [
-            "CreatorBoostAI sits on top of SAP, Oracle Retail, Salesforce, Blue Yonder, ServiceChannel, Manhattan TMS",
-            "BodyIQ-AI defines shelf hesitation, checkout friction, and forecourt behavior at the SRS · CPS · EOS signal level",
-            "18-scene cinematic walkthrough · ~12 min · supermarket + C-store + fuel + fleet · share + QR ready",
+            "CreatorBoostAI sits on top of SAP, Oracle Retail, Salesforce, Blue Yonder, ServiceChannel, Accruent, Manhattan TMS, PDI, NCR, Gilbarco, FuelQuest, Titan Cloud — and never replaces them",
+            "Cost recovery + asset intelligence · self-funding upgrade system · warranty enforcement at scale",
+            "17-scene cinematic walkthrough · ~13 min · share + QR ready for executive distribution",
         ],
         href: "/demo/supermarket",
         cta: "Watch Retail Demo",
@@ -294,7 +294,7 @@ export default function HomePage() {
                                     data-testid="hero-cta-retail-demo"
                                     className="relative inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/60 bg-gradient-to-r from-cyan-500/15 via-cyan-500/5 to-transparent px-6 py-3.5 text-sm font-semibold text-cyan-200 shadow-[0_0_18px_rgba(6,182,212,0.25)] transition-all hover:border-cyan-400 hover:bg-cyan-500/20 hover:text-white hover:shadow-[0_0_30px_rgba(6,182,212,0.45)]"
                                 >
-                                    <ShoppingCart size={14} /> Retail Demo
+                                    <ShoppingCart size={14} /> Watch Retail Demo
                                     <span className="ml-1 rounded-sm border border-cyan-400/40 bg-ink-900 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-400">Supermarket · C-Store</span>
                                 </Link>
                                 <Link

@@ -10,11 +10,12 @@ import {
     Mail, Shield, AlertTriangle, CheckCircle2, X, BarChart3, Layers,
     ShoppingCart, Truck, Wrench, Users, Camera, Fuel, Boxes, Building2,
     Package, ScanLine, MapPin, TrendingUp, TrendingDown, DollarSign, Lightbulb,
-    RefreshCcw, Snowflake, Crown, Workflow,
+    RefreshCcw, Snowflake, Crown, Workflow, ShieldCheck, FileCheck2, Coins,
+    PiggyBank, BadgeCheck, Hammer,
 } from "lucide-react";
 
 // =================================================================
-// 15 scenes · ~13 min auto-played · Supermarket / C-Store / Retail
+// 17 scenes · ~14 min auto-played · Supermarket / C-Store / Retail
 // CreatorBoostAI execution layer — sits on top of SAP, Oracle, Salesforce,
 // Blue Yonder, UKG, ServiceChannel, Manhattan TMS, PDI, NCR, Gilbarco
 // Passport, FuelQuest, Titan Cloud, OneStream and store-level POS.
@@ -192,8 +193,42 @@ const SCENES = [
             "found, ranked, and recovered.",
     },
     {
+        id: "self-funding",
+        section: "Scene 14 · The Self-Funding Upgrade System",
+        focus: "self-funding",
+        fallback_ms: 55000,
+        narration:
+            "Most retailers know they need upgrades — better lighting, newer refrigeration, more " +
+            "efficient equipment — but the capital is never approved. CreatorBoostAI changes the " +
+            "equation. The system identifies the operational savings already being recovered every " +
+            "month — energy waste eliminated, repeat service calls avoided, vendor overcharges " +
+            "reclaimed, downtime sales preserved — and routes a portion of those savings into a " +
+            "modeled upgrade fund. The result is a self-funding upgrade pathway. Lighting, " +
+            "refrigeration, and equipment replacements happen using money the operation was already " +
+            "losing — without requiring upfront capital. The figures shown here are estimated " +
+            "values based on operational patterns. The principle is simple: the savings pay for " +
+            "the upgrade, and the upgrade compounds the savings.",
+    },
+    {
+        id: "warranty",
+        section: "Scene 15 · Warranty and Service Control",
+        focus: "warranty",
+        fallback_ms: 55000,
+        narration:
+            "Every upgrade brought in through CreatorBoostAI is backed by a five to seven year " +
+            "third-party warranty covering parts, service, and replacements. CreatorBoostAI does " +
+            "not perform installation and is not a contractor. The system monitors warranty " +
+            "coverage across every store, tracks every service call against active warranties, " +
+            "identifies repeated failures, and ensures that equipment is replaced under warranty " +
+            "when it qualifies. Most organizations unknowingly pay for repairs that should be " +
+            "covered — invoices slip through, service tickets bypass warranty terms, and money " +
+            "leaks out month after month. CreatorBoostAI prevents that leakage. Every covered call " +
+            "is enforced. Every replacement obligation is tracked. This is not just warranty " +
+            "coverage. This is warranty enforcement at scale.",
+    },
+    {
         id: "financial-impact",
-        section: "Scene 14 · Financial Impact Dashboard",
+        section: "Scene 16 · Financial Impact Dashboard",
         focus: "financial-impact",
         fallback_ms: 50000,
         narration:
@@ -205,7 +240,7 @@ const SCENES = [
     },
     {
         id: "closing",
-        section: "Scene 15 · The Execution Layer for Retail",
+        section: "Scene 17 · The Execution Layer for Retail",
         focus: "closing",
         fallback_ms: 56000,
         narration:
@@ -233,6 +268,8 @@ const SCENE_BG_MAP = {
     "fleet-supply":     SCENE_IMG_RETAIL.fleetSupply,
     "maintenance":      SCENE_IMG_RETAIL.maintenance,
     "cost-recovery":    SCENE_IMG_RETAIL.costRecovery,
+    "self-funding":     SCENE_IMG_RETAIL.selfFunding,
+    "warranty":         SCENE_IMG_RETAIL.warranty,
     "financial-impact": SCENE_IMG_RETAIL.financialImpact,
     "closing":          SCENE_IMG_RETAIL.closing,
 };
@@ -501,7 +538,7 @@ const Hero = ({ personalization }) => (
             <span className="text-cyan-400">CreatorBoostAI turns that data into action.</span>
         </h1>
         <p className="mt-5 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base lg:text-lg">
-            A 12-minute walkthrough of the execution layer for modern retail operations. CreatorBoostAI
+            A 13-minute walkthrough of the execution layer for modern retail operations. CreatorBoostAI
             sits on top of SAP, Microsoft Dynamics, Oracle Retail, Salesforce, Blue Yonder, UKG,
             ServiceChannel, Accruent, Manhattan TMS, PDI Enterprise, NCR, Gilbarco Passport, FuelQuest,
             Titan Cloud, OneStream, and your store-level POS — and helps operators see problems,
@@ -520,23 +557,23 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                         {personalization.greeting}
                     </p>
                 )}
-                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 15-scene Supermarket &amp; C-Store walkthrough.</h2>
+                <h2 className="font-heading mt-4 text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">Run the 17-scene Supermarket &amp; C-Store walkthrough.</h2>
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                    A fully automated 15-scene cinematic walkthrough — narrated by Sage (female · American)
+                    A fully automated 17-scene cinematic walkthrough — narrated by Sage (female · American)
                     — designed for grocery, supermarket, and convenience-store enterprises. CreatorBoostAI
                     overlays your existing systems, prioritizes actions by financial impact, and helps
-                    every level of the operation execute. No clicks. Approximately 10 to 13 minutes.
+                    every level of the operation execute. No clicks. Approximately 12 to 14 minutes.
                 </p>
                 <div className="mt-7 flex flex-wrap items-center gap-3">
                     <button onClick={onStart} disabled={prefetching} data-testid="start-supermarket-demo-btn"
                         className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-7 py-4 text-sm font-semibold text-ink-900 shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] disabled:opacity-60">
                         {prefetching ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink-900 border-t-transparent" />Prefetching · {progress}%</> : <><Play size={14} fill="currentColor" />Start Demo</>}
                     </button>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">Auto-plays · ~12 min · Voice: Sage</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">Auto-plays · ~14 min · Voice: Sage</span>
                 </div>
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
                     {[
-                        "15 cinematic scenes",
+                        "17 cinematic scenes",
                         "SAP · Oracle · Salesforce · Blue Yonder",
                         "ServiceChannel · Accruent · UKG",
                         "Manhattan TMS · OneStream · POS",
@@ -544,6 +581,8 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                         "CEO · COO · CFO · Regional · Store views",
                         "Money saving + revenue recovery scenarios",
                         "Cost recovery + asset intelligence",
+                        "Self-funding upgrade system",
+                        "Warranty enforcement at scale",
                         "Assisted + Autonomous execution modes",
                     ].map((b) => (
                         <li key={b} className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">
@@ -570,6 +609,8 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                             "Fleet and Supply Chain",
                             "Maintenance and Facilities",
                             "Cost Recovery + Asset Intelligence",
+                            "The Self-Funding Upgrade System",
+                            "Warranty Enforcement at Scale",
                             "Financial Impact Dashboard",
                             "The Execution Layer for Retail",
                         ].map((b, i) => (
@@ -680,12 +721,14 @@ const STAGE_BADGES = {
     "fleet-supply":     "Fleet + Supply Chain",
     "maintenance":      "Maintenance + Facilities",
     "cost-recovery":    "Cost Recovery + Asset Intelligence",
+    "self-funding":     "Self-Funding Upgrade System",
+    "warranty":         "Warranty Enforcement at Scale",
     "financial-impact": "Financial Impact Dashboard",
     "closing":          "The Execution Layer for Retail",
 };
 
 // =================================================================
-// SCENE STAGES — CreatorBoostAI operational layer (no behavioral signals)
+// SCENE STAGES — CreatorBoostAI operational execution layer
 // =================================================================
 const SceneStage = ({ scene }) => {
     const StageBody = (() => {
@@ -703,6 +746,8 @@ const SceneStage = ({ scene }) => {
             case "fleet-supply":     return <FleetSupplyStage />;
             case "maintenance":      return <MaintenanceStage />;
             case "cost-recovery":    return <CostRecoveryStage />;
+            case "self-funding":     return <SelfFundingStage />;
+            case "warranty":         return <WarrantyStage />;
             case "financial-impact": return <FinancialImpactStage />;
             case "closing":          return <ClosingStage />;
             default:                 return null;
@@ -1375,7 +1420,204 @@ const CostRecoveryStage = () => {
     );
 };
 
-// ---- 14. Financial impact
+// ---- 14. Self-Funding Upgrade System
+const SelfFundingStage = () => {
+    const flows = [
+        { Icon: Activity,     label: "Energy waste eliminated",   value: "$1.8M",  detail: "LED + door retrofit · 124 stores" },
+        { Icon: Wrench,       label: "Repeat service avoided",    value: "$1.2M",  detail: "Replace-vs-repair flips · TTM" },
+        { Icon: DollarSign,   label: "Vendor overcharge reclaimed", value: "$640K", detail: "Audit + escalation · 14 vendors" },
+        { Icon: Sparkles,     label: "Downtime sales preserved",  value: "$980K",  detail: "Refrigeration + HVAC uptime" },
+    ];
+
+    const upgrades = [
+        { name: "LED retrofit · 40 stores",          cost: "$1.6M", payback: "22 mo", funded: 100, status: "Funded by current savings" },
+        { name: "Walk-in cooler · door + gasket kit", cost: "$420K", payback: "11 mo", funded: 100, status: "Funded · Q3 install" },
+        { name: "Refrigeration controller upgrade",   cost: "$880K", payback: "18 mo", funded: 72,  status: "72% funded · 4 mo to full coverage" },
+        { name: "Loading dock motor replacement",     cost: "$310K", payback: "9 mo",  funded: 100, status: "Funded · vendor scheduled" },
+    ];
+
+    const totalSavings = "$4.62M / yr";
+    const fundedPool = "$3.18M";
+    const deployedThisYear = "$2.33M";
+
+    return (
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-self-funding">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <PiggyBank size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                        Self-Funding Upgrade System · savings → upgrade fund
+                    </span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">No upfront capital required</span>
+            </div>
+
+            {/* Savings inflows */}
+            <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                Operational savings recovered every month — routed into the upgrade fund
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {flows.map((f, i) => (
+                    <div key={f.label} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 fade-in-up" style={{ animationDelay: `${i * 70}ms` }}>
+                        <div className="flex items-center gap-2"><f.Icon size={12} className="text-cyan-300" /><span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">{f.label}</span></div>
+                        <p className="font-heading mt-1 text-lg font-semibold text-white">{f.value}</p>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400">{f.detail}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Fund summary */}
+            <div className="mt-5 grid grid-cols-1 gap-3 rounded-sm border border-cyan-500/30 bg-ink-900 p-4 sm:grid-cols-3">
+                <div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Total annualized savings</p>
+                    <p className="font-heading mt-1 text-2xl font-semibold text-cyan-300">{totalSavings}</p>
+                </div>
+                <div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Available upgrade pool</p>
+                    <p className="font-heading mt-1 text-2xl font-semibold text-white">{fundedPool}</p>
+                </div>
+                <div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Deployed this year</p>
+                    <p className="font-heading mt-1 text-2xl font-semibold text-white">{deployedThisYear}</p>
+                </div>
+            </div>
+
+            {/* Upgrade pipeline */}
+            <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                Upgrade pipeline · estimated values · funded by recovered operational savings
+            </p>
+            <div className="mt-3 space-y-2.5">
+                {upgrades.map((u, i) => (
+                    <div key={u.name} className="rounded-sm border border-white/10 bg-ink-900 p-3 fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <Coins size={12} className="text-cyan-400" />
+                                <span className="text-sm font-medium text-white">{u.name}</span>
+                            </div>
+                            <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.18em]">
+                                <span className="text-slate-300">{u.cost}</span>
+                                <span className="text-slate-500">·</span>
+                                <span className="text-cyan-300">Payback {u.payback}</span>
+                            </div>
+                        </div>
+                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink-700">
+                            <div className={`h-full ${u.funded === 100 ? "bg-cyan-400" : "bg-amber-400"}`} style={{ width: `${u.funded}%` }} />
+                        </div>
+                        <div className="mt-1.5 flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.18em]">
+                            <span className={u.funded === 100 ? "text-cyan-300" : "text-amber-300"}>{u.status}</span>
+                            <span className="text-slate-500">{u.funded}% covered by savings pool</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <p className="mt-5 rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-3 text-sm text-cyan-100">
+                The savings pay for the upgrade. The upgrade compounds the savings. No upfront capital
+                required. <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Estimated values · based on operational patterns.</span>
+            </p>
+        </div>
+    );
+};
+
+// ---- 15. Warranty Enforcement at Scale
+const WarrantyStage = () => {
+    const portfolio = [
+        { tier: "Active warranty",  count: "2,184",  pct: 90, tone: "cyan",  Icon: ShieldCheck, detail: "5–7 yr · third-party partner" },
+        { tier: "Expiring 90 days", count: "184",   pct: 8,  tone: "amber", Icon: AlertTriangle, detail: "Auto-renew evaluation queued" },
+        { tier: "Out of warranty",  count: "47",    pct: 2,  tone: "rose",  Icon: X,           detail: "Replacement queue · risk-ranked" },
+    ];
+
+    const enforcementCases = [
+        { id: "WC-4012", store: "Store 1142", asset: "Walk-in cooler · CoolTech",   issue: "3rd service call · within warranty",  action: "REPLACE under warranty · invoice blocked",     savings: "$5,640" },
+        { id: "WC-4087", store: "Store 0411", asset: "Reach-in freezer · Hussmann", issue: "Compressor failure · year 4 of 7",     action: "Warranty claim filed · vendor notified",        savings: "$3,420" },
+        { id: "WC-4118", store: "Store 2073", asset: "LED canopy · BrightOps",      issue: "Driver failure · year 2 of 5",         action: "Replacement under warranty · scheduled",        savings: "$1,180" },
+        { id: "WC-4144", store: "Store 1556", asset: "Refrigeration controller",     issue: "Repeated firmware fault · covered",    action: "Vendor escalation · replacement enforced",      savings: "$2,860" },
+    ];
+
+    const toneRing = { cyan: "border-cyan-500/30 bg-cyan-500/5 text-cyan-300", amber: "border-amber-500/30 bg-amber-500/5 text-amber-300", rose: "border-rose-500/30 bg-rose-500/5 text-rose-300" };
+
+    return (
+        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-warranty">
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                    <ShieldCheck size={13} className="text-cyan-400" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                        Warranty + Service Control · 5–7 yr third-party coverage · enforcement layer
+                    </span>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">CreatorBoostAI does not install or contract</span>
+            </div>
+
+            {/* Portfolio coverage */}
+            <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                Warranty portfolio across 2,415 stores · parts · service · replacements
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {portfolio.map((p, i) => (
+                    <div key={p.tier} className={`rounded-sm border p-3 fade-in-up ${toneRing[p.tone]}`} style={{ animationDelay: `${i * 80}ms` }}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2"><p.Icon size={13} /><span className="font-mono text-[10px] uppercase tracking-[0.22em]">{p.tier}</span></div>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.22em]">{p.pct}%</span>
+                        </div>
+                        <p className="font-heading mt-2 text-2xl font-semibold text-white">{p.count}</p>
+                        <p className="mt-0.5 text-xs text-slate-300">{p.detail}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Enforcement cases */}
+            <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                Live enforcement · service calls cross-checked against active warranties
+            </p>
+            <div className="mt-3 space-y-2">
+                {enforcementCases.map((c, i) => (
+                    <div key={c.id} className="grid grid-cols-1 gap-2 rounded-sm border border-white/10 bg-ink-900 p-3 sm:grid-cols-12 fade-in-up" style={{ animationDelay: `${i * 70}ms` }}>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 sm:col-span-2">
+                            <BadgeCheck size={11} className="inline mr-1 text-cyan-400" />{c.id}
+                        </span>
+                        <span className="text-sm text-white sm:col-span-3">{c.store} · <span className="text-slate-300">{c.asset}</span></span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-300 sm:col-span-3">{c.issue}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 sm:col-span-3">→ {c.action}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 sm:col-span-1 text-right">{c.savings}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Leakage prevention summary */}
+            <div className="mt-5 grid grid-cols-1 gap-3 rounded-sm border border-cyan-500/30 bg-ink-900 p-4 sm:grid-cols-3">
+                <div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Repairs paid that should have been covered</p>
+                    <p className="font-heading mt-1 text-xl font-semibold text-rose-300">$1.84M / yr</p>
+                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">Industry baseline · pre-enforcement</p>
+                </div>
+                <div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Recovered under enforcement</p>
+                    <p className="font-heading mt-1 text-xl font-semibold text-cyan-300">$1.62M / yr</p>
+                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">Invoices blocked · claims enforced</p>
+                </div>
+                <div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Replacements obligated under warranty</p>
+                    <p className="font-heading mt-1 text-xl font-semibold text-white">412 units</p>
+                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">Tracked + escalated · TTM</p>
+                </div>
+            </div>
+
+            <div className="mt-5 rounded-sm border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100">
+                <Hammer size={12} className="inline mr-1 text-amber-300" />
+                CreatorBoostAI does not perform installation and is not a contractor. All upgrades are
+                installed and serviced by qualified third-party partners under their five-to-seven year
+                warranty.
+            </div>
+
+            <p className="mt-5 rounded-sm border border-cyan-500/40 bg-cyan-500/5 p-3 text-base font-semibold text-cyan-100 sm:text-lg">
+                <FileCheck2 size={14} className="inline mr-2 text-cyan-300" />
+                This is not just warranty coverage. This is warranty enforcement at scale.
+            </p>
+        </div>
+    );
+};
+
+// ---- 16. Financial impact
 const FinancialImpactStage = () => {
     const tiles = [
         { Icon: BarChart3, label: "Estimated savings",        value: "$18.4M",  trend: "Q · est." },
@@ -1412,7 +1654,7 @@ const FinancialImpactStage = () => {
     );
 };
 
-// ---- 15. Closing slate
+// ---- 17. Closing slate
 const ClosingStage = () => (
     <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-7 lg:p-12 fade-in-up shadow-[0_0_60px_rgba(6,182,212,0.18)]" data-testid="stage-closing">
         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Closing</p>

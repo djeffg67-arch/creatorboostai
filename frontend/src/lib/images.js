@@ -74,6 +74,8 @@ export const SCENE_IMG_RETAIL = {
     fleetSupply:        u("photo-1591768793355-74d04bb6608f", 1800, 70),   // truck on road
     maintenance:        u("photo-1581092335397-9583eb92d232", 1800, 70),   // industrial / warehouse
     costRecovery:       u("photo-1581094794329-c8112a89af12", 1800, 70),   // electrician / equipment audit
+    selfFunding:        u("photo-1559526324-4b87b5e36e44", 1800, 70),       // financial planning / coins growth
+    warranty:           u("photo-1581094271901-8022df4466f9", 1800, 70),    // engineer with clipboard / contract
     financialImpact:    u("photo-1454165804606-c3d57bc86b40", 1800, 70),   // charts up
     closing:            "/generated/industry-retail.jpg",
 };
