@@ -1,6 +1,60 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-27 (Iter 20 — Supermarket finalized as 17-scene enterprise sales asset; Self-Funding Upgrade + Warranty Enforcement scenes added)
+**Last update:** 2026-02-27 (Iter 21 — Lighting Upgrade Engine module shipped at /lighting-upgrade-engine with full Koollite catalog + functional calculator + Action ID lifecycle tracking)
+
+---
+
+## 🆕 ITER 21 (2026-02-27) — Lighting Upgrade Engine (CreatorBoostAI × Koollite)
+
+User commissioned a brand-new financial intelligence module that separates three layers:
+- **Intelligence** = CreatorBoostAI (this engine)
+- **Product Supply** = Koollite (manufacturer + supplier ONLY — no install)
+- **Execution** = Customer's existing contractors
+
+**Backend** — `/app/backend/lighting_engine.py` (NEW, 450 LOC)
+- 4 Koollite SKUs hardcoded: KL-HB-150 ($285, 7yr), KL-LP-60 ($142, 5yr), KL-RC-22 ($78, 5yr), KL-CN-200 ($325, 7yr)
+- Pure `_compute()` calculator: total_project_cost = fixtures + 22% install estimate; energy savings = (current_W − Koollite_W) × hours/yr × $/kWh; maintenance savings = 85% of input; subscription = 12% blended financing premium spread across term
+- Action ID format: `CBLU-XXXX-XXXX` (alphabet excludes I/O/0/1)
+- Endpoints registered under `/api/lighting/*`:
+  - `GET /skus` — catalog + manufacturer attribution
+  - `POST /proposal` — generate + persist proposal with Action ID
+  - `GET /proposal/{action_id}` — fetch by Action ID
+  - `POST /proposal/{action_id}/approve` — flip status to approved
+  - `GET /portfolio` — single-tenant 184-store rollup across 6 regions (Northeast/Southeast/Midwest/SC/West/PNW)
+  - `POST /warranty-event` — create warranty event tied to Action ID + SKU
+  - `GET /warranty-events` — list events (filter by action_id)
+  - `POST /notify-contractor` — notify customer's contractor (records neutrality_disclaimer; updates linked warranty event to `routed_to_contractor`)
+  - `GET /stats` — aggregate counts
+- MongoDB collections: `lighting_projects`, `lighting_warranty_events`, `lighting_contractor_notifications`
+- `_id` correctly excluded from all reads via projection
+
+**Frontend** — `/app/frontend/src/pages/LightingUpgradeEnginePage.jsx` (NEW)
+- Public landing page at `/lighting-upgrade-engine` (alias `/lighting`)
+- Sections: Hero (4 stat tiles + 3 CTAs) → ThreeLayer architecture (Intelligence/Supply/Execution + amber neutrality strip) → Koollite catalog (4 SKU cards with specs) → Email-gated functional Calculator → ProposalResult (Action ID, headline tiles, deal-structure cards, before/after table, contractor neutrality + warranty messaging) → Multi-location Portfolio rollup (national tiles + regional table + recent Action IDs) → Warranty system (4 coverage tiles + 4-row events table) → Closer
+- Mobile-responsive at 390×844 (verified — zero horizontal overflow)
+- Calculator pre-fills sample defaults; only email entry required to unlock
+
+**Wiring**
+- New route in `App.js`: `/lighting-upgrade-engine` and `/lighting`
+- New homepage hero CTA `data-testid="hero-cta-lighting-engine"` (Lightbulb icon + Koollite badge) routing to /lighting-upgrade-engine
+- `api.js` extended with 8 lighting helpers
+
+**Hard contract enforced everywhere**
+- ZERO labor / install / dispatch language inside CreatorBoostAI
+- "Customer's existing contractors handle every installation and service call" — repeated on hero, three-layer, neutrality strip, proposal result, warranty section
+- "Koollite is manufacturer and supplier only" — repeated
+- Warranty failures fire notifications routed to the customer's contractor (not CreatorBoostAI, not Koollite)
+- Each project has unique Action ID tracked from `identified` → `approved` → `deployed` → financial outcome
+
+**Verification (Iter 21 testing report)** — 100% pass
+- Backend: 12/12 pytest (`/app/backend/tests/test_lighting_engine.py`)
+- Frontend: all required data-testids present, calculator email-gate validation works, proposal generation + approve flow E2E confirmed, regional rollup renders, mobile 390x844 zero overflow, homepage CTA visible
+- No regressions: /demo/supermarket and other existing pages still load
+
+**Code review (non-blocking)**
+- Subscription premium (12%) and install estimate (22%) are hard-coded — fine for demo, may need tunability if customers request
+- `lighting_engine.py` could split to `models.py + compute.py + router.py` if module grows
+- Approve button needs scroll_into_view in Playwright tests (cosmetic test concern only)
 
 ---
 
