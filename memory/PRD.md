@@ -1,6 +1,52 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-27 (Iter 21 — Lighting Upgrade Engine module shipped at /lighting-upgrade-engine with full Koollite catalog + functional calculator + Action ID lifecycle tracking)
+**Last update:** 2026-02-27 (Iter 22 — Lighting Upgrade Engine finalized as dual-layer system: public `/lighting-upgrade-engine` + authenticated `/portal/lighting` command center with full 4-state lifecycle ledger + admin endpoints)
+
+---
+
+## 🆕 ITER 22 (2026-02-27) — Dual-Layer Lighting Upgrade Engine (public showcase + /portal/lighting command center)
+
+User finalized the architecture: CreatorBoostAI = intelligence + financial engine; Koollite = manufacturer + supplier ONLY (no install); customer's existing contractors = execution layer. Built the authenticated command center as a top-level enterprise module.
+
+**Backend extensions to `/app/backend/lighting_engine.py`**
+- All 4 Koollite SKUs now show **7-year warranty** per user spec
+- New 4-state `LIFECYCLE_STATES` enum: `identified → approved → deployed → savings_verified`
+- New collections wired: `lighting_action_ids` (append-only ledger of every state transition with actor + note + timestamp) and `lighting_locations` (auto-upserted per proposal — registers `tenant`, `location_label`, `sqft`, `fixture_count`, `current_action_id`)
+- New `_log_lifecycle()`, `_upsert_location()`, `_transition()` helpers
+- New endpoints:
+  - `POST /api/lighting/proposal/{action_id}/deploy` — transitions to deployed (actor=contractor)
+  - `POST /api/lighting/proposal/{action_id}/verify-savings?verified_annual_savings=N` — transitions to savings_verified, persists measured value
+  - `GET /api/lighting/proposal/{action_id}/lifecycle` — returns ordered ledger
+  - `POST /api/lighting/portal/projects` — authenticated (email + portal_token) returns user's project portfolio + financial decision panel rollup + locations registry + by-status counts
+  - `POST /api/lighting/portal/approve` — authenticated Approve Upgrade action (verifies project ownership)
+  - `GET /api/lighting/admin/projects` — admin Bearer-gated, supports `?status=` filter, returns summary aggregates
+  - `GET /api/lighting/admin/locations` — admin Bearer-gated location registry
+  - `GET /api/lighting/admin/lifecycle/{action_id}` — admin Bearer-gated full ledger
+- `make_router(db, verify_admin=verify_admin)` signature update — admin endpoints registered when `verify_admin` is supplied
+- Tenant detection: `company || email_domain.lower()` so portal rolls up cleanly
+
+**Frontend** — `/app/frontend/src/pages/PortalLightingPage.jsx` (NEW, ~450 LOC)
+- Authenticated route at `/portal/lighting`
+- LoginScreen with email + portal_token (data-testids `lighting-portal-login`, `portal-lighting-login-email`, `portal-lighting-login-token`, `portal-lighting-login-submit`)
+- CommandCenter shell: Header (tenant + email), Decision Panel (5 tiles: Action IDs / Total project cost / Annual savings / Annual payment / Net cash flow), Lifecycle distribution summary, neutrality strip (3 chips: Intelligence / Supply / Execution), Filterable project list (`filter-all`/`filter-identified`/`filter-approved`/`filter-deployed`/`filter-savings_verified`), Project rows with Approve Upgrade button + Lifecycle ledger toggle, Locations registry table
+- localStorage persistence (`bodyiq_portal_user`) — auto-rehydrates on refresh
+- Sign-out + "Run a new proposal" CTA back to public engine
+
+**Public showcase** — added `cta-portal-command-center` button in `/lighting-upgrade-engine` hero so authenticated buyers can jump to the command center
+
+**Verification (Iter 22 testing report)** — **100% pass**
+- Backend: 17/17 pytest (`/app/backend/tests/test_lighting_iter22.py`)
+- Frontend: full E2E login → command center → approve → lifecycle → signOut flow verified with real founder credentials
+- Mobile 390×844 zero horizontal overflow
+- All 4 SKUs show "7-yr warranty" on public catalog
+
+**Test credentials documented** in `/app/memory/test_credentials.md` — Founder bypass mints rotating email + portal_token usable on `/portal/lighting`
+
+**Code review (non-blocking)**
+- `lighting_engine.py` now 645 LOC — approaching 700-line threshold for module split
+- `verify-savings` endpoint doesn't enforce strict state ordering (could allow identified→savings_verified jump)
+- Portal token has no expiry/rotation beyond founder refresh — acceptable for current usage
+- Actor strings ad-hoc — could become an Enum
 
 ---
 
