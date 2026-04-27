@@ -358,9 +358,12 @@ export default function CreatorDemoPage() {
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleStart = async () => {
-        const cache = await prefetchAll();
+        // Open scene 0 immediately so the personalized greeting + first
+        // visual are visible at click-time. Audio prefetch streams in the
+        // background; speakScene fires once cache is ready.
         setStarted(true);
         setScene(0); setDone(false); setPaused(false);
+        const cache = await prefetchAll();
         setTimeout(() => speakScene(0, cache), 200);
     };
     const handlePauseResume = () => {

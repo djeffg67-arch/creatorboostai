@@ -7,6 +7,40 @@
 
 ---
 
+## 🆕 ITER 13 (2026-04-27) — Email Click-Tracking + Full 5-Demo Personalization
+
+**Personalization (all 5 demos)**
+- Realtor + Insurance demo pages now display dynamic greetings from `?name=&company=` URL params:
+  - Hero: badge-style "Welcome, {name} from {company}" (data-testid `realtor-personalized-greeting`, `insurance-personalized-greeting`)
+  - StartScreen: heading swaps to "This walkthrough was prepared for {name}." (data-testid `realtor-start-personalized`, `insurance-start-personalized`)
+  - AvatarPanel scene 0: bordered cyan card "Hello {name} from {company} — this walkthrough was prepared just for you." (data-testid `avatar-personal-greeting`)
+- Creator / Noldus / SITA already shipped in earlier iter — confirmed still working.
+- `handleStart` reordered (Realtor / Insurance / Creator) so `setStarted(true)` runs BEFORE awaiting `prefetchAll()` → scene 0 + greeting visible at click-time, audio prefetch streams in background.
+
+**Email click tracking**
+- New endpoint: `GET /api/r/{share_id}` → 302 redirects recipient to `demo_url`, atomically `$inc click_count`, sets `first_clicked_at` (only if absent) + `last_clicked_at`. Full audit log in new `demo_share_clicks` collection.
+- `POST /api/share-demo` now accepts new `recipient_name` field; auto-appends `?name=&company=&email=` to demo_url via `_append_personalization` helper (preserves existing query string, no double-personalization).
+- Email body now uses `tracked_url` (not raw demo_url) so every link click is captured.
+- `demo_type` regex extended to accept `sita` in addition to realtor/insurance/creator/noldus/enterprise.
+
+**Admin dashboard**
+- New "Demo Email Shares · Click-through" section at `/admin` (data-testid `admin-demo-shares`)
+- 4 stat cards: Sent / Queued / Clicked / Click Rate
+- Table with: Sent timestamp · Demo · Recipient · Company · Email Status · Clicks · First Click
+
+**Half-view notification trigger** — verified atomically idempotent (fires exactly once on first ≥50% heartbeat; subsequent heartbeats return `half_view_triggered: false`).
+
+**Testing (iter 13)** — Backend 10/10 pytest pass, Frontend ~95% (avatar greeting wiring verified, runtime visibility now fixed by handleStart reorder). Test file: `/app/backend/tests/test_iter13_share_tracking.py`.
+
+**Still pending — P0 Activation:**
+- Stripe live `STRIPE_API_KEY` (full `sk_live_...` string — last paste was truncated to `...AkyE`)
+- `STRIPE_WEBHOOK_SECRET` (`whsec_...`)
+- Resend `RESEND_API_KEY` (`re_...`) + verified `SENDER_EMAIL` domain
+- Optional: `FOUNDER_EMAIL` for half-view alerts (currently logs only)
+
+---
+
+
 ## 🆕 ITER 16 (2026-04-27) — Noldus / Investor Demo + Schema Generalization
 
 User requested a specialized cinematic demo for Noldus, enterprise partners, and investor conversations following an exact 11-beat script. Built as a dedicated 12-scene auto-played walkthrough with Share + QR.

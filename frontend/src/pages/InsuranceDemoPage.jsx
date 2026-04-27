@@ -399,13 +399,16 @@ export default function InsuranceDemoPage() {
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleStart = async () => {
-        const cache = await prefetchAll();
         // Optional QA deep-link: ?scene=N (1-indexed) jumps to that scene on start
         const params = new URLSearchParams(window.location.search);
         const sceneParam = parseInt(params.get("scene") || "1", 10);
         const startIdx = Math.max(0, Math.min(SCENES.length - 1, sceneParam - 1));
+        // Open scene 0 immediately so the personalized avatar greeting + first
+        // visual are visible at click-time. Audio prefetch streams in the
+        // background; speakScene fires once cache is ready.
         setStarted(true);
         setScene(startIdx); setDone(false); setPaused(false);
+        const cache = await prefetchAll();
         setTimeout(() => speakScene(startIdx, cache), 200);
     };
     const handlePauseResume = () => {
