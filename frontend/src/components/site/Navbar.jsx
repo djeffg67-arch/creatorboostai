@@ -101,6 +101,14 @@ export const Navbar = () => {
                     >
                         Watch Demo
                     </Link>
+                    <Link
+                        to="/team-access"
+                        data-testid="nav-team-access"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-cyan-500/40 bg-ink-900 px-3.5 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300 transition-all hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-200"
+                    >
+                        <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 pulse-dot" />
+                        Team Access
+                    </Link>
                 </div>
 
                 <button
@@ -149,6 +157,15 @@ export const Navbar = () => {
                             className="mt-3 inline-flex items-center justify-center rounded-md bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-ink-900"
                         >
                             Watch Demo
+                        </Link>
+                        <Link
+                            to="/team-access"
+                            onClick={() => setOpen(false)}
+                            data-testid="nav-team-access-mobile"
+                            className="mt-2 inline-flex items-center justify-center gap-1.5 rounded-md border border-cyan-500/40 bg-ink-900 px-4 py-2.5 font-mono text-xs uppercase tracking-[0.22em] text-cyan-300"
+                        >
+                            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 pulse-dot" />
+                            Team Access
                         </Link>
                         <LanguageSelector variant="mobile" />
                     </nav>

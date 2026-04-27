@@ -41,6 +41,7 @@ export const Footer = () => {
                     <ul className="mt-4 space-y-2.5 text-sm">
                         <li><Link className="text-slate-300 hover:text-cyan-400" to="/contact">{t("footer.links.contact")}</Link></li>
                         <li><Link className="text-slate-300 hover:text-cyan-400" to="/admin">{t("footer.links.admin")}</Link></li>
+                        <li><Link className="text-slate-300 hover:text-cyan-400" to="/team-access" data-testid="footer-internal-access">Internal Access</Link></li>
                     </ul>
                 </div>
             </div>

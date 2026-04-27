@@ -66,6 +66,27 @@ class EmployeeAcceptInvite(BaseModel):
     invite_token: str
 
 
+class OtpRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: str = Field(description="founder | executive | employee")
+    email: EmailStr
+    device_id: Optional[str] = None
+
+
+class OtpVerify(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: str
+    email: EmailStr
+    code: str
+    device_id: Optional[str] = None
+    device_label: Optional[str] = None
+    remember_device: bool = True
+
+
+class LogoutRequest(OpsAuth):
+    everywhere: bool = True  # rotate token (kills all sessions on all devices)
+
+
 class LeadCreate(OpsAuth):
     # Caller auth fields (email, token) are inherited from OpsAuth.
     # These are the new LEAD's contact fields — renamed to avoid
@@ -269,6 +290,120 @@ def make_router(db, email_service=None) -> APIRouter:
     async def me(payload: OpsAuth):
         user = await _require_auth(payload)
         return _strip(user)
+
+    # ------------------------------------------------------------------
+    # OTP (email-based; Twilio SMS auto-used if TWILIO_* env vars present)
+    # Trusted-device list lets known devices skip OTP next time.
+    # ------------------------------------------------------------------
+    OTP_TTL_SEC = 600
+
+    async def _check_trusted_device(email: str, device_id: Optional[str]) -> bool:
+        if not device_id:
+            return False
+        user = await db.users.find_one(
+            {"email": email, "trusted_devices.device_id": device_id}, {"_id": 0}
+        )
+        return user is not None
+
+    @router.post("/otp/request")
+    async def otp_request(payload: OtpRequest):
+        if payload.role not in (ROLE_FOUNDER, ROLE_EXECUTIVE, ROLE_EMPLOYEE):
+            raise HTTPException(status_code=400, detail="role must be founder | executive | employee")
+        # Look up user — must already exist (created by founder/exec key or invite)
+        user = await db.users.find_one({"email": payload.email}, {"_id": 0})
+        if not user or user.get("role") != payload.role:
+            # Don't leak which exists; pretend we sent
+            return {"sent": True, "trusted_device": False, "delivery": "stub"}
+        # Trusted device shortcut
+        trusted = await _check_trusted_device(payload.email, payload.device_id)
+        if trusted:
+            return {"sent": False, "trusted_device": True, "token": user["portal_token"], "role": user["role"], "redirect": "/portal/ops"}
+        code = "".join(secrets.choice("0123456789") for _ in range(6))
+        now = datetime.now(timezone.utc)
+        expires = now.timestamp() + OTP_TTL_SEC
+        await db.ops_otps.update_one(
+            {"email": payload.email, "role": payload.role},
+            {"$set": {"code": code, "expires_at": expires, "device_id": payload.device_id,
+                      "created_at": now.isoformat(), "consumed": False}},
+            upsert=True,
+        )
+        delivery = {"email": "queued", "sms": "skipped"}
+        if email_service is not None:
+            try:
+                email_service.send(
+                    to=payload.email,
+                    subject=f"Your CreatorBoostAI verification code: {code}",
+                    html=f"<p>Your CreatorBoostAI verification code is <strong style='font-size:24px;letter-spacing:4px'>{code}</strong>.</p><p>It expires in 10 minutes.</p>",
+                )
+                delivery["email"] = "sent"
+            except Exception as exc:
+                delivery["email"] = f"failed:{str(exc)[:80]}"
+        # SMS via Twilio — only if env vars set and user has phone on record
+        twilio_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+        twilio_token = os.environ.get("TWILIO_AUTH_TOKEN")
+        twilio_from = os.environ.get("TWILIO_FROM_NUMBER")
+        phone = user.get("phone")
+        if twilio_sid and twilio_token and twilio_from and phone:
+            try:
+                from twilio.rest import Client  # lazy import
+                client = Client(twilio_sid, twilio_token)
+                client.messages.create(to=phone, from_=twilio_from,
+                                       body=f"CreatorBoostAI code: {code} (expires in 10 min)")
+                delivery["sms"] = "sent"
+            except Exception as exc:
+                delivery["sms"] = f"failed:{str(exc)[:80]}"
+        # Dev-mode return so the founder can still log in without a live key
+        dev_response = {"sent": True, "trusted_device": False, "delivery": delivery}
+        if os.environ.get("OTP_DEV_RETURN_CODE", "true").lower() == "true":
+            dev_response["dev_code"] = code  # remove in prod by setting env to "false"
+        return dev_response
+
+    @router.post("/otp/verify")
+    async def otp_verify(payload: OtpVerify):
+        rec = await db.ops_otps.find_one(
+            {"email": payload.email, "role": payload.role}, {"_id": 0}
+        )
+        if not rec or rec.get("consumed"):
+            raise HTTPException(status_code=400, detail="No active code — request a new one")
+        if rec.get("expires_at", 0) < datetime.now(timezone.utc).timestamp():
+            raise HTTPException(status_code=400, detail="Code expired — request a new one")
+        if not secrets.compare_digest(str(rec.get("code", "")), str(payload.code)):
+            raise HTTPException(status_code=401, detail="Invalid code")
+        await db.ops_otps.update_one(
+            {"email": payload.email, "role": payload.role},
+            {"$set": {"consumed": True, "consumed_at": _now_iso()}},
+        )
+        user = await db.users.find_one({"email": payload.email}, {"_id": 0})
+        if not user or user.get("role") != payload.role:
+            raise HTTPException(status_code=404, detail="User not found")
+        # Trust this device
+        if payload.remember_device and payload.device_id:
+            await db.users.update_one(
+                {"email": payload.email},
+                {"$pull": {"trusted_devices": {"device_id": payload.device_id}}},
+            )
+            await db.users.update_one(
+                {"email": payload.email},
+                {"$push": {"trusted_devices": {
+                    "device_id": payload.device_id,
+                    "label": payload.device_label or "this device",
+                    "trusted_at": _now_iso(),
+                }}},
+            )
+        return {"email": user["email"], "name": user.get("name"), "role": user["role"],
+                "token": user["portal_token"], "redirect": "/portal/ops"}
+
+    @router.post("/logout")
+    async def logout(payload: LogoutRequest):
+        user = await _load_user(payload.email, payload.token)
+        if payload.everywhere:
+            # Rotate token → kills all sessions on all devices
+            new_token = secrets.token_urlsafe(32)
+            await db.users.update_one(
+                {"email": user["email"]},
+                {"$set": {"portal_token": new_token, "trusted_devices": []}},
+            )
+        return {"ok": True, "everywhere": payload.everywhere}
 
     # ------------------------------------------------------------------
     # Employee management (founder invites; executive + founder can list)

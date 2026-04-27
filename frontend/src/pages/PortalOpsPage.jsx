@@ -12,6 +12,7 @@ import {
     opsListLeads, opsCreateLead, opsUpdateLeadStatus, opsAddLeadNote, opsAddLeadTask,
     opsReassignLead, opsSendOutreach, opsListOutreach, opsCreateDemoLink,
     opsListDemoLinks, opsPerformance, opsAIChat, opsListEmployees, opsInviteEmployee,
+    opsLogout,
 } from "@/lib/api";
 
 const STORAGE_KEY = "cb_ops_session";
@@ -669,9 +670,13 @@ export default function PortalOpsPage() {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(a)); } catch { /* noop */ }
         setAuth(a);
     };
-    const onSignOut = () => {
+    const onSignOut = async () => {
+        // Rotate server-side token first so the session dies on every device
+        try { if (auth) await opsLogout({ ...auth, everywhere: true }); } catch { /* ignore */ }
         try { localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
+        try { localStorage.removeItem("cb_ops_device_id"); } catch { /* noop */ }
         setAuth(null); setMe(null);
+        toast.success("Signed out · sessions cleared on all devices");
     };
 
     const Tab = useMemo(() => {
