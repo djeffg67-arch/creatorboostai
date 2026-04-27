@@ -1,9 +1,53 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-27 (Iter 14 — every demo scene now uses brand-illustrated AI imagery)
-**Project status:** 🟢 Code-complete + repositioned + Creator demo + fully brand-illustrated end-to-end. Awaiting 7 environment variables.
+**Last update:** 2026-04-27 (Iter 15 — Decision Intelligence System repositioning + Signal Pack commerce)
+**Project status:** 🟢 Code-complete. Awaiting Stripe + Resend Live Keys.
 **Site URL:** https://bodyiq-training.preview.emergentagent.com
-**Supervisor:** backend + frontend RUNNING.
+**Supervisor:** backend + frontend RUNNING. Iter 9 testing 18/18 pass.
+
+---
+
+## 🆕 ITER 15 (2026-04-27) — Decision Intelligence Repositioning + 3 New Commerce Flows
+
+User requested full repositioning: BodyIQ-AI = Intelligence Layer, CreatorBoostAI = Execution Layer of one unified Decision Intelligence System. Eliminate "Body Language" framing. Add Signal Pack product, Audit service, Report engagement, Jury legal vertical.
+
+**HomePage rewrite (surgical, single file)**
+- Hero kicker → "Decision Intelligence System · Live"
+- Hero headline → "The AI System That Turns Human Signals Into Decisions, Insight, and Execution."
+- Sub → "detect buying decisions, resistance, confusion, alignment, and decision shifts before they are spoken — and convert those signals into real actions, automation, and revenue outcomes"
+- "Not Body Language" section retitled "This Is Not Body Language. This Is Signal Intelligence." with new pillars (Decision Detection, Resistance & Alignment, Decision Shift Mapping, Revenue Outcomes) and the line "We don't interpret people. We measure the signals that drive decisions."
+- NEW `signal-execution-section` — two layered cards: Intelligence Layer (BodyIQ-AI) and Execution Layer (CreatorBoostAI) with capability bullet lists.
+- NEW `audiences-section` — 6 audience cards (Enterprise Sales, Law Firms, Real Estate, Insurance, Corporate Leaders, Influencers/Negotiators).
+- NEW `signal-products-section` — 3 product cards (Signal Pack / Audit / Report) + Jury Signal Intelligence band linking to `/services/jury`.
+- NEW `differentiation-section` — "This is not (body language, emotion detection, call analysis, subjective opinion) / This is (objective signal measurement, structured insight, decision intelligence, execution-driven AI)" + closer "We don't need audio. The decision is already visible."
+
+**5 new pages**
+- `/products/signal-pack` (`SignalPackPage.jsx`) — BodyIQ-AI Signal Pack Vol. 1: Closing Intelligence. 3 Stripe Checkout tiers ($299 / $499 / $1,500+). Calls existing `createCheckoutSession` with new `product_key`. Includes "Want to see this inside your own meetings?" upsell to `/services/audit`.
+- `/services/audit` (`AuditPage.jsx`) — Video Signal Intelligence Audit. 3 tier cards ($1,500 / $3,500 / $7,500+) + lead-capture form (source=`audit_request`). "Video only — we do not analyze phone calls" disclaimer.
+- `/services/report` (`ReportPage.jsx`) — Full Signal Intelligence Report ($10K – $35K+). Lead-capture form (source=`report_request`). 4 use-case tiles (sales, trial, negotiation, exec hiring).
+- `/services/jury` (`JuryPage.jsx`) — Jury Signal Intelligence. NDA-first, privileged-engagement form (source=`jury_request`). 4 phase analysis sections (opening, testimony, cross, closing).
+- `/download/signal-pack` (`DownloadSignalPackPage.jsx`) — post-purchase landing. Polls `/api/checkout/status/{sessionId}`. Granted state shows download CTA + portal link; NotGranted state shows audit upsell. Default = NotGranted (testing agent fix).
+
+**Backend additions (`server.py`)**
+- 3 new entries in `PRODUCTS` dict: `signal_pack_standard` ($299), `signal_pack_pro` ($499), `signal_pack_enterprise` ($1500). Type `"signal_pack"`.
+- `create_checkout_session` routes `signal_pack` type to `/download/signal-pack?session_id=…` on success (instead of generic `/thank-you`).
+- `VALID_SOURCES` whitelist extended with `audit_request`, `report_request`, `jury_request` (testing agent fix).
+
+**Navbar**
+- Replaced Training + Apply links with new Signal Pack + Audit primary CTAs (testids: `nav-signal-pack`, `nav-audit`).
+
+**Verification (Iter 9 testing)**
+- 100% pass: 15/15 backend pytest tests in `/app/backend/tests/test_iter9_signal_intelligence.py` + all 18 frontend review items.
+- 2 bugs auto-fixed by testing agent (VALID_SOURCES whitelist + DownloadSignalPackPage initial state).
+- Regression: Realtor/Insurance/Creator demos all still auto-advance Scene 1→2 in ~22–25s.
+
+**Funnel implemented**
+HomePage → Signal Pack ($299/$499/$1500) → /download/signal-pack → Audit ($1.5K–$7.5K) → Report ($10K–$35K+) → Enterprise Engagement
+
+**Code review notes (non-blocking)**
+- HomePage.jsx now ~700 LOC; could split into `/components/home/*` later.
+- AuditPage / ReportPage / JuryPage share a near-identical lead-capture form (~150 LOC dup) — extract `<LeadCaptureForm/>` later.
+- VALID_SOURCES whitelist is manually maintained — derive from a shared enum in future.
 
 ---
 
