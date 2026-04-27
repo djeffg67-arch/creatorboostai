@@ -7,6 +7,43 @@
 
 ---
 
+## 🆕 ITER 14 (2026-04-27) — Stripe Phase 1–3 (Catalog + Checkout + Webhooks + Success/Cancel pages)
+
+User requested a Stripe-based payment + onboarding system in TEST mode (Phase 1–3). Built on top of existing emergentintegrations.payments.stripe.checkout wrapper.
+
+**Catalog updates (server.py)**
+- `PRODUCTS` now has all 4 training tiers as direct one-time checkouts: `foundations` $400, `applied` $1,500, **`strategy` $7,000 (NEW)**, **`full_training` $27,000 (NEW)** — no longer gated behind application flow.
+- `SUBSCRIPTIONS` repriced to user spec: `cb_starter_monthly` $97, `cb_starter_annual` $970, **`cb_growth_monthly` $297 (NEW tier)**, **`cb_growth_annual` $2970 (NEW)**, `cb_pro_monthly` $997, `cb_pro_annual` $9970. Enterprise still routes to /contact.
+
+**Checkout flow**
+- One-time `success_url` → `/success?session_id={CHECKOUT_SESSION_ID}&product={key}`
+- One-time `cancel_url` → `/cancel?product={key}`
+- Subscription `success_url` → `/success?session_id={CHECKOUT_SESSION_ID}&product={plan_key}&type=subscription`
+- Subscription `cancel_url` → `/cancel?product={plan_key}`
+- Apple Pay / Google Pay auto-enabled by Stripe Checkout (no code needed).
+
+**New pages**
+- `/success` (SuccessPage.jsx) — polls `getCheckoutStatus`, swaps copy by product type: training (calendar invite + pre-work), subscription (welcome + portal CTA), library (access instructions). Failed/timeout states route to /pricing or /training.
+- `/cancel` (CancelPage.jsx) — clean "no charge" message + smart CTA: subscription cancellations route back to /pricing, training cancellations route to /training.
+- `/thank-you` legacy route preserved for backward compatibility.
+
+**Pricing page**
+- Now displays 4 tier cards (Starter/Growth/Pro/Enterprise) in responsive 4-col grid. Growth is `featured: true` with "MOST SELECTED" badge.
+
+**Webhook handler** — verified unchanged (handles `checkout.session.completed`, `invoice.paid`, `customer.subscription.created/updated/deleted`, idempotent via `processed_webhook_events` collection).
+
+**Phase 4 access grant** — `_grant_access_for_txn` already auto-creates user with `portal_token` + entitlements on paid checkout. `_trigger_post_purchase_email` sends Resend confirmation (currently in graceful-degrade mode until RESEND_API_KEY lands).
+
+**Testing (iter 14)** — Backend 14/14 pytest pass · Frontend 100% pass · Zero issues · Zero action items.
+
+**Phase 4 next steps (when keys arrive):**
+- Mint recurring Price IDs in Stripe Dashboard for the 6 subscription plans → paste into `STRIPE_PRICE_CB_*` env vars.
+- Add `STRIPE_WEBHOOK_SECRET` so live webhook signature verification activates.
+- Add `RESEND_API_KEY` so onboarding emails actually deliver.
+
+---
+
+
 ## 🆕 ITER 13 (2026-04-27) — Email Click-Tracking + Full 5-Demo Personalization
 
 **Personalization (all 5 demos)**
