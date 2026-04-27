@@ -7,7 +7,8 @@ import { INDUSTRY_IMG, DEMO_IMG, SECTION_BG } from "@/lib/images";
 import {
     ArrowRight, Play, Building2, ShieldCheck, Mic, ShoppingBag, Plane,
     HardHat, Briefcase, Layers, Brain, TrendingUp, DollarSign, Target,
-    Network, Activity, Sparkles, CheckCircle2, Workflow, Users,
+    Network, Activity, Sparkles, CheckCircle2, Workflow, Users, Scale,
+    UserCog, Package, Video, FileText,
 } from "lucide-react";
 
 // Real-world business imagery (Unsplash CDN, optimized)
@@ -118,6 +119,50 @@ const INTEGRATIONS = [
     "kvCORE", "Slack", "Twilio", "Zapier", "Stripe", "Shopify",
 ];
 
+const AUDIENCES = [
+    { id: "enterprise-sales", Icon: Briefcase, label: "Enterprise Sales Teams" },
+    { id: "law-firms",        Icon: Scale,     label: "Law Firms & Trial Strategy" },
+    { id: "real-estate",      Icon: Building2, label: "Real Estate Professionals" },
+    { id: "insurance",        Icon: ShieldCheck, label: "Insurance Agencies" },
+    { id: "corporate",        Icon: UserCog,   label: "Corporate Leaders & Hiring" },
+    { id: "creators",         Icon: Mic,       label: "Influencers & Negotiators" },
+];
+
+const SIGNAL_PRODUCTS = [
+    {
+        id: "signal-pack",
+        Icon: Package,
+        kicker: "Vol. 1 · Closing Intelligence",
+        title: "BodyIQ-AI Signal Pack",
+        body: "15–25 labeled signal video clips with structured definitions, decision moments, execution actions, and a What You Missed breakdown. Instant download.",
+        priceLabel: "$299 · $499 · $1,500+ License",
+        ctaLabel: "Buy Signal Pack",
+        href: "/products/signal-pack",
+        badge: "Now",
+        highlight: true,
+    },
+    {
+        id: "audit",
+        Icon: Video,
+        kicker: "Service",
+        title: "Video Signal Intelligence Audit",
+        body: "We analyze recorded video — meetings, negotiations, presentations, interviews, jury footage — and return a signal timeline, key clips, missed opportunities, and execution recommendations. (Video only — we do not analyze phone calls.)",
+        priceLabel: "$1,500 · $3,500 · $7,500+",
+        ctaLabel: "Request an Audit",
+        href: "/services/audit",
+    },
+    {
+        id: "report",
+        Icon: FileText,
+        kicker: "Engagement",
+        title: "Full Signal Intelligence Report",
+        body: "End-to-end video breakdown, decision mapping, resistance & alignment identification, plus insight + execution strategy for high-stakes sales or legal engagements.",
+        priceLabel: "$10,000 – $35,000+",
+        ctaLabel: "Request a Report",
+        href: "/services/report",
+    },
+];
+
 const DEMO_SELECTOR = [
     {
         id: "realtor",
@@ -183,7 +228,7 @@ export default function HomePage() {
                         <div className="lg:col-span-7">
                             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5 fade-in-up">
                                 <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Enterprise AI Operating System · Live</span>
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Decision Intelligence System · Live</span>
                             </div>
 
                             <h1
@@ -191,8 +236,8 @@ export default function HomePage() {
                                 style={{ animationDelay: "80ms" }}
                                 data-testid="hero-headline"
                             >
-                                Run Your Entire Business With AI That{" "}
-                                <span className="text-cyan-400">Thinks, Decides, and Executes.</span>
+                                The AI System That Turns Human Signals Into{" "}
+                                <span className="text-cyan-400">Decisions, Insight, and Execution.</span>
                             </h1>
 
                             <p
@@ -200,9 +245,9 @@ export default function HomePage() {
                                 style={{ animationDelay: "160ms" }}
                                 data-testid="hero-sub"
                             >
-                                CreatorBoostAI™ combined with BodyIQ-AI™ increases revenue, reduces costs, and scales operations
-                                across every revenue-driven industry — through real-time automation, business intelligence, and
-                                execution on top of the systems you already use.
+                                CreatorBoostAI™ + BodyIQ-AI™ detect buying decisions, resistance, confusion, alignment,
+                                and decision shifts <em>before they are spoken</em> — and convert those signals into real
+                                actions, automation, and revenue outcomes.
                             </p>
 
                             <CountrySelector />
@@ -277,7 +322,7 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* NOT BODY LANGUAGE */}
+            {/* SIGNAL INTELLIGENCE — replaces the old "Not Body Language" framing */}
             <section
                 className="relative border-b border-white/5 py-20"
                 data-testid="not-body-language-section"
@@ -290,20 +335,237 @@ export default function HomePage() {
                     <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">02 / Positioning</p>
                     <h2 className="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl">
                         This Is Not Body Language.{" "}
-                        <span className="text-cyan-400">This Is Business Intelligence.</span>
+                        <span className="text-cyan-400">This Is Signal Intelligence.</span>
                     </h2>
                     <p className="mt-5 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg">
-                        BodyIQ-AI is the intelligence layer that powers decision-making inside the operating system. It
-                        enhances communication, detects buyer intent, increases closing rates, and drives revenue
-                        performance — not health, not wellness, not soft skills.
+                        For decades, professionals have relied on gut feeling and subjective interpretation. BodyIQ-AI
+                        replaces that with measurable signal intelligence — converting human behavior into structured,
+                        actionable insight.
+                    </p>
+                    <p className="mt-4 max-w-3xl text-lg leading-relaxed text-cyan-200 sm:text-xl">
+                        We don't interpret people. <span className="text-white">We measure the signals that drive decisions.</span>
                     </p>
 
                     <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                        <Pillar Icon={Brain} title="Intent Detection" body="Reads engagement, hesitation, and commitment signals across every channel." />
-                        <Pillar Icon={Target} title="Closing Performance" body="Surfaces the right move, in the right window, with the right risk profile." />
-                        <Pillar Icon={Activity} title="Communication Lift" body="Coaches reps, leaders, and ops teams with real-time strategic recommendations." />
+                        <Pillar Icon={Brain} title="Decision Detection" body="Reads the moment a buyer decides — friction, readiness, hidden close, hesitation, conviction." />
+                        <Pillar Icon={Target} title="Resistance & Alignment" body="Surfaces resistance the moment it forms and alignment the moment it stabilizes." />
+                        <Pillar Icon={Activity} title="Decision Shift Mapping" body="Tracks every signal that flips a decision — at speakable speed and below it." />
                         <Pillar Icon={DollarSign} title="Revenue Outcomes" body="Tied to dollars: attribution, conversion, lifetime value, retention." />
                     </div>
+                </div>
+            </section>
+
+            {/* FROM SIGNAL TO EXECUTION — Intelligence + Execution layered system */}
+            <section className="relative border-b border-white/5 py-20" data-testid="signal-execution-section">
+                <div className="mx-auto max-w-7xl px-5 lg:px-8">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">03 / Architecture</p>
+                    <h2 className="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl">
+                        From Signal to <span className="text-cyan-400">Execution.</span>
+                    </h2>
+                    <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg">
+                        BodyIQ-AI detects the signal. CreatorBoostAI executes the response. Together they form a complete
+                        Decision Intelligence System.
+                    </p>
+
+                    <div className="mt-12 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                        {/* Intelligence Layer */}
+                        <div className="rounded-md border border-white/10 bg-ink-700/40 p-7" data-testid="layer-intelligence">
+                            <div className="flex items-center gap-2">
+                                <Brain size={14} className="text-cyan-400" />
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Intelligence Layer</span>
+                            </div>
+                            <h3 className="font-heading mt-3 text-2xl font-semibold text-white">BodyIQ-AI</h3>
+                            <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                                Identifies what is happening. Measures the signals that drive decisions —
+                                frame by frame, structured, objective.
+                            </p>
+                            <ul className="mt-5 space-y-2.5">
+                                {[
+                                    "Buying-decision detection",
+                                    "Resistance, confusion, and alignment scoring",
+                                    "Decision-shift mapping over time",
+                                    "Structured signal definitions, not subjective opinion",
+                                ].map((s) => (
+                                    <li key={s} className="flex items-start gap-2 text-sm text-slate-300">
+                                        <CheckCircle2 size={13} className="mt-1 flex-shrink-0 text-cyan-400" />
+                                        <span>{s}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        {/* Execution Layer */}
+                        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-transparent p-7" data-testid="layer-execution">
+                            <div className="flex items-center gap-2">
+                                <Workflow size={14} className="text-cyan-400" />
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Execution Layer</span>
+                            </div>
+                            <h3 className="font-heading mt-3 text-2xl font-semibold text-white">CreatorBoostAI</h3>
+                            <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                                Executes what happens next. A full AI-powered business operating system that turns
+                                detected signals into real actions across sales, marketing, ops, and growth.
+                            </p>
+                            <ul className="mt-5 space-y-2.5">
+                                {[
+                                    "Automated lead generation",
+                                    "Intelligent follow-up systems",
+                                    "Proposal & deal execution workflows",
+                                    "CRM and pipeline management",
+                                    "AI assistants that guide decisions in real time",
+                                    "Automated revenue actions on signal detection",
+                                    "Centralized business command dashboard",
+                                ].map((s) => (
+                                    <li key={s} className="flex items-start gap-2 text-sm text-slate-300">
+                                        <CheckCircle2 size={13} className="mt-1 flex-shrink-0 text-cyan-400" />
+                                        <span>{s}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+
+                    <p className="mt-10 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg">
+                        This is not insight alone. <span className="text-white">This is execution.</span>{" "}
+                        BodyIQ-AI identifies what is happening. CreatorBoostAI executes what happens next.
+                    </p>
+                </div>
+            </section>
+
+            {/* WHO THIS IS FOR */}
+            <section className="relative border-b border-white/5 py-20" data-testid="audiences-section">
+                <div className="mx-auto max-w-7xl px-5 lg:px-8">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">04 / Who This Is For</p>
+                    <h2 className="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl">
+                        Built for <span className="text-cyan-400">high-stakes decisions.</span>
+                    </h2>
+                    <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                        {AUDIENCES.map((a) => (
+                            <div
+                                key={a.label}
+                                data-testid={`audience-${a.id}`}
+                                className="rounded-md border border-white/10 bg-ink-700/40 p-5 transition-all hover:-translate-y-0.5 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.18)]"
+                            >
+                                <div className="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-500/30 bg-cyan-500/5">
+                                    <a.Icon size={15} className="text-cyan-300" />
+                                </div>
+                                <p className="mt-4 font-heading text-sm font-semibold leading-snug text-white">
+                                    {a.label}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* SIGNAL INTELLIGENCE PRODUCTS */}
+            <section id="products" className="relative border-b border-white/5 py-20" data-testid="signal-products-section">
+                <div className="mx-auto max-w-7xl px-5 lg:px-8">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">05 / Signal Intelligence Packs</p>
+                    <h2 className="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl">
+                        Three ways to <span className="text-cyan-400">deploy decision intelligence.</span>
+                    </h2>
+                    <p className="mt-5 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg">
+                        Start with the Signal Pack. Move to a Video Signal Intelligence Audit on your own footage.
+                        Scale to a Full Signal Intelligence Report for high-stakes sales or legal engagements.
+                    </p>
+
+                    <div className="mt-10 grid grid-cols-1 gap-5 lg:grid-cols-3">
+                        {SIGNAL_PRODUCTS.map((p) => (
+                            <Link
+                                key={p.id}
+                                to={p.href}
+                                data-testid={`signal-product-${p.id}`}
+                                className={`group flex flex-col rounded-md border p-7 transition-all hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(6,182,212,0.18)] ${
+                                    p.highlight
+                                        ? "border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-transparent"
+                                        : "border-white/10 bg-ink-700/40 hover:border-cyan-500/40"
+                                }`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <p.Icon size={14} className="text-cyan-300" />
+                                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">{p.kicker}</span>
+                                    </div>
+                                    {p.badge && <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">{p.badge}</span>}
+                                </div>
+                                <h3 className="font-heading mt-4 text-xl font-semibold leading-snug text-white">{p.title}</h3>
+                                <p className="mt-2 text-sm leading-relaxed text-slate-300">{p.body}</p>
+                                <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{p.priceLabel}</p>
+                                <div className="mt-auto pt-5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300 group-hover:text-cyan-200">
+                                    {p.ctaLabel} <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+
+                    {/* Jury — legal positioning */}
+                    <div className="mt-12 rounded-md border border-white/10 bg-ink-700/40 p-7 lg:p-9" data-testid="jury-band">
+                        <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+                            <Layers size={14} className="text-cyan-400" />
+                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">Legal · Trial Strategy</span>
+                            <span className="ml-auto rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">Confidential</span>
+                        </div>
+                        <h3 className="font-heading mt-5 text-2xl font-semibold leading-tight text-white sm:text-3xl">
+                            Jury Signal Intelligence
+                        </h3>
+                        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base">
+                            Structured signal analysis of juror behavior using observable patterns and measurable
+                            indicators. Reaction breakdowns, bias detection, resistance signals, decision-shift
+                            identification, and section analysis — opening, testimony, cross, closing.
+                        </p>
+                        <div className="mt-6">
+                            <Link
+                                to="/services/jury"
+                                data-testid="cta-jury"
+                                className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-5 py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500 hover:text-ink-900"
+                            >
+                                Request Jury Engagement <ArrowRight size={12} />
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* WHAT MAKES THIS DIFFERENT */}
+            <section className="relative border-b border-white/5 py-20" data-testid="differentiation-section">
+                <div className="mx-auto max-w-7xl px-5 lg:px-8">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">06 / Differentiation</p>
+                    <h2 className="font-heading mt-3 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl">
+                        What Makes This System <span className="text-cyan-400">Different.</span>
+                    </h2>
+
+                    <div className="mt-10 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                        <div className="rounded-md border border-white/10 bg-ink-700/40 p-7">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">This is not</p>
+                            <ul className="mt-4 space-y-2.5">
+                                {["Body language", "Emotion detection", "Call analysis", "Subjective opinion"].map((x) => (
+                                    <li key={x} className="flex items-start gap-2 text-sm text-slate-300">
+                                        <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
+                                        <span>{x}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-transparent p-7">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">This is</p>
+                            <ul className="mt-4 space-y-2.5">
+                                {[
+                                    "Objective signal measurement",
+                                    "Structured insight generation",
+                                    "Decision intelligence",
+                                    "Execution-driven AI system",
+                                ].map((x) => (
+                                    <li key={x} className="flex items-start gap-2 text-sm text-slate-200">
+                                        <CheckCircle2 size={13} className="mt-0.5 flex-shrink-0 text-cyan-400" />
+                                        <span>{x}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                    <p className="mt-8 max-w-2xl rounded-md border border-cyan-500/30 bg-cyan-500/5 p-5 text-base leading-relaxed text-cyan-200 sm:text-lg">
+                        We don't need audio. <span className="text-white">The decision is already visible.</span>
+                    </p>
                 </div>
             </section>
 

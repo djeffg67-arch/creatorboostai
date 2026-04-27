@@ -15,11 +15,11 @@ export const Navbar = () => {
 
     const links = [
         { to: "/", label: t("nav.home"), testid: "nav-home" },
+        { to: "/products/signal-pack", label: "Signal Pack", testid: "nav-signal-pack" },
+        { to: "/services/audit", label: "Audit", testid: "nav-audit" },
         { to: "/demo", label: t("nav.demo"), testid: "nav-demo" },
         { to: "/preview", label: "Command Center", testid: "nav-preview" },
-        { to: "/training", label: t("nav.training"), testid: "nav-training" },
         { to: "/pricing", label: t("nav.pricing"), testid: "nav-pricing" },
-        { to: "/apply/strategy", label: t("nav.apply"), testid: "nav-apply" },
         { to: "/contact", label: t("nav.contact"), testid: "nav-contact" },
     ];
 

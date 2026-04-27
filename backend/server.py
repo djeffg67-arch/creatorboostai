@@ -74,6 +74,30 @@ PRODUCTS: Dict[str, Dict[str, Any]] = {
         "type": "library",
         "description": "Forensic Visual Library — lifetime access",
     },
+    # Signal Intelligence Packs — BodyIQ-AI Vol. 1: Closing Intelligence.
+    # 15–25 labeled signal video clips with structured definitions, decision
+    # moments, execution actions, and "What You Missed" insight breakdowns.
+    "signal_pack_standard": {
+        "name": "Signal Pack Vol. 1 — Standard",
+        "amount": 299.00,
+        "currency": "usd",
+        "type": "signal_pack",
+        "description": "Signal Pack Vol. 1: Closing Intelligence — Standard Access",
+    },
+    "signal_pack_pro": {
+        "name": "Signal Pack Vol. 1 — Professional",
+        "amount": 499.00,
+        "currency": "usd",
+        "type": "signal_pack",
+        "description": "Signal Pack Vol. 1: Closing Intelligence — Professional Access",
+    },
+    "signal_pack_enterprise": {
+        "name": "Signal Pack Vol. 1 — Enterprise License",
+        "amount": 1500.00,
+        "currency": "usd",
+        "type": "signal_pack",
+        "description": "Signal Pack Vol. 1: Closing Intelligence — Enterprise License",
+    },
 }
 
 # CreatorBoostAI subscription plans (Stripe Checkout in NATIVE subscription mode).
@@ -223,7 +247,7 @@ def verify_admin(authorization: Optional[str] = Header(None)) -> str:
 
 
 # ---------- Lead routes ----------
-VALID_SOURCES = {"demo", "demo_training", "training", "contact", "newsletter", "forensic_library", "home"}
+VALID_SOURCES = {"demo", "demo_training", "training", "contact", "newsletter", "forensic_library", "home", "audit_request", "report_request", "jury_request"}
 
 
 @api_router.get("/")
@@ -841,8 +865,12 @@ async def create_checkout_session(payload: CheckoutSessionCreate, http_request: 
 
     product = PRODUCTS[payload.product_key]
     origin = payload.origin_url.rstrip("/")
-    success_url = f"{origin}/thank-you?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{origin}/training" if product["type"] == "training" else f"{origin}/forensic-library"
+    if product["type"] == "signal_pack":
+        success_url = f"{origin}/download/signal-pack?session_id={{CHECKOUT_SESSION_ID}}"
+        cancel_url = f"{origin}/products/signal-pack"
+    else:
+        success_url = f"{origin}/thank-you?session_id={{CHECKOUT_SESSION_ID}}"
+        cancel_url = f"{origin}/training" if product["type"] == "training" else f"{origin}/forensic-library"
 
     stripe_checkout = _stripe_client(http_request)
 

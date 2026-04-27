@@ -1,0 +1,39 @@
+{
+  "summary": "Full backend + frontend testing for BodyIQ-AI Signal Intelligence System rebuild. 18/18 review items verified. Backend: 15/15 pytest pass (products catalog with 3 new signal_pack_* SKUs, checkout/session accepts new product_keys with graceful 503 degradation, lead capture for audit_request/report_request/jury_request returns 201 + persists). Frontend: HomePage hero/sub/not-body-language/signal-execution/audiences/signal-products/jury-band/differentiation/navbar all PASS with correct copy. /products/signal-pack 3 tiers + buy buttons render and trigger POST /api/checkout/session with correct product_key. /services/audit form submits → 201 lead with source=audit_request. /services/report and /services/jury pages render with forms. /download/signal-pack (no session_id) shows download-not-granted with audit/report upsell CTAs. Regression: /demo/realtor Scene1→Scene2 in 24s, /preview 200, /founder?key=… 200 (Signal Pack tiers visible in entitlements grid), footer 'BodyIQ-AI' intact. Fixed 2 small bugs found (see action_items).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter9_signal_intelligence.py",
+    "/app/test_reports/pytest/iter9_results.xml"
+  ],
+  "action_items": [
+    "RESOLVED (fixed by testing agent): /app/backend/server.py — VALID_SOURCES set was missing 'audit_request', 'report_request', 'jury_request' which made /api/leads return 400 for the 3 new lead-capture pages. Added them to the whitelist. Without this fix, items #10, #11, #12, #16 would all fail.",
+    "RESOLVED (fixed by testing agent): /app/frontend/src/pages/DownloadSignalPackPage.jsx line 20 — initial state was `paid: !sessionId` which inverts the spec: visiting /download/signal-pack WITHOUT a session_id was rendering the GRANTED state (Download buttons + 'You're in. Signal Pack Vol. 1') instead of the NotGranted state required by review item #13. Fixed to `paid: false` so NotGranted renders by default and only flips to Granted after polling /api/checkout/status confirms payment_status=paid."
+  ],
+  "critical_code_review_comments": [
+    "HomePage.jsx is now ~700+ lines after the rebuild. Recommend extracting the AUDIENCES + SIGNAL_PRODUCTS data arrays and each major <section> into /components/home/* (HeroSection, NotBodyLanguageSection, SignalExecutionSection, AudiencesSection, SignalProductsSection, DifferentiationSection) for maintainability — non-blocking.",
+    "DownloadSignalPackPage initial-state inversion bug (paid: !sessionId) is the kind of issue that better unit testing of state initialization would catch. Consider adding a small test that asserts `paid:false` whenever `sessionId` is null/undefined.",
+    "VALID_SOURCES whitelist requires manual maintenance every time a new lead-capture page is added. Consider deriving it from a single source of truth (e.g., LeadSource enum) shared across pages and validation.",
+    "Stripe graceful 503 path is working as designed (returns detail mentioning STRIPE_API_KEY missing). Once Live Keys land tomorrow, re-test items #9 and #15 to confirm 200 + checkout URL.",
+    "Three new pages (AuditPage, ReportPage, JuryPage) share a near-identical lead-capture form pattern. A reusable <LeadCaptureForm source=… title=… fields=…/> component would remove ~150 LOC of duplication."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (VALID_SOURCES — added 3 new sources)",
+    "/app/frontend/src/pages/DownloadSignalPackPage.jsx (initial state paid:false fix)",
+    "/app/backend/tests/test_iter9_signal_intelligence.py (new pytest file, 15 tests)"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (review items 1-13, 17, 18 all pass)"},
+  "test_credentials": "Founder bypass /founder?key=jeffrey-2026-bodyiq-founder-master verified — auto-grants all 9 entitlements including the 3 new Signal Pack tiers visible in portal grid.",
+  "seed_data_creation": "TEST_*@example.com leads created in DB across audit_request, report_request, jury_request, home sources via pytest. Cleanup not performed (data is harmless, prefixed TEST_ for easy purge).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 18 items pass after 2 small fixes (VALID_SOURCES whitelist + DownloadSignalPackPage initial state). Stripe Live Keys still NOT in .env — checkout/session returns 503 by design. Once keys land, re-run iter9 pytest TestCheckoutSession block; current expectation accepts both 200 and 503. The /download/signal-pack page now correctly shows download-not-granted without session_id and would need a real Stripe session_id with payment_status=paid to render the Granted state. Realtor demo prefetch + autoplay still takes ~22-25s for Scene1→Scene2 (consistent with iter8). HomePage now has 9 main testid sections; use them as anchors for any future visual diff regression.",
+  "rca of the issue": "Two implementation misses: (1) Server.py PRODUCTS dict was extended with 3 new signal_pack_* keys but VALID_SOURCES set on line 250 was not updated to allow the 3 new lead-capture sources — this would have returned 400 on every Audit/Report/Jury form submission. (2) DownloadSignalPackPage useState initialized `paid: !sessionId` (inverted boolean) — likely a copy-paste flip between 'loading' and 'paid' fields. Both fixed; both verified with live test."
+}

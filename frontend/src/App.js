@@ -20,6 +20,11 @@ import PricingPage from "@/pages/PricingPage";
 import PortalPage from "@/pages/PortalPage";
 import FounderPage from "@/pages/FounderPage";
 import PreviewPage from "@/pages/PreviewPage";
+import SignalPackPage from "@/pages/SignalPackPage";
+import AuditPage from "@/pages/AuditPage";
+import ReportPage from "@/pages/ReportPage";
+import JuryPage from "@/pages/JuryPage";
+import DownloadSignalPackPage from "@/pages/DownloadSignalPackPage";
 
 function App() {
     return (
@@ -41,6 +46,11 @@ function App() {
                     <Route path="/founder" element={<FounderPage />} />
                     <Route path="/preview" element={<PreviewPage />} />
                     <Route path="/cb-preview" element={<PreviewPage />} />
+                    <Route path="/products/signal-pack" element={<SignalPackPage />} />
+                    <Route path="/services/audit" element={<AuditPage />} />
+                    <Route path="/services/report" element={<ReportPage />} />
+                    <Route path="/services/jury" element={<JuryPage />} />
+                    <Route path="/download/signal-pack" element={<DownloadSignalPackPage />} />
                     <Route path="/thank-you" element={<ThankYouPage />} />
                     <Route path="/forensic-library" element={<ForensicLibraryPage />} />
                     <Route path="/contact" element={<ContactPage />} />
