@@ -1,6 +1,59 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-27 (Iter 19 — Supermarket demo extended to 15 scenes with new Cost Recovery + Asset Intelligence scene)
+**Last update:** 2026-02-27 (Iter 20 — Supermarket finalized as 17-scene enterprise sales asset; Self-Funding Upgrade + Warranty Enforcement scenes added)
+
+---
+
+## 🆕 ITER 20 (2026-02-27) — Self-Funding Upgrade System + Warranty Enforcement Scenes (Supermarket Demo finalized)
+
+User finalized the Supermarket / C-Store demo as the primary enterprise sales asset focused PURELY on CreatorBoostAI as an operational intelligence + execution layer (no behavioral / BodyIQ language). Demo extended from 15 → 17 scenes (~14 min runtime).
+
+**New Scene 14: The Self-Funding Upgrade System** (`stage-self-funding`)
+- 4-tile savings inflows (Energy waste $1.8M, Repeat service avoided $1.2M, Vendor overcharge $640K, Downtime preserved $980K)
+- 3-stat fund summary ($4.62M annualized · $3.18M available pool · $2.33M deployed YTD)
+- 4-row upgrade pipeline with funding progress bars (LED retrofit 100% / Walk-in cooler 100% / Refrigeration controller 72% / Loading dock motor 100%)
+- "Estimated values · based on operational patterns" disclaimer
+- Tagline: "The savings pay for the upgrade. The upgrade compounds the savings."
+
+**New Scene 15: Warranty and Service Control** (`stage-warranty`)
+- 3-tier portfolio (Active 2,184 · Expiring 184 · OOW 47 across 2,415 stores)
+- 4-row enforcement cases table (WC-4012 to WC-4144) showing service calls cross-checked against active warranties — REPLACE/CLAIM/SCHEDULED/ESCALATION actions
+- 3-stat leakage panel (Repairs paid that should have been covered $1.84M baseline · Recovered under enforcement $1.62M · Replacements obligated 412 units)
+- Amber disclaimer: "CreatorBoostAI does not perform installation and is not a contractor. All upgrades installed and serviced by qualified third-party partners under their 5–7 year warranty."
+- Closing line: **"This is not just warranty coverage. This is warranty enforcement at scale."**
+
+**Renumbering**
+- Cost Recovery + Asset Intelligence = Scene 13 (unchanged)
+- Self-Funding Upgrade System = Scene 14 (NEW)
+- Warranty Enforcement at Scale = Scene 15 (NEW)
+- Financial Impact Dashboard = Scene 16 (was 14)
+- The Execution Layer for Retail (Closing) = Scene 17 (was 15)
+
+**Wiring**
+- `SCENES`, `SCENE_BG_MAP`, `STAGE_BADGES`, `SceneStage` switch all extended with `self-funding` and `warranty` keys
+- `SCENE_IMG_RETAIL.selfFunding` + `SCENE_IMG_RETAIL.warranty` added to `/app/frontend/src/lib/images.js`
+- All count copy updated 15 → 17 (Hero, StartScreen story arc, stat list, "Approximately 12 to 14 minutes", "Auto-plays · ~14 min")
+- New imports: `PiggyBank`, `Coins`, `ShieldCheck`, `BadgeCheck`, `FileCheck2`, `Hammer` (lucide-react)
+
+**Homepage updates**
+- Retail industry tile rewritten — **scrubbed of all forbidden vocabulary** (BodyIQ-AI, SRS, CPS, EOS, "shelf hesitation", "behavior") — now reads as a pure operational execution layer pitch
+- Retail tile id renamed `retail` → `supermarket-cstore` to fix duplicate React key with the older "Retail & Grocery" tile
+- Hero CTA label upgraded to **"Watch Retail Demo"** (with "Supermarket · C-Store" badge), accompanying secondary **"Supermarket & C-Store Demo"** button — both routing to /demo/supermarket
+- Runtime aligned to ~14 min across all surfaces
+
+**Verification (Iter 20 testing report)**
+- 100% functional pass
+- Scene 14, 15, 16, 17 all mount programmatically with zero errors
+- Auto-advance Scene 1 → Scene 2 confirmed
+- Forbidden-vocab grep on /demo/supermarket: ZERO hits (BodyIQ, SRS, CPS, EOS, behavioral, nonverbal, "human signal")
+- Both homepage CTAs render with correct labels and routes
+- TTS `/api/tts/speak` returns 200 audio/mpeg for both new scene narrations (153KB / 148KB)
+- Lint clean across SupermarketDemoPage.jsx, HomePage.jsx, images.js
+- 2 minor design issues from testing agent both **FIXED** (runtime drift + duplicate id)
+
+**Code review notes (non-blocking)**
+- `SupermarketDemoPage.jsx` is now ~1759 LOC — extract `SCENES` data and 17 stage components to `/pages/supermarket/scenes/*.jsx` before adding more scenes
+- Hoist `SUPERMARKET_DEMO_RUNTIME` literal into a shared constant in `/lib` to prevent cross-page string drift on future scene work
 
 ---
 

@@ -99,14 +99,14 @@ const INDUSTRIES = [
         cta: "Request services brief",
     },
     {
-        id: "retail",
+        id: "supermarket-cstore",
         Icon: ShoppingCart,
         title: "Supermarket · C-Store · Retail",
         sub: "Grocery · convenience · forecourt · fleet · maintenance · cost recovery",
         outcomes: [
             "CreatorBoostAI sits on top of SAP, Oracle Retail, Salesforce, Blue Yonder, ServiceChannel, Accruent, Manhattan TMS, PDI, NCR, Gilbarco, FuelQuest, Titan Cloud — and never replaces them",
             "Cost recovery + asset intelligence · self-funding upgrade system · warranty enforcement at scale",
-            "17-scene cinematic walkthrough · ~13 min · share + QR ready for executive distribution",
+            "17-scene cinematic walkthrough · ~14 min · share + QR ready for executive distribution",
         ],
         href: "/demo/supermarket",
         cta: "Watch Retail Demo",
