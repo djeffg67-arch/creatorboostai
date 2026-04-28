@@ -36,7 +36,7 @@ from emergentintegrations.payments.stripe.checkout import (
 from email_service import (
     send_lead_welcome, send_contact_ack, send_training_confirmation,
     send_forensic_confirmation, send_demo_share, send_welcome_with_access,
-    send_founder_notification,
+    send_founder_notification, send_with_result, send_demo_share_with_result,
 )
 
 # ---------- TTS ----------
@@ -1031,8 +1031,16 @@ async def share_demo(payload: ShareDemoRequest, http_request: Request):
 
     sent = False
     error_msg = None
+    error_kind = None
+    error_status_code = None
+    log = logging.getLogger(__name__)
+    log.info(
+        f"[share-demo] route_hit recipient={payload.recipient_email} "
+        f"demo_type={payload.demo_type} share_target={payload.share_target} "
+        f"share_id={share_id}"
+    )
     try:
-        sent = await send_demo_share(
+        result = await send_demo_share_with_result(
             recipient_email=payload.recipient_email,
             sender_name=sender_name_clean,
             demo_url=tracked_url,
@@ -1041,17 +1049,36 @@ async def share_demo(payload: ShareDemoRequest, http_request: Request):
             message=(payload.message.strip() if payload.message else None),
             kind=payload.share_target,
         )
+        sent = bool(result.get("ok"))
         if not sent:
-            error_msg = "Email service unavailable (RESEND_API_KEY not configured)."
+            error_msg = result.get("error") or "Email delivery failed (unknown)."
+            error_kind = result.get("error_kind")
+            error_status_code = result.get("status_code")
+        log.info(
+            f"[share-demo] resend_result ok={sent} kind={error_kind} "
+            f"status={error_status_code} id={result.get('id')} "
+            f"error={error_msg!r}"
+        )
     except Exception as e:
-        logging.getLogger(__name__).error(f"share-demo email failed: {e}")
-        error_msg = "Email service error. The link is still valid — try copying it instead."
+        log.exception(f"[share-demo] route_exception recipient={payload.recipient_email}")
+        error_msg = f"{type(e).__name__}: {e}"
+        error_kind = "route_exception"
 
     log_doc["sent"] = sent
     log_doc["error"] = error_msg
+    log_doc["error_kind"] = error_kind
+    log_doc["error_status_code"] = error_status_code
     await db.demo_shares.insert_one(log_doc)
 
-    return {"sent": sent, "demo_url": demo_url, "tracked_url": tracked_url, "share_id": share_id, "reason": error_msg}
+    return {
+        "sent": sent,
+        "demo_url": demo_url,
+        "tracked_url": tracked_url,
+        "share_id": share_id,
+        "reason": error_msg,
+        "error_kind": error_kind,
+        "error_status_code": error_status_code,
+    }
 
 
 @api_router.get("/r/{share_id}")

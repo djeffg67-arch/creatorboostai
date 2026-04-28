@@ -1790,8 +1790,13 @@ const CustomerEmailSection = () => {
                 toast.error("Email could not be sent. Copy link instead.");
             }
         } catch (err) {
-            const detail = err?.response?.data?.detail;
-            const msg = typeof detail === "string" ? detail : "Network error. Try again.";
+            const data = err?.response?.data;
+            const detail = data?.detail;
+            const reason = data?.reason;
+            const msg = (typeof detail === "string" && detail)
+                || (typeof reason === "string" && reason)
+                || (err?.message && `${err.message}`)
+                || "Network error. Try again.";
             setSendResult({ ok: false, msg });
             toast.error(msg);
         } finally { setSending(false); }

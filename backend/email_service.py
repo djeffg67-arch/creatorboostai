@@ -6,7 +6,7 @@ raising so checkout / lead flows never break because of email issues.
 import os
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import resend
 
@@ -100,6 +100,74 @@ async def send_raw(to: str, subject: str, html: str) -> bool:
     return await _send(to, subject, html)
 
 
+async def send_with_result(to: str, subject: str, html: str) -> Dict[str, Any]:
+    """Same as `_send` but returns a structured result so the API route can
+    surface the *real* Resend error to the client instead of a generic
+    "Email service unavailable" message.
+
+    Return shape:
+        {
+            "ok": bool,
+            "id": str | None,           # Resend message id on success
+            "error": str | None,        # human-readable error
+            "error_kind": str | None,   # "no_api_key" | "resend_api_error" | "exception"
+            "status_code": int | None,  # HTTP status from Resend if available
+        }
+    """
+    live_key = _live_resend_key()
+    if not live_key:
+        msg = ("RESEND_API_KEY is not present in the live backend environment. "
+               "Add it as a deployment secret and redeploy.")
+        logger.warning(f"[RESEND DISABLED] send_with_result blocked — {msg}")
+        return {"ok": False, "id": None, "error": msg,
+                "error_kind": "no_api_key", "status_code": None}
+
+    resend.api_key = live_key
+    live_sender = (os.environ.get("SENDER_EMAIL") or SENDER_EMAIL).strip()
+    live_reply = (os.environ.get("REPLY_TO_EMAIL") or live_sender).strip()
+    live_use_test = (os.environ.get("USE_RESEND_TEST_DOMAIN", "false").lower() == "true")
+    effective_sender = "onboarding@resend.dev" if live_use_test else live_sender
+
+    params = {
+        "from": f"{SENDER_NAME} <{effective_sender}>",
+        "to": [to],
+        "subject": subject,
+        "html": html,
+        "reply_to": live_reply,
+    }
+    logger.info(
+        f"[RESEND CALL] from={params['from']} to={to} subject={subject!r} "
+        f"key_prefix={live_key[:6]}... key_len={len(live_key)}"
+    )
+    try:
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        if isinstance(result, dict) and result.get("id"):
+            email_id = result["id"]
+            logger.info(f"[RESEND OK] id={email_id} to={to} subject={subject!r}")
+            return {"ok": True, "id": email_id, "error": None,
+                    "error_kind": None, "status_code": 200}
+        # Resend returned a dict with an `error` field (older SDKs do this on
+        # validation failures instead of raising).
+        if isinstance(result, dict) and result.get("error"):
+            err_obj = result["error"]
+            err_msg = (err_obj.get("message") if isinstance(err_obj, dict)
+                       else str(err_obj))
+            err_status = (err_obj.get("statusCode") if isinstance(err_obj, dict)
+                          else None)
+            logger.error(f"[RESEND FAIL] to={to} resend_error={err_msg!r} status={err_status}")
+            return {"ok": False, "id": None, "error": err_msg,
+                    "error_kind": "resend_api_error", "status_code": err_status}
+        # Unknown response shape — surface it as-is so we can debug.
+        logger.error(f"[RESEND FAIL] to={to} unexpected_response={result!r}")
+        return {"ok": False, "id": None,
+                "error": f"Unexpected Resend response: {result!r}",
+                "error_kind": "resend_api_error", "status_code": None}
+    except Exception as e:
+        logger.exception(f"[RESEND FAIL] to={to} subject={subject!r} exception={e!r}")
+        return {"ok": False, "id": None, "error": f"{type(e).__name__}: {e}",
+                "error_kind": "exception", "status_code": None}
+
+
 # ---------- Templates ----------
 
 def _wrap(title: str, body_html: str) -> str:
@@ -172,22 +240,17 @@ async def send_forensic_confirmation(email: str) -> bool:
     return await _send(email, "Forensic Visual Library – Access Confirmed", _wrap(title, body))
 
 
-async def send_demo_share(
+def _build_demo_share_payload(
     *,
-    recipient_email: str,
     sender_name: str,
     demo_url: str,
     demo_type: str,
     company: Optional[str] = None,
     message: Optional[str] = None,
     kind: str = "demo",
-) -> bool:
-    """Send a personalized share email via Resend.
-
-    `kind="demo"` (default) — share a vertical demo (realtor/insurance).
-    `kind="preview"` — share the CB Preview Command Center (read-only sample).
-    Falls back to log-only if RESEND_API_KEY is empty.
-    """
+) -> Dict[str, str]:
+    """Build the (title, html) for a demo-share email so both the bool and
+    structured-result variants render exactly the same email."""
     vertical = "Insurance" if demo_type == "insurance" else "Real Estate"
     is_preview = kind == "preview"
     if is_preview:
@@ -201,7 +264,6 @@ async def send_demo_share(
         if safe_msg else ""
     )
     company_line = f' at <strong style="color:#F8FAFC;">{company}</strong>' if company else ""
-
     if is_preview:
         intro = (
             "I wanted you to see the live operating layer I'm using. "
@@ -218,7 +280,6 @@ async def send_demo_share(
         )
         cta_label = f"View the {vertical} Demo →"
         meta_line = "No signup needed. About 13 minutes."
-
     body = f"""
 <p>Hi,</p>
 <p><strong style="color:#F8FAFC;">{sender_name}</strong>{company_line} thought you'd want to see this.</p>
@@ -230,7 +291,44 @@ async def send_demo_share(
 <p style="margin-top:18px;font-size:13px;color:#94A3B8;">Or open in your browser: <a href="{demo_url}" style="color:#22D3EE;">{demo_url}</a></p>
 <p style="margin-top:24px;font-size:13px;color:#94A3B8;">{meta_line}</p>
 """
-    return await _send(recipient_email, title, _wrap(title, body))
+    return {"title": title, "html": _wrap(title, body)}
+
+
+async def send_demo_share(
+    *,
+    recipient_email: str,
+    sender_name: str,
+    demo_url: str,
+    demo_type: str,
+    company: Optional[str] = None,
+    message: Optional[str] = None,
+    kind: str = "demo",
+) -> bool:
+    """Bool variant — kept for existing callers that don't surface errors."""
+    p = _build_demo_share_payload(
+        sender_name=sender_name, demo_url=demo_url, demo_type=demo_type,
+        company=company, message=message, kind=kind,
+    )
+    return await _send(recipient_email, p["title"], p["html"])
+
+
+async def send_demo_share_with_result(
+    *,
+    recipient_email: str,
+    sender_name: str,
+    demo_url: str,
+    demo_type: str,
+    company: Optional[str] = None,
+    message: Optional[str] = None,
+    kind: str = "demo",
+) -> Dict[str, Any]:
+    """Structured variant — surfaces real Resend errors to the API client.
+    Same email content as `send_demo_share`."""
+    p = _build_demo_share_payload(
+        sender_name=sender_name, demo_url=demo_url, demo_type=demo_type,
+        company=company, message=message, kind=kind,
+    )
+    return await send_with_result(recipient_email, p["title"], p["html"])
 
 
 async def send_welcome_with_access(
