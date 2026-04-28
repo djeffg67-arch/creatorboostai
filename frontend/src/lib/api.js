@@ -48,6 +48,9 @@ export const createSubscriptionSession = (payload) =>
 export const portalLogin = (payload) =>
     api.post("/portal/login", payload).then((r) => r.data);
 
+export const portalResendMagicLink = (payload) =>
+    api.post("/portal/resend-magic-link", payload).then((r) => r.data);
+
 export const portalEntitlementCheck = (payload) =>
     api.post("/portal/entitlement-check", payload).then((r) => r.data);
 

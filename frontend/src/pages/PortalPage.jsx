@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
-import { portalLogin, portalBillingSession, portalSignalPackDownload } from "@/lib/api";
+import { portalLogin, portalBillingSession, portalSignalPackDownload, portalResendMagicLink } from "@/lib/api";
 import { PAGE_HERO } from "@/lib/images";
 import { toast } from "sonner";
-import { Lock, ArrowRight, Check, Sparkles, BookOpen, Mail, CreditCard, Download, Clock } from "lucide-react";
+import { Lock, ArrowRight, Check, Sparkles, BookOpen, Mail, CreditCard, Download, Clock, Send } from "lucide-react";
 
 const STORAGE_KEY = "bodyiq_portal_user";
 
@@ -101,6 +101,7 @@ export default function PortalPage() {
                         </div>
                     </div>
                     <PortalLoginForm form={form} setForm={setForm} loading={loading} login={login} />
+                    <ResendMagicLink defaultEmail={form.email} />
                 </div>
             </Layout>
         );
@@ -180,6 +181,7 @@ export default function PortalPage() {
                     check spam or <Link to="/contact" className="text-cyan-300 hover:text-cyan-200">contact support</Link>.
                 </p>
                 <PortalLoginForm form={form} setForm={setForm} loading={loading} login={login} />
+                <ResendMagicLink defaultEmail={form.email} />
             </div>
         </Layout>
     );
@@ -241,6 +243,85 @@ const QuickLink = ({ href, Icon, label }) => (
         <ArrowRight size={12} className="ml-auto" />
     </Link>
 );
+
+const ResendMagicLink = ({ defaultEmail = "" }) => {
+    const [email, setEmail] = useState(defaultEmail);
+    const [sent, setSent] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (defaultEmail) setEmail(defaultEmail);
+    }, [defaultEmail]);
+
+    const submit = async (ev) => {
+        ev.preventDefault();
+        if (!email) return;
+        setLoading(true);
+        try {
+            const r = await portalResendMagicLink({
+                email,
+                origin_url: window.location.origin,
+            });
+            toast.success(r?.message || "If that email has an account, a fresh link is on the way.");
+            setSent(true);
+        } catch {
+            // Keep response generic — never disclose existence / errors.
+            toast.success("If that email has an account, a fresh link is on the way.");
+            setSent(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div
+            className="mt-6 rounded-md border border-white/10 bg-ink-700/30 p-5"
+            data-testid="portal-resend-magic-link"
+        >
+            <div className="flex items-center gap-2">
+                <Send size={13} className="text-cyan-400" />
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                    Lost your access email?
+                </span>
+            </div>
+            <p className="mt-2 text-sm text-slate-300">
+                Enter the email you used at checkout — we'll send you a fresh portal magic link.
+            </p>
+            {sent ? (
+                <div
+                    className="mt-3 flex items-start gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3 text-sm text-cyan-200"
+                    data-testid="portal-resend-sent"
+                >
+                    <Check size={14} className="mt-0.5 flex-shrink-0 text-cyan-400" />
+                    <span>
+                        If that email has an account with us, a fresh access link is on the way.
+                        Check your inbox (and spam) in the next minute.
+                    </span>
+                </div>
+            ) : (
+                <form onSubmit={submit} className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(ev) => setEmail(ev.target.value)}
+                        placeholder="you@company.com"
+                        data-testid="portal-resend-email"
+                        className="input-glow flex-1 rounded-md border border-white/10 bg-ink-800 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+                    />
+                    <button
+                        type="submit"
+                        disabled={loading || !email}
+                        data-testid="portal-resend-submit"
+                        className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200 hover:bg-cyan-500 hover:text-ink-900 disabled:opacity-60"
+                    >
+                        <Send size={12} /> {loading ? "Sending…" : "Resend link"}
+                    </button>
+                </form>
+            )}
+        </div>
+    );
+};
 
 const EntitlementCard = ({ entitlement: e, user }) => {
     const [action, setAction] = useState({ loading: false, url: null, pending: false, note: null });

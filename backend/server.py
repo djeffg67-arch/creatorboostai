@@ -664,6 +664,67 @@ async def portal_login(payload: PortalLoginRequest):
     }
 
 
+# ---------- Magic-link recovery (resend portal access email) ----------
+# Simple in-memory rate limit so a bad actor can't flood a real inbox.
+# Maps email (lowercased) → last-send timestamp. Resets every 60s per email.
+_MAGIC_LINK_RATE_LIMIT: Dict[str, datetime] = {}
+_MAGIC_LINK_COOLDOWN = timedelta(seconds=60)
+
+
+class ResendMagicLinkRequest(BaseModel):
+    email: EmailStr
+    origin_url: Optional[str] = None
+
+
+@api_router.post("/portal/resend-magic-link")
+async def portal_resend_magic_link(payload: ResendMagicLinkRequest, http_request: Request):
+    """Re-sends the portal welcome-with-access email to a buyer who lost their
+    original email. Always returns 200 with a generic message to prevent email
+    enumeration. Rate-limited to one send per email per 60s.
+
+    Security notes:
+    - We never disclose whether the email exists (returns the same response
+      either way).
+    - We do NOT rotate the portal_token on resend — existing bookmarks / open
+      sessions keep working. (If a user suspects their token is compromised,
+      they should contact support to force a rotation.)
+    """
+    email = payload.email.lower().strip()
+    now = datetime.now(timezone.utc)
+    last = _MAGIC_LINK_RATE_LIMIT.get(email)
+    if last and (now - last) < _MAGIC_LINK_COOLDOWN:
+        # Still return a 200 with the same generic message to avoid leaking
+        # account existence through timing / status code differences.
+        return {
+            "ok": True,
+            "message": "If that email has an account with us, a fresh access link is on the way.",
+        }
+    _MAGIC_LINK_RATE_LIMIT[email] = now
+
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if user and user.get("portal_token"):
+        origin = (payload.origin_url or os.environ.get("SITE_URL") or str(http_request.base_url)).rstrip("/")
+        # Use the most recent entitlement as the email context (falls back to generic).
+        entitlements = user.get("entitlements") or []
+        latest = entitlements[-1] if entitlements else {}
+        product_name = latest.get("product_name") or "your CreatorBoostAI account"
+        kind = latest.get("kind") or "one_time"
+        try:
+            await send_welcome_with_access(
+                email=user["email"],
+                product_name=product_name,
+                kind=kind,
+                portal_magic_url=_magic_url(origin, user["email"], user["portal_token"]),
+                portal_token=user["portal_token"],
+            )
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Magic-link resend failed: {e}")
+    return {
+        "ok": True,
+        "message": "If that email has an account with us, a fresh access link is on the way.",
+    }
+
+
 # ---------- Stripe Customer Portal (self-serve subscription management) ----------
 class BillingPortalRequest(BaseModel):
     email: EmailStr

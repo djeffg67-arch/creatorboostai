@@ -1,6 +1,32 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-04-28 (Iter 26 — Stripe Phase 4: User Access & Onboarding — magic-link portal login + entitlement-gated download/portal UI)
+**Last update:** 2026-04-28 (Iter 26 — Stripe Phase 4 + Resend Magic Link recovery)
+
+---
+
+## 🆕 ITER 26b (2026-04-28) — Resend Magic Link (Recovery Flow)
+
+User asked for a password-reset-style recovery for buyers who lose the welcome email. Shipped on the same day as Iter 26a.
+
+**Backend — `/app/backend/server.py`**
+- New endpoint `POST /api/portal/resend-magic-link` (model `ResendMagicLinkRequest`: `email`, optional `origin_url`). Re-sends the welcome-with-access email if an account exists. Always returns `{ok: true, message: "If that email has an account with us, a fresh access link is on the way."}` regardless of account existence — prevents email enumeration.
+- Simple in-memory rate limit: 1 send per email per 60s (module-level `_MAGIC_LINK_RATE_LIMIT` dict + `_MAGIC_LINK_COOLDOWN` timedelta). Still returns 200 on rate-limit hit (no timing signal).
+- Does NOT rotate `portal_token` on resend — existing bookmarks / sessions remain valid. A separate "rotate token" flow can be added later for compromise recovery.
+
+**Frontend — `/app/frontend/src/pages/PortalPage.jsx`**
+- New `<ResendMagicLink defaultEmail={form.email} />` component rendered on BOTH the login view and the just-paid welcome view. Features:
+  - Auto-fills from the main login form's email field
+  - Cyan `Send` icon + "LOST YOUR ACCESS EMAIL?" header matching brand mono-style
+  - On submit → swaps to a cyan confirmation card (`portal-resend-sent`) with the generic message
+  - Toast notification via sonner
+  - Test IDs: `portal-resend-magic-link`, `portal-resend-email`, `portal-resend-submit`, `portal-resend-sent`
+- `portalResendMagicLink()` helper added to `/app/frontend/src/lib/api.js`
+
+**Verified**
+- ✅ Real email (founder) → 200 + welcome email triggered (logged as `[email disabled]` until RESEND_API_KEY lands)
+- ✅ Fake email → 200 + identical generic message + NO email send logged
+- ✅ Immediate retry (rate-limit) → 200 + identical generic message + NO email send logged
+- ✅ UI: login view + resend panel + confirmation swap all render cleanly at 1920×1000
 
 ---
 
