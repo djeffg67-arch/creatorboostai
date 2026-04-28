@@ -35,7 +35,7 @@ from emergentintegrations.payments.stripe.checkout import (
 # ---------- Email ----------
 from email_service import (
     send_lead_welcome, send_contact_ack, send_training_confirmation,
-    send_forensic_confirmation, send_demo_share,
+    send_forensic_confirmation, send_demo_share, send_welcome_with_access,
 )
 
 # ---------- TTS ----------
@@ -561,6 +561,15 @@ async def _trigger_post_purchase_email(txn: Dict[str, Any]) -> None:
 
 
 # ---------- Post-payment access grant: auto-create user account ----------
+def _magic_url(origin: str, email: str, token: str, redirect: Optional[str] = None) -> str:
+    from urllib.parse import urlencode, quote_plus
+    origin_clean = (origin or os.environ.get("SITE_URL") or "").rstrip("/")
+    qs = {"email": email, "token": token}
+    if redirect:
+        qs["redirect"] = redirect
+    return f"{origin_clean}/portal/magic?{urlencode(qs, quote_via=quote_plus)}"
+
+
 async def _grant_access_for_txn(txn: Dict[str, Any]) -> None:
     """Idempotently create / upgrade a user account so the buyer can log in to /portal.
     The account stores only what's needed: email, granted entitlements, and a portal-access
@@ -578,7 +587,10 @@ async def _grant_access_for_txn(txn: Dict[str, Any]) -> None:
         "interval": txn.get("interval"),
         "granted_at": datetime.now(timezone.utc).isoformat(),
         "session_id": txn.get("session_id"),
+        "status": "active",
     }
+    origin = (txn.get("origin_url") or os.environ.get("SITE_URL") or "").rstrip("/")
+
     existing = await db.users.find_one({"email": email}, {"_id": 0})
     if existing:
         # Avoid duplicate entitlement for same session
@@ -593,7 +605,22 @@ async def _grant_access_for_txn(txn: Dict[str, Any]) -> None:
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }},
         )
+        # Also send a welcome-with-access email for the *new* entitlement so existing
+        # customers who return to buy additional products still get a magic link.
+        try:
+            portal_token = existing.get("portal_token")
+            if portal_token:
+                await send_welcome_with_access(
+                    email=email,
+                    product_name=txn.get("product_name") or product_key,
+                    kind=entitlement["kind"],
+                    portal_magic_url=_magic_url(origin, email, portal_token),
+                    portal_token=portal_token,
+                )
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Welcome-with-access email (existing user) failed: {e}")
         return
+
     # New user — create with a portal access token
     portal_token = secrets.token_urlsafe(32)
     user_doc = {
@@ -605,6 +632,17 @@ async def _grant_access_for_txn(txn: Dict[str, Any]) -> None:
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(user_doc)
+    # Send welcome-with-access email (best-effort; never raise)
+    try:
+        await send_welcome_with_access(
+            email=email,
+            product_name=txn.get("product_name") or product_key,
+            kind=entitlement["kind"],
+            portal_magic_url=_magic_url(origin, email, portal_token),
+            portal_token=portal_token,
+        )
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Welcome-with-access email (new user) failed: {e}")
 
 
 class PortalLoginRequest(BaseModel):
@@ -686,6 +724,110 @@ async def portal_billing_session(payload: BillingPortalRequest, http_request: Re
         logging.getLogger(__name__).error(f"Stripe billing portal failed: {e}")
         raise HTTPException(status_code=502, detail="Could not open billing portal")
     return {"url": session.url}
+
+
+# ---------- Entitlement verification (Phase 4 access gating) ----------
+class EntitlementCheckRequest(BaseModel):
+    email: EmailStr
+    token: str
+    product_key: Optional[str] = None
+    product_type: Optional[str] = None  # e.g. "signal_pack", "training", "library", "subscription"
+
+
+def _entitlement_is_active(e: Dict[str, Any]) -> bool:
+    """A one-time entitlement is always active. A subscription entitlement is
+    considered active unless its status is explicitly set to an inactive value."""
+    status = (e.get("status") or "active").lower()
+    if e.get("kind") == "subscription":
+        return status in {"active", "trialing"}
+    return status != "revoked"
+
+
+def _matches(entitlement: Dict[str, Any], *, product_key: Optional[str], product_type: Optional[str]) -> bool:
+    if product_key and entitlement.get("product_key") == product_key:
+        return True
+    if product_type:
+        ek = entitlement.get("product_key") or ""
+        prod = PRODUCTS.get(ek) or {}
+        if prod.get("type") == product_type:
+            return True
+        if product_type == "subscription" and entitlement.get("kind") == "subscription":
+            return True
+    return False
+
+
+@api_router.post("/portal/entitlement-check")
+async def portal_entitlement_check(payload: EntitlementCheckRequest):
+    """Verifies the user's access to a given product_key or product_type.
+    Returns {entitled: bool, entitlement: {...}|None, email}. Use this to gate
+    downloads and in-app content on the client.
+    """
+    user = await db.users.find_one(
+        {"email": payload.email, "portal_token": payload.token}, {"_id": 0}
+    )
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or access token")
+    if not payload.product_key and not payload.product_type:
+        raise HTTPException(status_code=400, detail="product_key or product_type required")
+    for ent in user.get("entitlements", []):
+        if _matches(ent, product_key=payload.product_key, product_type=payload.product_type) and _entitlement_is_active(ent):
+            return {"entitled": True, "entitlement": ent, "email": user["email"]}
+    return {"entitled": False, "entitlement": None, "email": user["email"]}
+
+
+# ---------- Signal Pack download (entitlement-gated) ----------
+# Static catalog of delivery URLs per tier. Currently points to a placeholder
+# location; replace with signed S3 / GCS / CDN URLs once real content is uploaded.
+SIGNAL_PACK_DELIVERY: Dict[str, Dict[str, str]] = {
+    "signal_pack_standard": {
+        "url": os.environ.get("SIGNAL_PACK_STANDARD_URL", ""),
+        "label": "Signal Pack Vol. 1 · Standard (ZIP)",
+    },
+    "signal_pack_pro": {
+        "url": os.environ.get("SIGNAL_PACK_PRO_URL", ""),
+        "label": "Signal Pack Vol. 1 · Professional (ZIP)",
+    },
+    "signal_pack_enterprise": {
+        "url": os.environ.get("SIGNAL_PACK_ENTERPRISE_URL", ""),
+        "label": "Signal Pack Vol. 1 · Enterprise License (ZIP)",
+    },
+}
+
+
+class SignalPackDownloadRequest(BaseModel):
+    email: EmailStr
+    token: str
+
+
+@api_router.post("/portal/signal-pack-download")
+async def portal_signal_pack_download(payload: SignalPackDownloadRequest):
+    """Returns a gated download link for the best Signal Pack tier the user owns.
+    Tier ordering: enterprise > pro > standard. Returns 402/403 if no entitlement.
+    """
+    user = await db.users.find_one(
+        {"email": payload.email, "portal_token": payload.token}, {"_id": 0}
+    )
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or access token")
+    tier_priority = ["signal_pack_enterprise", "signal_pack_pro", "signal_pack_standard"]
+    owned = [e for e in user.get("entitlements", []) if _entitlement_is_active(e)]
+    for tier in tier_priority:
+        if any(e.get("product_key") == tier for e in owned):
+            delivery = SIGNAL_PACK_DELIVERY.get(tier, {})
+            product = PRODUCTS.get(tier, {})
+            return {
+                "entitled": True,
+                "tier": tier,
+                "label": delivery.get("label") or product.get("name"),
+                "download_url": delivery.get("url") or None,
+                "pending": not bool(delivery.get("url")),
+                "note": (
+                    "Your download is being prepared. You'll receive a direct link "
+                    "by email within 24 hours."
+                    if not delivery.get("url") else None
+                ),
+            }
+    raise HTTPException(status_code=402, detail="No active Signal Pack entitlement on file")
 
 
 # ---------- Demo share (Resend) ----------
@@ -1017,6 +1159,7 @@ async def create_checkout_session(payload: CheckoutSessionCreate, http_request: 
         "amount": product["amount"],
         "currency": product["currency"],
         "email": payload.email,
+        "origin_url": origin,
         "status": "open",
         "payment_status": "unpaid",
         "email_sent": False,
@@ -1100,6 +1243,7 @@ async def create_subscription_session(payload: SubscriptionCheckoutCreate, http_
         "amount": plan["amount"],
         "currency": plan["currency"],
         "email": payload.email,
+        "origin_url": origin,
         "status": "open",
         "payment_status": "unpaid",
         "subscription": True,

@@ -48,6 +48,12 @@ export const createSubscriptionSession = (payload) =>
 export const portalLogin = (payload) =>
     api.post("/portal/login", payload).then((r) => r.data);
 
+export const portalEntitlementCheck = (payload) =>
+    api.post("/portal/entitlement-check", payload).then((r) => r.data);
+
+export const portalSignalPackDownload = (payload) =>
+    api.post("/portal/signal-pack-download", payload).then((r) => r.data);
+
 export const adminListApplications = (token) =>
     api.get("/admin/applications", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
 

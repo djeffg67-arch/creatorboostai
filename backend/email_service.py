@@ -181,6 +181,52 @@ async def send_demo_share(
     return await _send(recipient_email, title, _wrap(title, body))
 
 
+async def send_welcome_with_access(
+    *,
+    email: str,
+    product_name: str,
+    kind: str,  # "one_time" | "subscription"
+    portal_magic_url: str,
+    portal_token: str,
+) -> bool:
+    """Post-purchase welcome email that includes the portal magic-link + the
+    raw access token as a fallback. Clicking the magic link auto-logs the user
+    into /portal. Idempotent — caller should only invoke once per session."""
+    if kind == "subscription":
+        title = "Your CreatorBoostAI subscription is live."
+        lead = (
+            "Your subscription to "
+            f"<strong style='color:#22D3EE;'>{product_name}</strong> is active. "
+            "Use the link below to open your portal — it's bookmarkable and will "
+            "keep you signed in."
+        )
+    else:
+        title = "You're in. Access is ready."
+        lead = (
+            "Your purchase of "
+            f"<strong style='color:#22D3EE;'>{product_name}</strong> is confirmed. "
+            "Click the button below to open your portal — your entitlements unlock immediately."
+        )
+    body = f"""
+<p>{lead}</p>
+<p style="margin-top:22px;">
+  <a href="{portal_magic_url}" style="display:inline-block;background:#06B6D4;color:#0A0F1C;padding:14px 24px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
+    Open My Portal →
+  </a>
+</p>
+<p style="margin-top:22px;font-size:13px;color:#94A3B8;">
+  Prefer manual login? Use this access token on the <a href="{portal_magic_url.split('/portal/magic')[0]}/portal" style="color:#22D3EE;">portal page</a>:
+</p>
+<p style="font-family:JetBrains Mono,Consolas,monospace;font-size:12px;color:#CBD5E1;word-break:break-all;background:#0A0F1C;border:1px solid rgba(255,255,255,0.08);padding:10px 12px;border-radius:4px;">
+  {portal_token}
+</p>
+<p style="margin-top:18px;font-size:12px;color:#64748B;">
+  Save this email — it's your ongoing key to your portal. We won't ask you for a password.
+</p>
+"""
+    return await _send(email, title, _wrap(title, body))
+
+
 async def send_founder_alert(*, to_email: str, subject: str, body: str) -> bool:
     """Plain-text founder alert (e.g. half-view notifications). Uses the same
     branded HTML wrapper for consistency. Best-effort: returns False if Resend

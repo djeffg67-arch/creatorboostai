@@ -36,6 +36,7 @@ import PortalLightingPage from "@/pages/PortalLightingPage";
 import PortalOpsPage from "@/pages/PortalOpsPage";
 import AccessLinkPage from "@/pages/AccessLinkPage";
 import TeamAccessPage from "@/pages/TeamAccessPage";
+import PortalMagicPage from "@/pages/PortalMagicPage";
 
 function App() {
     return (
@@ -63,6 +64,7 @@ function App() {
                     <Route path="/apply/:program" element={<ApplyPage />} />
                     <Route path="/pricing" element={<PricingPage />} />
                     <Route path="/portal" element={<PortalPage />} />
+                    <Route path="/portal/magic" element={<PortalMagicPage />} />
                     <Route path="/founder" element={<FounderPage />} />
                     <Route path="/preview" element={<PreviewPage />} />
                     <Route path="/cb-preview" element={<PreviewPage />} />
