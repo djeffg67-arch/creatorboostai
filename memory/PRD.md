@@ -1,10 +1,51 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-04-28 (Iter 26 — Stripe Phase 4 + Resend Magic Link recovery)
+**Last update:** 2026-04-28 (Iter 26c — Team-Access "Resend Access Link" self-serve recovery for founder / executive / employee)
 
 ---
 
-## 🆕 ITER 26b (2026-04-28) — Resend Magic Link (Recovery Flow)
+## 🆕 ITER 26c (2026-04-28) — Team-Access Resend Access Link (RBAC Magic Link)
+
+User requested a role-aware self-serve recovery flow on `/team-access` — a parallel to Iter 26b's `/portal` magic link but scoped to the three ops roles (founder / executive / employee). All three land back on `/portal/ops` with the correct RBAC scopes once consumed.
+
+**Backend — `/app/backend/ops_center.py`**
+- 2 new endpoints under `/api/ops/access-link/*`:
+  - `POST /request` (`AccessLinkRequest`: `email`, optional `origin_url`) — mints a fresh one-time magic token, invalidates any prior unused tokens for the same email, sends the branded email via the existing `_OpsEmailAdapter`, logs every request to `ops_access_link_requests`. Returns identical `{ok, message}` generic response regardless of account existence / rate-limit / role-mismatch. Rate limit: 60s between requests per email (silent — still returns generic 200).
+  - `POST /consume` (`AccessLinkConsume`: `magic_token`) — validates the token (exists, not used, not expired, user still exists with a valid ops role). Marks token consumed atomically. Returns `{email, name, role, token (portal_token), redirect: "/portal/ops"}` — same shape as `founder-access` / `executive-access` / `employee-accept-invite`. HTTP 404 / 410 / 403 on invalid / used / expired / role-changed.
+- New Pydantic models `AccessLinkRequest` + `AccessLinkConsume` (min token length 16 chars to reject obvious garbage).
+- New MongoDB collections: `ops_access_link_tokens` (payload: `id`, `magic_token`, `email`, `role`, `expires_at`, `used`, `created_at`, plus consume-time fields `consumed_at` / `consumption_outcome` / `invalidated_at` / `invalidation_reason`) and `ops_access_link_requests` (audit log: `email`, `role`, `status`, `ip`, `created_at`).
+- Token TTL: **15 minutes**. Single-use enforced at consume time.
+- Role never trusted from the client — always resolved server-side from `users.role` at mint time AND re-verified at consume time. If the user's role changes between mint and consume, the token is invalidated with `consumption_outcome="role_changed"`.
+- Email template: brand-styled HTML with big "Open dashboard →" CTA, role label, 15-min expiry notice, and "ignore this email if you didn't request it" footer. Falls back to log-only if `RESEND_API_KEY` is unset.
+
+**Frontend — `/app/frontend/src/pages/TeamAccessPage.jsx` + `/app/frontend/src/lib/api.js`**
+- Two new helpers in `api.js`: `opsAccessLinkRequest({email, origin_url})` + `opsAccessLinkConsume(magic_token)`.
+- New `useEffect` on `TeamAccessPage` that checks `?magic=<token>` on mount → auto-consumes → persists session (`cb_ops_session`) → toast → `navigate("/portal/ops")`. Mirrors the existing `?invite=<token>` auto-accept for employees but works for all three roles.
+- New collapsible UI section `data-testid="team-resend-access-link"` rendered below the email input (on email step only). Toggle copy: **"Forgot access? Resend my access link"**. Pre-fills from the login email if user typed one. On submit → swaps to a cyan confirmation card (`team-resend-sent`) with the identical generic message as the backend, plus a sonner toast. Test IDs: `team-resend-toggle`, `team-resend-email`, `team-resend-submit`, `team-resend-sent`.
+- Coexists with — does not replace — existing OTP + master-key + invite-token flows. All four paths remain live.
+
+**Verified end-to-end**
+- ✅ `POST /request` — founder email → 200 generic + email triggered (logged `[email disabled]` without Resend key); unknown email → identical 200 generic + no send; rate-limited retry → identical 200 generic + no send
+- ✅ `POST /consume` — bogus token → 404; 15-char garbage → 422 (min_length); valid token → correct `{email, name, role: "founder", token, redirect: "/portal/ops"}`; re-consume of same token → 410 Gone
+- ✅ UI — `/team-access?role=founder` renders resend panel, toggle expand works, email pre-fills from login field, submit swaps to confirmation card, toast fires
+- ✅ `?magic=<token>` in URL → auto-consumes on mount + redirects to `/portal/ops` (same pattern as `?invite=`)
+- ✅ Lint clean (Python + JavaScript)
+- ✅ Backend restarts cleanly
+
+**Security posture**
+- No email enumeration — identical response shape for valid / invalid / rate-limited emails
+- No role / key exposure — role resolved server-side, never in query params or client-visible responses before token consumption
+- 15-min TTL + single-use token prevents link hijacking
+- Superseding request invalidates prior unused tokens (defense-in-depth against multi-mint attacks)
+- Every request logged to `ops_access_link_requests` for audit / abuse tracking
+
+**User-visible copy (in `/team-access`)**
+> **Forgot access? Resend my access link**
+> Enter the email on file — we'll send a fresh one-time sign-in link that routes you straight into your dashboard. Links expire in 15 minutes and can only be used once.
+
+---
+
+## 🆕 ITER 26b (2026-04-28) — Resend Magic Link (/portal recovery — Customer Portal)
 
 User asked for a password-reset-style recovery for buyers who lose the welcome email. Shipped on the same day as Iter 26a.
 

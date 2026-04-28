@@ -155,6 +155,12 @@ export const opsOtpRequest = (payload) =>
 export const opsOtpVerify = (payload) =>
     api.post("/ops/otp/verify", payload).then((r) => r.data);
 
+export const opsAccessLinkRequest = (payload) =>
+    api.post("/ops/access-link/request", payload).then((r) => r.data);
+
+export const opsAccessLinkConsume = (magic_token) =>
+    api.post("/ops/access-link/consume", { magic_token }).then((r) => r.data);
+
 export const opsLogout = (payload) =>
     api.post("/ops/logout", payload).then((r) => r.data);
 

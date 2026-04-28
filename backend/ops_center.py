@@ -87,6 +87,17 @@ class LogoutRequest(OpsAuth):
     everywhere: bool = True  # rotate token (kills all sessions on all devices)
 
 
+class AccessLinkRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+    origin_url: Optional[str] = None
+
+
+class AccessLinkConsume(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    magic_token: str = Field(min_length=16, max_length=128)
+
+
 class LeadCreate(OpsAuth):
     # Caller auth fields (email, token) are inherited from OpsAuth.
     # These are the new LEAD's contact fields — renamed to avoid
@@ -404,6 +415,171 @@ def make_router(db, email_service=None) -> APIRouter:
                 {"$set": {"portal_token": new_token, "trusted_devices": []}},
             )
         return {"ok": True, "everywhere": payload.everywhere}
+
+    # ------------------------------------------------------------------
+    # Self-serve Access-Link recovery
+    # ------------------------------------------------------------------
+    # Buyers / founders / executives / employees who lose their original
+    # access email can enter their email on /team-access and receive a fresh
+    # one-time magic link. The link is short-lived (15 min) and single-use;
+    # when consumed it returns the correct role's portal session so the user
+    # lands back on /portal/ops with the correct RBAC scopes.
+    #
+    # Security guarantees:
+    #   - Generic 200 response regardless of whether the email exists
+    #   - One active outstanding token per email (new request invalidates prior)
+    #   - 60s cooldown per email (rate-limited silently — still returns 200)
+    #   - Tokens expire in 15 min and can only be consumed once
+    #   - Role is looked up server-side from `users.role` — never trusted from client
+    #   - Every request is logged to `ops_access_link_requests`
+    ACCESS_LINK_TTL_SEC = 900  # 15 minutes
+    ACCESS_LINK_COOLDOWN_SEC = 60
+    _ACCESS_LINK_GENERIC_RESPONSE = {
+        "ok": True,
+        "message": "If that email is registered, a fresh access link is on the way.",
+    }
+
+    async def _log_access_link_request(email: str, role: Optional[str], status: str, ip: Optional[str] = None) -> None:
+        try:
+            await db.ops_access_link_requests.insert_one({
+                "id": str(uuid.uuid4()),
+                "email": email,
+                "role": role,
+                "status": status,  # sent | rate_limited | unknown_email | unsupported_role
+                "ip": ip,
+                "created_at": _now_iso(),
+            })
+        except Exception:
+            # Logging failures never break the flow
+            pass
+
+    @router.post("/access-link/request")
+    async def access_link_request(payload: AccessLinkRequest):
+        email = payload.email.lower().strip()
+        now = datetime.now(timezone.utc)
+
+        # Rate-limit: look up the most recent request for this email
+        recent = await db.ops_access_link_requests.find_one(
+            {"email": email}, {"_id": 0}, sort=[("created_at", -1)]
+        )
+        if recent:
+            try:
+                last = datetime.fromisoformat(recent["created_at"])
+                if last.tzinfo is None:
+                    last = last.replace(tzinfo=timezone.utc)
+                if (now - last).total_seconds() < ACCESS_LINK_COOLDOWN_SEC:
+                    await _log_access_link_request(email, None, "rate_limited")
+                    return _ACCESS_LINK_GENERIC_RESPONSE
+            except Exception:
+                pass
+
+        user = await db.users.find_one({"email": email}, {"_id": 0})
+        if not user:
+            await _log_access_link_request(email, None, "unknown_email")
+            return _ACCESS_LINK_GENERIC_RESPONSE
+        role = user.get("role")
+        if role not in (ROLE_FOUNDER, ROLE_EXECUTIVE, ROLE_EMPLOYEE):
+            await _log_access_link_request(email, role, "unsupported_role")
+            return _ACCESS_LINK_GENERIC_RESPONSE
+
+        # Invalidate any prior unused tokens for this email (defensive;
+        # prevents accumulation of live tokens if a user clicks repeatedly
+        # after the cooldown lapses).
+        await db.ops_access_link_tokens.update_many(
+            {"email": email, "used": False},
+            {"$set": {"used": True, "invalidated_at": _now_iso(), "invalidation_reason": "superseded"}},
+        )
+
+        magic_token = secrets.token_urlsafe(32)
+        expires_at = (now.timestamp() + ACCESS_LINK_TTL_SEC)
+        await db.ops_access_link_tokens.insert_one({
+            "id": str(uuid.uuid4()),
+            "magic_token": magic_token,
+            "email": email,
+            "role": role,
+            "expires_at": expires_at,
+            "used": False,
+            "created_at": now.isoformat(),
+        })
+
+        origin = (payload.origin_url or os.environ.get("SITE_URL") or "").rstrip("/")
+        from urllib.parse import urlencode
+        magic_url = f"{origin}/team-access?{urlencode({'magic': magic_token})}"
+
+        if email_service is not None:
+            role_label = {
+                ROLE_FOUNDER: "Founder",
+                ROLE_EXECUTIVE: "Executive",
+                ROLE_EMPLOYEE: "Employee",
+            }.get(role, "Team Member")
+            html = (
+                f"<p>You asked for a fresh CreatorBoostAI access link.</p>"
+                f"<p>Click to sign in to your <strong>{role_label}</strong> dashboard — "
+                f"this link expires in 15 minutes and can only be used once:</p>"
+                f"<p style='margin:22px 0;'>"
+                f"<a href='{magic_url}' "
+                f"style='display:inline-block;background:#06B6D4;color:#0A0F1C;"
+                f"padding:12px 22px;text-decoration:none;border-radius:6px;"
+                f"font-weight:600;font-size:14px;'>Open dashboard →</a>"
+                f"</p>"
+                f"<p style='font-size:12px;color:#94A3B8;'>"
+                f"Didn't request this? You can ignore this email — no changes were made to your account."
+                f"</p>"
+            )
+            try:
+                email_service.send(
+                    to=email,
+                    subject="Your CreatorBoostAI access link",
+                    html=html,
+                )
+            except Exception:
+                # Never raise — delivery failure must not leak through the generic response
+                pass
+
+        await _log_access_link_request(email, role, "sent")
+        return _ACCESS_LINK_GENERIC_RESPONSE
+
+    @router.post("/access-link/consume")
+    async def access_link_consume(payload: AccessLinkConsume):
+        rec = await db.ops_access_link_tokens.find_one(
+            {"magic_token": payload.magic_token}, {"_id": 0}
+        )
+        if not rec:
+            raise HTTPException(status_code=404, detail="Access link not found")
+        if rec.get("used"):
+            raise HTTPException(status_code=410, detail="Access link already used")
+        if rec.get("expires_at", 0) < datetime.now(timezone.utc).timestamp():
+            raise HTTPException(status_code=410, detail="Access link expired")
+
+        user = await db.users.find_one({"email": rec["email"]}, {"_id": 0})
+        if not user:
+            # User deleted between request + consume — treat as gone
+            await db.ops_access_link_tokens.update_one(
+                {"magic_token": payload.magic_token},
+                {"$set": {"used": True, "consumed_at": _now_iso(), "consumption_outcome": "user_missing"}},
+            )
+            raise HTTPException(status_code=404, detail="Account not found")
+
+        role = user.get("role")
+        if role not in (ROLE_FOUNDER, ROLE_EXECUTIVE, ROLE_EMPLOYEE):
+            await db.ops_access_link_tokens.update_one(
+                {"magic_token": payload.magic_token},
+                {"$set": {"used": True, "consumed_at": _now_iso(), "consumption_outcome": "role_changed"}},
+            )
+            raise HTTPException(status_code=403, detail="Account role no longer supports operating-center access")
+
+        # Mark token consumed (single-use)
+        await db.ops_access_link_tokens.update_one(
+            {"magic_token": payload.magic_token},
+            {"$set": {"used": True, "consumed_at": _now_iso(), "consumption_outcome": "success"}},
+        )
+        return {
+            "email": user["email"],
+            "name": user.get("name"),
+            "role": role,
+            "token": user["portal_token"],
+            "redirect": "/portal/ops",
+        }
 
     # ------------------------------------------------------------------
     # Employee management (founder invites; executive + founder can list)

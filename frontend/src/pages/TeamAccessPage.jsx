@@ -15,11 +15,11 @@ import { Layout } from "@/components/site/Layout";
 import { toast } from "sonner";
 import {
     Crown, ShieldCheck, Users, Mail, Smartphone, Lock, ArrowRight, KeyRound,
-    Loader2, Fingerprint, ShieldQuestion, CheckCircle2,
+    Loader2, Fingerprint, ShieldQuestion, CheckCircle2, Send,
 } from "lucide-react";
 import {
     opsOtpRequest, opsOtpVerify, opsFounderAccess, opsExecutiveAccess,
-    opsEmployeeAcceptInvite,
+    opsEmployeeAcceptInvite, opsAccessLinkRequest, opsAccessLinkConsume,
 } from "@/lib/api";
 
 const STORAGE_KEY = "cb_ops_session";
@@ -65,6 +65,10 @@ export default function TeamAccessPage() {
     const [devCode, setDevCode] = useState(null);
     const [advanced, setAdvanced] = useState(false);
     const [advancedValue, setAdvancedValue] = useState("");
+    const [resendOpen, setResendOpen] = useState(false);
+    const [resendEmail, setResendEmail] = useState("");
+    const [resendSent, setResendSent] = useState(false);
+    const [resendBusy, setResendBusy] = useState(false);
     const deviceId = useMemo(ensureDeviceId, []);
     const deviceLabel = useMemo(detectDeviceLabel, []);
 
@@ -82,6 +86,27 @@ export default function TeamAccessPage() {
                 .catch(() => toast.error("Invite expired or already used"))
                 .finally(() => setBusy(false));
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Auto-consume "Resend access link" magic token from email link
+    useEffect(() => {
+        const m = params.get("magic");
+        if (!m) return;
+        setBusy(true);
+        opsAccessLinkConsume(m)
+            .then((data) => {
+                persistSession({ email: data.email, token: data.token });
+                // Match the tab to the resolved role so the page looks consistent
+                if (data.role) setRole(data.role);
+                toast.success(`Signed in · ${data.role}`);
+                navigate(data.redirect || "/portal/ops", { replace: true });
+            })
+            .catch((err) => {
+                const d = err?.response?.data?.detail;
+                toast.error(typeof d === "string" ? d : "This access link is invalid or expired");
+            })
+            .finally(() => setBusy(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -147,6 +172,28 @@ export default function TeamAccessPage() {
         } finally { setBusy(false); }
     };
 
+    // Forgot access — request a fresh magic link by email
+    const requestAccessLink = async () => {
+        const target = (resendEmail || email).trim();
+        if (!target || !/^\S+@\S+\.\S+$/.test(target)) {
+            toast.error("Enter a valid email address");
+            return;
+        }
+        setResendBusy(true);
+        try {
+            const r = await opsAccessLinkRequest({
+                email: target,
+                origin_url: window.location.origin,
+            });
+            toast.success(r?.message || "If that email is registered, a fresh access link is on the way.");
+            setResendSent(true);
+        } catch {
+            // Keep generic for security
+            toast.success("If that email is registered, a fresh access link is on the way.");
+            setResendSent(true);
+        } finally { setResendBusy(false); }
+    };
+
     const inputCls = "w-full rounded-md border border-white/10 bg-ink-900 px-4 py-3 text-base text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none";
 
     return (
@@ -206,6 +253,76 @@ export default function TeamAccessPage() {
                             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">
                                 We'll email a 6-digit code. SMS too if a phone number is on file.
                             </p>
+                        </div>
+                    )}
+
+                    {/* Forgot access — self-serve resend */}
+                    {step === "email" && (
+                        <div
+                            className="mt-6 rounded-md border border-white/10 bg-ink-700/30 p-4 sm:p-5"
+                            data-testid="team-resend-access-link"
+                        >
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setResendOpen((p) => !p);
+                                    if (!resendOpen && email && !resendEmail) setResendEmail(email);
+                                    setResendSent(false);
+                                }}
+                                className="flex w-full items-center justify-between text-left"
+                                data-testid="team-resend-toggle"
+                            >
+                                <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                                    <Send size={11} className="text-cyan-400" />
+                                    Forgot access? Resend my access link
+                                </span>
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                                    {resendOpen ? "Hide" : "Show"}
+                                </span>
+                            </button>
+                            {resendOpen && (
+                                <div className="mt-3 space-y-3">
+                                    <p className="text-sm text-slate-300">
+                                        Enter the email on file — we'll send a fresh one-time sign-in link
+                                        that routes you straight into your dashboard. Links expire in 15 minutes
+                                        and can only be used once.
+                                    </p>
+                                    {resendSent ? (
+                                        <div
+                                            className="flex items-start gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3 text-sm text-cyan-100"
+                                            data-testid="team-resend-sent"
+                                        >
+                                            <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0 text-cyan-300" />
+                                            <span>
+                                                If that email is registered, a fresh access link is on the way.
+                                                Check your inbox (and spam) in the next minute.
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-2 sm:flex-row">
+                                            <input
+                                                type="email"
+                                                value={resendEmail}
+                                                onChange={(e) => setResendEmail(e.target.value)}
+                                                placeholder="you@yourcompany.com"
+                                                data-testid="team-resend-email"
+                                                className={`${inputCls} flex-1`}
+                                                onKeyDown={(e) => e.key === "Enter" && requestAccessLink()}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={requestAccessLink}
+                                                disabled={resendBusy}
+                                                data-testid="team-resend-submit"
+                                                className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-4 py-3 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-200 transition-all hover:bg-cyan-500 hover:text-ink-900 disabled:opacity-60"
+                                            >
+                                                {resendBusy ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                                                Resend link
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
