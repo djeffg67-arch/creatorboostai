@@ -23,6 +23,15 @@ EFFECTIVE_SENDER = "onboarding@resend.dev" if USE_TEST_DOMAIN else SENDER_EMAIL
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
+    logger.warning(
+        f"[RESEND ENABLED] sender={EFFECTIVE_SENDER} reply_to={REPLY_TO_EMAIL} "
+        f"key_prefix={RESEND_API_KEY[:6]}... key_len={len(RESEND_API_KEY)}"
+    )
+else:
+    logger.warning(
+        "[RESEND DISABLED] RESEND_API_KEY is empty in /app/backend/.env — "
+        "no email will be delivered until the key is set."
+    )
 
 
 def _email_enabled() -> bool:
@@ -37,7 +46,10 @@ def email_delivery_available() -> bool:
 
 async def _send(to: str, subject: str, html: str) -> bool:
     if not _email_enabled():
-        logger.info(f"[email disabled] Would send to={to} subject={subject!r}")
+        logger.warning(
+            f"[RESEND DISABLED] Would have sent email — RESEND_API_KEY is empty. "
+            f"to={to} subject={subject!r}"
+        )
         return False
     params = {
         "from": f"{SENDER_NAME} <{EFFECTIVE_SENDER}>",
@@ -46,12 +58,17 @@ async def _send(to: str, subject: str, html: str) -> bool:
         "html": html,
         "reply_to": REPLY_TO_EMAIL,
     }
+    logger.info(
+        f"[RESEND CALL] from={params['from']} to={to} subject={subject!r} "
+        f"key_prefix={RESEND_API_KEY[:6]}... key_len={len(RESEND_API_KEY)}"
+    )
     try:
         result = await asyncio.to_thread(resend.Emails.send, params)
-        logger.info(f"Email sent id={result.get('id')} to={to}")
+        email_id = result.get("id") if isinstance(result, dict) else None
+        logger.info(f"[RESEND OK] id={email_id} to={to} subject={subject!r}")
         return True
     except Exception as e:
-        logger.error(f"Email send failed to={to}: {e}")
+        logger.error(f"[RESEND FAIL] to={to} subject={subject!r} error={e!r}")
         return False
 
 
