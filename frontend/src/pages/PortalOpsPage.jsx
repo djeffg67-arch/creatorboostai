@@ -6,13 +6,16 @@ import {
     Users, Inbox, Send, Lightbulb, Bot, BarChart3, Crown, LogOut, Plus,
     MessageSquare, Copy, Link2, Mail, Check, Activity, DollarSign, Target,
     ArrowRight, Sparkles, UserPlus, ShieldCheck, ChevronDown, RefreshCcw,
+    UserCog, AlertTriangle, PhoneCall, KeyRound, CheckCircle2, XCircle,
+    Smartphone, Trash2,
 } from "lucide-react";
 import {
     opsFounderAccess, opsExecutiveAccess, opsEmployeeAcceptInvite, opsMe,
     opsListLeads, opsCreateLead, opsUpdateLeadStatus, opsAddLeadNote, opsAddLeadTask,
     opsReassignLead, opsSendOutreach, opsListOutreach, opsCreateDemoLink,
     opsListDemoLinks, opsPerformance, opsAIChat, opsListEmployees, opsInviteEmployee,
-    opsLogout,
+    opsLogout, opsAdminUsersList, opsAdminUsersUpsert, opsAdminUsersDeactivate,
+    opsAdminUsersResetAccess, opsAdminLoginAttempts, opsAdminDeliveryStatus,
 } from "@/lib/api";
 
 const STORAGE_KEY = "cb_ops_session";
@@ -140,6 +143,7 @@ const Sidebar = ({ me, active, onNav, onSignOut }) => {
         { id: "ai",          label: "AI Assistant",Icon: Bot },
     ];
     if (me.scopes.can_see_all_employees) items.push({ id: "employees", label: "Employees", Icon: Users });
+    if (me.scopes.can_see_settings)      items.push({ id: "admin",     label: "Admin",     Icon: UserCog });
     if (me.scopes.can_see_settings)      items.push({ id: "settings",  label: "Settings",  Icon: ShieldCheck });
 
     return (
@@ -624,6 +628,287 @@ const EmployeesTab = ({ auth, me }) => {
     );
 };
 
+// ---------- Admin tab (founder only) ----------
+const AdminTab = ({ auth }) => {
+    const [users, setUsers] = useState([]);
+    const [attempts, setAttempts] = useState([]);
+    const [totals, setTotals] = useState({});
+    const [delivery, setDelivery] = useState(null);
+    const [form, setForm] = useState({
+        target_email: "", target_name: "", target_phone: "",
+        target_role: "employee", active: true,
+    });
+    const [filterOutcome, setFilterOutcome] = useState("");
+    const [busy, setBusy] = useState(false);
+
+    const refresh = async () => {
+        try {
+            const [u, a, d] = await Promise.all([
+                opsAdminUsersList(auth),
+                opsAdminLoginAttempts({ ...auth, limit: 100, outcome: filterOutcome || undefined }),
+                opsAdminDeliveryStatus(auth),
+            ]);
+            setUsers(u.users || []);
+            setAttempts(a.attempts || []);
+            setTotals(a.totals || {});
+            setDelivery(d || null);
+        } catch (err) {
+            toast.error("Failed to load admin data");
+        }
+    };
+
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filterOutcome]);
+
+    const upsert = async (e) => {
+        e.preventDefault();
+        if (!form.target_email || !form.target_role) {
+            toast.error("Email and role required"); return;
+        }
+        setBusy(true);
+        try {
+            await opsAdminUsersUpsert({ ...auth, ...form });
+            toast.success(`User ${form.target_email} saved as ${form.target_role}`);
+            setForm({ target_email: "", target_name: "", target_phone: "", target_role: "employee", active: true });
+            refresh();
+        } catch (err) {
+            const d = err?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Could not save user");
+        } finally { setBusy(false); }
+    };
+
+    const deactivate = async (email) => {
+        if (!window.confirm(`Deactivate ${email}? They'll be unable to sign in.`)) return;
+        try { await opsAdminUsersDeactivate({ ...auth, target_email: email }); toast.success("Deactivated"); refresh(); }
+        catch (err) {
+            const d = err?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Could not deactivate");
+        }
+    };
+
+    const resetAccess = async (email) => {
+        if (!window.confirm(`Reset ${email}'s access? All trusted devices + magic links are invalidated — they must re-verify via OTP.`)) return;
+        try { await opsAdminUsersResetAccess({ ...auth, target_email: email }); toast.success("Access reset · user must re-verify"); refresh(); }
+        catch { toast.error("Could not reset access"); }
+    };
+
+    return (
+        <div data-testid="tab-admin" className="space-y-6">
+            <SectionHeader sub="Founder controls" title="Admin · Users & Login Audit" />
+
+            {/* Delivery status row */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="admin-delivery-status">
+                {["email", "sms"].map((ch) => {
+                    const d = delivery?.[ch];
+                    const ok = !!d?.configured;
+                    return (
+                        <div key={ch} className={`rounded-md border p-3 ${ok ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+                            <div className="flex items-center gap-2">
+                                {ok ? <CheckCircle2 size={14} className="text-emerald-300" /> : <AlertTriangle size={14} className="text-amber-300" />}
+                                <p className="font-mono text-[10px] uppercase tracking-[0.22em]">
+                                    <span className={ok ? "text-emerald-300" : "text-amber-300"}>{ch.toUpperCase()}</span>
+                                    <span className="ml-2 text-slate-400">· {d?.provider || "—"}</span>
+                                </p>
+                            </div>
+                            <p className="mt-1 break-all text-xs text-slate-300">
+                                {ch === "email"
+                                    ? (d?.sender || "No sender configured")
+                                    : (d?.from_number || "No Twilio number configured")}
+                            </p>
+                            <p className={`mt-1 font-mono text-[10px] uppercase tracking-[0.22em] ${ok ? "text-emerald-300" : "text-amber-300"}`}>
+                                {ok ? "Live delivery ready" : "Not configured — add keys to .env"}
+                            </p>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Upsert form */}
+            <form onSubmit={upsert} className="rounded-md border border-white/10 bg-ink-700/40 p-4 space-y-3" data-testid="admin-upsert-form">
+                <div className="flex items-center gap-2">
+                    <UserPlus size={14} className="text-cyan-400" />
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Add or update approved user</p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <input type="email" required value={form.target_email}
+                        onChange={(e) => setForm({ ...form, target_email: e.target.value })}
+                        placeholder="user@company.com" data-testid="admin-email"
+                        className="rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none" />
+                    <input type="text" value={form.target_name}
+                        onChange={(e) => setForm({ ...form, target_name: e.target.value })}
+                        placeholder="Full name" data-testid="admin-name"
+                        className="rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none" />
+                    <input type="tel" value={form.target_phone}
+                        onChange={(e) => setForm({ ...form, target_phone: e.target.value })}
+                        placeholder="+16162145861 (optional, for SMS)" data-testid="admin-phone"
+                        className="rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none" />
+                    <select value={form.target_role}
+                        onChange={(e) => setForm({ ...form, target_role: e.target.value })}
+                        data-testid="admin-role"
+                        className="rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white focus:border-cyan-500/50 focus:outline-none">
+                        <option value="employee">Employee</option>
+                        <option value="executive">Executive</option>
+                        <option value="founder">Founder</option>
+                    </select>
+                </div>
+                <button type="submit" disabled={busy} data-testid="admin-submit"
+                    className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 text-sm font-semibold text-ink-900 hover:bg-cyan-400 disabled:opacity-60">
+                    {busy ? <RefreshCcw size={12} className="animate-spin" /> : <Plus size={12} />}
+                    Save user
+                </button>
+            </form>
+
+            {/* Users table */}
+            <div className="overflow-x-auto rounded-md border border-white/10 bg-ink-700/40" data-testid="admin-users-table">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="border-b border-white/5 bg-ink-900/60 text-left font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                            <th className="px-3 py-2">Email / Name</th>
+                            <th className="px-3 py-2">Role</th>
+                            <th className="px-3 py-2">Phone</th>
+                            <th className="px-3 py-2">Active</th>
+                            <th className="px-3 py-2">Devices</th>
+                            <th className="px-3 py-2 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {users.map((u) => (
+                            <tr key={u.email} className="border-b border-white/5 text-slate-200" data-testid={`admin-user-${u.email}`}>
+                                <td className="px-3 py-2">
+                                    <div className="font-semibold text-white">{u.name || u.email.split("@")[0]}</div>
+                                    <div className="font-mono text-xs text-slate-400">{u.email}</div>
+                                </td>
+                                <td className="px-3 py-2">
+                                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] ${roleBadge[u.role]?.cls}`}>
+                                        {u.role}
+                                    </span>
+                                </td>
+                                <td className="px-3 py-2 font-mono text-xs">{u.phone || "—"}</td>
+                                <td className="px-3 py-2">
+                                    {u.active === false
+                                        ? <span className="inline-flex items-center gap-1 text-rose-300"><XCircle size={12} /> No</span>
+                                        : <span className="inline-flex items-center gap-1 text-emerald-300"><CheckCircle2 size={12} /> Yes</span>}
+                                </td>
+                                <td className="px-3 py-2 font-mono text-xs text-slate-400">{u.trusted_device_count || 0}</td>
+                                <td className="px-3 py-2">
+                                    <div className="flex flex-wrap justify-end gap-1">
+                                        <button onClick={() => resetAccess(u.email)}
+                                            data-testid={`admin-reset-${u.email}`}
+                                            className="inline-flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-200 hover:bg-cyan-500 hover:text-ink-900">
+                                            <KeyRound size={10} /> Reset
+                                        </button>
+                                        {u.active !== false && u.role !== "founder" && (
+                                            <button onClick={() => deactivate(u.email)}
+                                                data-testid={`admin-deactivate-${u.email}`}
+                                                className="inline-flex items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-rose-200 hover:bg-rose-500 hover:text-ink-900">
+                                                <Trash2 size={10} /> Deactivate
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                        {users.length === 0 && (
+                            <tr><td colSpan={6} className="px-3 py-8 text-center text-sm text-slate-400">No approved users yet — add one above.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Login attempts audit log */}
+            <div className="rounded-md border border-white/10 bg-ink-700/40 p-4 space-y-3" data-testid="admin-attempts-panel">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <Activity size={14} className="text-cyan-400" />
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Recent login attempts</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <select value={filterOutcome} onChange={(e) => setFilterOutcome(e.target.value)}
+                            data-testid="admin-outcome-filter"
+                            className="rounded-md border border-white/10 bg-ink-900 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300">
+                            <option value="">All outcomes</option>
+                            <option value="verified">Verified (success)</option>
+                            <option value="sent">Sent</option>
+                            <option value="delivery_failed">Delivery failed</option>
+                            <option value="invalid_code">Invalid code</option>
+                            <option value="expired">Expired</option>
+                            <option value="rate_limited">Rate limited</option>
+                            <option value="user_not_found">Unknown email</option>
+                        </select>
+                        <button onClick={refresh} data-testid="admin-refresh"
+                            className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-ink-900 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                            <RefreshCcw size={10} /> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {["total", "verified", "delivery_failed", "invalid_code"].map((k) => (
+                        <div key={k} className="rounded-md border border-white/10 bg-ink-900 p-2 text-center">
+                            <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">{k.replace("_", " ")}</div>
+                            <div className="mt-1 text-lg font-semibold text-white">{totals[k] || 0}</div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b border-white/5 bg-ink-900/60 text-left font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                                <th className="px-3 py-2">When</th>
+                                <th className="px-3 py-2">Email</th>
+                                <th className="px-3 py-2">Role</th>
+                                <th className="px-3 py-2">Channel</th>
+                                <th className="px-3 py-2">Outcome</th>
+                                <th className="px-3 py-2">Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {attempts.map((a, i) => (
+                                <tr key={a.id || i} className="border-b border-white/5 text-slate-200">
+                                    <td className="px-3 py-2 font-mono text-xs text-slate-400">{new Date(a.created_at).toLocaleString()}</td>
+                                    <td className="px-3 py-2 font-mono text-xs">{a.email}</td>
+                                    <td className="px-3 py-2 text-xs">{a.role || "—"}</td>
+                                    <td className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em]">
+                                        {a.channel === "sms" ? <Smartphone size={10} className="mr-1 inline" /> : <Mail size={10} className="mr-1 inline" />}
+                                        {a.channel}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <OutcomeBadge outcome={a.outcome} />
+                                    </td>
+                                    <td className="px-3 py-2 font-mono text-[10px] text-slate-400">{a.detail || (a.provider_id ? `id=${a.provider_id}` : "")}</td>
+                                </tr>
+                            ))}
+                            {attempts.length === 0 && (
+                                <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-slate-400">No login attempts logged yet.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const OutcomeBadge = ({ outcome }) => {
+    const tone = {
+        verified: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+        sent: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
+        trusted_device: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
+        delivery_failed: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+        invalid_code: "border-rose-500/40 bg-rose-500/10 text-rose-300",
+        expired: "border-rose-500/30 bg-rose-500/5 text-rose-200",
+        rate_limited: "border-amber-500/30 bg-amber-500/5 text-amber-200",
+        user_not_found: "border-white/10 bg-ink-900 text-slate-400",
+        role_mismatch: "border-white/10 bg-ink-900 text-slate-400",
+        inactive: "border-white/10 bg-ink-900 text-slate-400",
+    }[outcome] || "border-white/10 bg-ink-900 text-slate-400";
+    return (
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] ${tone}`}>
+            {outcome}
+        </span>
+    );
+};
+
 // ---------- Settings tab (founder only) ----------
 const SettingsTab = ({ auth, me }) => (
     <div data-testid="tab-settings" className="space-y-5">
@@ -688,6 +973,7 @@ export default function PortalOpsPage() {
             case "demos":       return <DemosTab auth={auth} />;
             case "ai":          return <AITab auth={auth} />;
             case "employees":   return me.scopes.can_see_all_employees ? <EmployeesTab auth={auth} me={me} /> : null;
+            case "admin":       return me.scopes.can_see_settings ? <AdminTab auth={auth} /> : null;
             case "settings":    return me.scopes.can_see_settings ? <SettingsTab auth={auth} me={me} /> : null;
             default:            return null;
         }

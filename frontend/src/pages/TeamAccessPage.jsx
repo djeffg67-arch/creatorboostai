@@ -59,10 +59,16 @@ export default function TeamAccessPage() {
     const [params] = useSearchParams();
     const [role, setRole] = useState(() => params.get("role") || "founder");
     const [email, setEmail] = useState(() => params.get("email") || "");
+    const [channel, setChannel] = useState("email"); // email | sms
+    const [phone, setPhone] = useState("");
     const [step, setStep] = useState("email"); // email | otp
     const [code, setCode] = useState("");
     const [busy, setBusy] = useState(false);
     const [devCode, setDevCode] = useState(null);
+    const [deliveryInfo, setDeliveryInfo] = useState(null); // { delivery_ok, channel, destination_masked, message }
+    const [otpError, setOtpError] = useState("");
+    const [resendCooldown, setResendCooldown] = useState(0);
+    const [codeExpiresIn, setCodeExpiresIn] = useState(0);
     const [advanced, setAdvanced] = useState(false);
     const [advancedValue, setAdvancedValue] = useState("");
     const [resendOpen, setResendOpen] = useState(false);
@@ -114,24 +120,58 @@ export default function TeamAccessPage() {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch { /* noop */ }
     };
 
-    const requestOtp = async () => {
+    // Countdown tickers — resend-cooldown + code-expiry
+    useEffect(() => {
+        if (resendCooldown <= 0) return;
+        const t = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+        return () => clearInterval(t);
+    }, [resendCooldown]);
+
+    useEffect(() => {
+        if (codeExpiresIn <= 0) return;
+        const t = setInterval(() => setCodeExpiresIn((s) => Math.max(0, s - 1)), 1000);
+        return () => clearInterval(t);
+    }, [codeExpiresIn]);
+
+    const requestOtp = async (isResend = false) => {
         if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
             toast.error("Enter a valid email address");
             return;
         }
+        if (channel === "sms" && !phone.trim()) {
+            toast.error("Enter the phone number on file");
+            return;
+        }
         setBusy(true);
+        setOtpError("");
         try {
-            const res = await opsOtpRequest({ role, email, device_id: deviceId });
+            const res = await opsOtpRequest({
+                role, email, channel,
+                phone: channel === "sms" ? phone.trim() : undefined,
+                device_id: deviceId,
+            });
             if (res.trusted_device) {
-                // Skip OTP — sign in immediately
                 persistSession({ email, token: res.token });
                 toast.success("Trusted device — signed in");
                 navigate(res.redirect || "/portal/ops", { replace: true });
                 return;
             }
-            setStep("otp");
-            setDevCode(res.dev_code || null); // visible only when OTP_DEV_RETURN_CODE=true
-            toast.success("Code sent — check email" + (res.delivery?.sms === "sent" ? " and SMS" : ""));
+            setDeliveryInfo(res);
+            setDevCode(res.dev_code || null);
+            if (res.delivery_ok) {
+                setStep("otp");
+                setResendCooldown(res.resend_cooldown_sec || 30);
+                setCodeExpiresIn(res.expires_in_sec || 600);
+                toast.success(res.message || "Code sent");
+            } else {
+                // Truthful failure — tell the user the real reason
+                const msg = res.message || "We could not deliver your code.";
+                toast.error(msg);
+                if (res.retry_after_sec) {
+                    setResendCooldown(res.retry_after_sec);
+                    setStep("otp"); // still show the OTP screen so user can enter prior code
+                }
+            }
         } catch (err) {
             const d = err?.response?.data?.detail;
             toast.error(typeof d === "string" ? d : "Could not request code");
@@ -139,19 +179,22 @@ export default function TeamAccessPage() {
     };
 
     const verifyOtp = async () => {
-        if (!/^\d{6}$/.test(code.trim())) { toast.error("Enter the 6-digit code"); return; }
+        if (!/^\d{6}$/.test(code.trim())) { setOtpError("Enter the 6-digit code"); return; }
         setBusy(true);
+        setOtpError("");
         try {
             const res = await opsOtpVerify({
                 role, email, code: code.trim(),
                 device_id: deviceId, device_label: deviceLabel, remember_device: true,
             });
             persistSession({ email: res.email, token: res.token });
-            toast.success(`Welcome · ${res.role}`);
+            toast.success(`Signed in · ${res.role}`);
             navigate(res.redirect || "/portal/ops", { replace: true });
         } catch (err) {
             const d = err?.response?.data?.detail;
-            toast.error(typeof d === "string" ? d : "Could not verify code");
+            const msg = typeof d === "string" ? d : "Could not verify code";
+            setOtpError(msg);
+            toast.error(msg);
         } finally { setBusy(false); }
     };
 
@@ -232,6 +275,25 @@ export default function TeamAccessPage() {
                     {/* Email step */}
                     {step === "email" && (
                         <div className="mt-7 space-y-4" data-testid="team-step-email">
+                            {/* Channel picker — email or SMS */}
+                            <div className="grid grid-cols-2 gap-2" data-testid="team-channel-picker">
+                                {[
+                                    { id: "email", label: "Email", Icon: Mail, sub: "One-time code" },
+                                    { id: "sms",   label: "Text message", Icon: Smartphone, sub: "6-digit SMS" },
+                                ].map((c) => (
+                                    <button key={c.id} onClick={() => setChannel(c.id)}
+                                        data-testid={`team-channel-${c.id}`}
+                                        type="button"
+                                        className={`flex items-center gap-3 rounded-md border p-3 text-left transition-all ${channel === c.id ? "border-cyan-500/50 bg-cyan-500/10" : "border-white/10 bg-ink-700/40 hover:border-cyan-500/30"}`}>
+                                        <c.Icon size={14} className={channel === c.id ? "text-cyan-300" : "text-slate-400"} />
+                                        <div>
+                                            <div className={`text-sm font-semibold ${channel === c.id ? "text-white" : "text-slate-200"}`}>{c.label}</div>
+                                            <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">{c.sub}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+
                             <label className="block">
                                 <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
                                     Email on file
@@ -245,13 +307,36 @@ export default function TeamAccessPage() {
                                         onKeyDown={(e) => e.key === "Enter" && requestOtp()} />
                                 </div>
                             </label>
-                            <button onClick={requestOtp} disabled={busy} data-testid="team-request-otp"
+
+                            {/* Phone field — only visible when SMS channel is picked */}
+                            {channel === "sms" && (
+                                <label className="block" data-testid="team-phone-field">
+                                    <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
+                                        Phone on file
+                                    </span>
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <Smartphone size={14} className="ml-3 text-slate-500" style={{ marginRight: -28, position: "relative", zIndex: 1 }} />
+                                        <input value={phone} onChange={(e) => setPhone(e.target.value)}
+                                            type="tel" inputMode="tel" autoComplete="tel"
+                                            placeholder="+1 616 214 5861" data-testid="team-phone-input"
+                                            className={`${inputCls} pl-10`}
+                                            onKeyDown={(e) => e.key === "Enter" && requestOtp()} />
+                                    </div>
+                                    <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
+                                        Must match the number on file for this account
+                                    </p>
+                                </label>
+                            )}
+
+                            <button onClick={() => requestOtp(false)} disabled={busy} data-testid="team-request-otp"
                                 className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-cyan-500 px-6 py-3 text-base font-semibold text-ink-900 shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-400 disabled:opacity-60 sm:w-auto">
                                 {busy ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
-                                Send verification code
+                                {channel === "sms" ? "Send text code" : "Send verification code"}
                             </button>
                             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                                We'll email a 6-digit code. SMS too if a phone number is on file.
+                                {channel === "sms"
+                                    ? "We'll text a 6-digit code to the number on file."
+                                    : "We'll email a 6-digit code. SMS too if you switch channel."}
                             </p>
                         </div>
                     )}
@@ -331,17 +416,32 @@ export default function TeamAccessPage() {
                         <div className="mt-7 space-y-4" data-testid="team-step-otp">
                             <div className="flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3">
                                 <CheckCircle2 size={14} className="text-cyan-300" />
-                                <p className="text-sm text-cyan-100">Code sent to <span className="font-semibold">{email}</span></p>
+                                <p className="text-sm text-cyan-100" data-testid="team-code-sent-message">
+                                    Code sent via <span className="font-semibold uppercase">{deliveryInfo?.channel || channel}</span>
+                                    {deliveryInfo?.destination_masked && (
+                                        <> to <span className="font-semibold">{deliveryInfo.destination_masked}</span></>
+                                    )}
+                                </p>
                             </div>
+                            {codeExpiresIn > 0 && (
+                                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500" data-testid="team-code-expires">
+                                    Code expires in {Math.floor(codeExpiresIn / 60)}:{String(codeExpiresIn % 60).padStart(2, "0")}
+                                </p>
+                            )}
                             <label className="block">
                                 <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">6-digit code</span>
-                                <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                <input value={code} onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setOtpError(""); }}
                                     type="text" inputMode="numeric" autoComplete="one-time-code"
                                     placeholder="000000" data-testid="team-otp-input"
                                     pattern="[0-9]{6}" maxLength={6}
                                     className={`${inputCls} text-center font-mono text-2xl tracking-[0.5em]`}
                                     onKeyDown={(e) => e.key === "Enter" && verifyOtp()} />
                             </label>
+                            {otpError && (
+                                <p className="rounded-md border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-200" data-testid="team-otp-error">
+                                    {otpError}
+                                </p>
+                            )}
                             {devCode && (
                                 <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-300" data-testid="team-dev-code">
                                     Dev mode · code: <span className="text-amber-200">{devCode}</span>
@@ -353,7 +453,15 @@ export default function TeamAccessPage() {
                                     {busy ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
                                     Verify & sign in
                                 </button>
-                                <button onClick={() => setStep("email")} data-testid="team-back-to-email"
+                                <button onClick={() => requestOtp(true)}
+                                    disabled={busy || resendCooldown > 0}
+                                    data-testid="team-resend-code"
+                                    className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-4 py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-200 transition-all hover:bg-cyan-500 hover:text-ink-900 disabled:opacity-60 disabled:hover:bg-cyan-500/5 disabled:hover:text-cyan-200">
+                                    <Send size={12} />
+                                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                                </button>
+                                <button onClick={() => { setStep("email"); setCode(""); setOtpError(""); setDeliveryInfo(null); }}
+                                    data-testid="team-back-to-email"
                                     className="inline-flex items-center gap-2 rounded-md border border-white/10 px-4 py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
                                     Use different email
                                 </button>

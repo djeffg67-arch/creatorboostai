@@ -155,6 +155,25 @@ export const opsOtpRequest = (payload) =>
 export const opsOtpVerify = (payload) =>
     api.post("/ops/otp/verify", payload).then((r) => r.data);
 
+// Founder-only admin endpoints (use elevated OpsAuth payload {email, token})
+export const opsAdminUsersList = (auth) =>
+    api.post("/ops/admin/users/list", auth).then((r) => r.data);
+
+export const opsAdminUsersUpsert = (payload) =>
+    api.post("/ops/admin/users/upsert", payload).then((r) => r.data);
+
+export const opsAdminUsersDeactivate = (payload) =>
+    api.post("/ops/admin/users/deactivate", payload).then((r) => r.data);
+
+export const opsAdminUsersResetAccess = (payload) =>
+    api.post("/ops/admin/users/reset-access", payload).then((r) => r.data);
+
+export const opsAdminLoginAttempts = (payload) =>
+    api.post("/ops/admin/login-attempts", payload).then((r) => r.data);
+
+export const opsAdminDeliveryStatus = (auth) =>
+    api.post("/ops/admin/delivery-status", auth).then((r) => r.data);
+
 export const opsAccessLinkRequest = (payload) =>
     api.post("/ops/access-link/request", payload).then((r) => r.data);
 

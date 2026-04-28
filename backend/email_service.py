@@ -13,6 +13,7 @@ import resend
 logger = logging.getLogger(__name__)
 
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
+SENDER_NAME = os.environ.get("SENDER_NAME", "BodyIQ-AI")
 REPLY_TO_EMAIL = os.environ.get("REPLY_TO_EMAIL", SENDER_EMAIL)
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 # If DNS for the branded sender isn't verified yet, set USE_RESEND_TEST_DOMAIN=true
@@ -28,12 +29,18 @@ def _email_enabled() -> bool:
     return bool(RESEND_API_KEY)
 
 
+def email_delivery_available() -> bool:
+    """Public helper so callers can tell a truthful 'delivery not configured' state
+    apart from a real send attempt that failed."""
+    return _email_enabled()
+
+
 async def _send(to: str, subject: str, html: str) -> bool:
     if not _email_enabled():
         logger.info(f"[email disabled] Would send to={to} subject={subject!r}")
         return False
     params = {
-        "from": f"BodyIQ-AI <{EFFECTIVE_SENDER}>",
+        "from": f"{SENDER_NAME} <{EFFECTIVE_SENDER}>",
         "to": [to],
         "subject": subject,
         "html": html,
@@ -46,6 +53,11 @@ async def _send(to: str, subject: str, html: str) -> bool:
     except Exception as e:
         logger.error(f"Email send failed to={to}: {e}")
         return False
+
+
+async def send_raw(to: str, subject: str, html: str) -> bool:
+    """Public raw-send helper for ops / internal modules that build their own HTML."""
+    return await _send(to, subject, html)
 
 
 # ---------- Templates ----------
@@ -225,6 +237,34 @@ async def send_welcome_with_access(
 </p>
 """
     return await _send(email, title, _wrap(title, body))
+
+
+async def send_otp_code(*, to_email: str, code: str, role: str, expires_min: int = 10) -> bool:
+    """One-time-code email for `/team-access` login (founder / executive / employee).
+    Uses the branded dark wrapper + giant tracked-tracking code block."""
+    role_label = {"founder": "Founder", "executive": "Executive", "employee": "Employee"}.get(role, "Team")
+    title = f"Your {role_label} access code"
+    body = f"""
+<p>Use this one-time code to sign in to your CreatorBoostAI operating dashboard:</p>
+<p style="margin:28px 0;text-align:center;">
+  <span style="display:inline-block;padding:18px 28px;border:1px solid rgba(6,182,212,0.4);border-radius:8px;background:#0A0F1C;font-family:'JetBrains Mono',Consolas,monospace;font-size:32px;letter-spacing:0.35em;color:#22D3EE;font-weight:600;">
+    {code}
+  </span>
+</p>
+<p style="font-size:13px;color:#94A3B8;">
+  This code expires in {expires_min} minutes. If you didn't request it, you can ignore this email — no changes were made.
+</p>
+<p style="margin-top:22px;font-size:12px;color:#64748B;">
+  Never share this code with anyone. BodyIQ-AI support will never ask for it.
+</p>
+"""
+    return await _send(to_email, title, _wrap(title, body))
+
+
+async def send_founder_notification(*, to_email: str, subject: str, body_html: str) -> bool:
+    """Internal notification (lead captured, demo viewed, purchase received).
+    Keeps the branded dark wrapper so notifications feel native to the product."""
+    return await _send(to_email, subject, _wrap(subject, body_html))
 
 
 async def send_founder_alert(*, to_email: str, subject: str, body: str) -> bool:

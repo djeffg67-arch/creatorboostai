@@ -36,6 +36,7 @@ from emergentintegrations.payments.stripe.checkout import (
 from email_service import (
     send_lead_welcome, send_contact_ack, send_training_confirmation,
     send_forensic_confirmation, send_demo_share, send_welcome_with_access,
+    send_founder_notification,
 )
 
 # ---------- TTS ----------
@@ -305,6 +306,27 @@ async def create_lead(payload: LeadCreate):
                 await send_lead_welcome(payload.email, payload.source)
     except Exception as e:
         logging.getLogger(__name__).warning(f"Lead email hook failed: {e}")
+
+    # Founder notification — best-effort internal alert (always skipped for the
+    # synthetic reservation rows used by demo tracking).
+    try:
+        founder_email = os.environ.get("FOUNDER_EMAIL", "").strip()
+        if founder_email and not payload.email.endswith("@reservation.example.com"):
+            name_line = f"<p><strong>Name:</strong> {payload.name or '—'}</p>" if payload.name else ""
+            msg_line = f"<p><strong>Message:</strong> {payload.message}</p>" if payload.message else ""
+            await send_founder_notification(
+                to_email=founder_email,
+                subject=f"🧲 New lead · {payload.source}",
+                body_html=(
+                    f"<p>A new lead was captured on the platform.</p>"
+                    f"<p><strong>Email:</strong> {payload.email}</p>"
+                    f"<p><strong>Source:</strong> {payload.source}</p>"
+                    f"{name_line}{msg_line}"
+                    f"<p style='font-size:12px;color:#64748B;'>Logged at {doc['timestamp']}</p>"
+                ),
+            )
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Founder lead notification failed: {e}")
 
     return lead
 

@@ -70,6 +70,8 @@ class OtpRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     role: str = Field(description="founder | executive | employee")
     email: EmailStr
+    channel: str = Field(default="email", description="email | sms")
+    phone: Optional[str] = None  # required if channel == sms
     device_id: Optional[str] = None
 
 
@@ -81,6 +83,24 @@ class OtpVerify(BaseModel):
     device_id: Optional[str] = None
     device_label: Optional[str] = None
     remember_device: bool = True
+
+
+class AdminUserUpsert(OpsAuth):
+    """Founder-only: add or update an approved user record."""
+    target_email: EmailStr
+    target_name: Optional[str] = None
+    target_phone: Optional[str] = None
+    target_role: str = Field(description="founder | executive | employee")
+    active: bool = True
+
+
+class AdminUserAction(OpsAuth):
+    target_email: EmailStr
+
+
+class AdminLoginAttemptsQuery(OpsAuth):
+    limit: int = Field(default=50, ge=1, le=500)
+    outcome: Optional[str] = None  # success | failed | delivery_failed
 
 
 class LogoutRequest(OpsAuth):
@@ -164,7 +184,26 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-FOUNDER_EMAIL = "jeffrey@creatorboostai.com"
+def _mask_destination(destination: str, channel: str) -> str:
+    """Mask email/phone for UI display so we confirm the channel without
+    echoing the full PII back to the client."""
+    if channel == "email" and "@" in destination:
+        name, _, domain = destination.partition("@")
+        if len(name) <= 2:
+            masked_name = name[:1] + "*"
+        else:
+            masked_name = name[:2] + "***"
+        return f"{masked_name}@{domain}"
+    # SMS — keep country code + last 4, mask the middle
+    digits_only = "".join(c for c in destination if c.isdigit() or c == "+")
+    if len(digits_only) >= 6:
+        return digits_only[:3] + "***" + digits_only[-4:]
+    return "***"
+
+
+FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "jeffrey@creatorboostai.com").strip().lower()
+FOUNDER_NAME = os.environ.get("FOUNDER_NAME", "Jeffrey").strip()
+FOUNDER_PHONE = os.environ.get("FOUNDER_PHONE", "").strip()
 EXECUTIVE_EMAIL = "erin@creatorboostai.com"
 EXECUTIVE_NAME = "Erin Flanigan"
 
@@ -235,16 +274,20 @@ def make_router(db, email_service=None) -> APIRouter:
         now = _now_iso()
         existing = await db.users.find_one({"email": FOUNDER_EMAIL}, {"_id": 0})
         portal_token = (existing or {}).get("portal_token") or secrets.token_urlsafe(32)
+        set_doc: Dict[str, Any] = {
+            "email": FOUNDER_EMAIL,
+            "name": FOUNDER_NAME,
+            "role": ROLE_FOUNDER,
+            "portal_token": portal_token,
+            "source": "founder_bypass",
+            "active": True,
+            "updated_at": now,
+        }
+        if FOUNDER_PHONE:
+            set_doc["phone"] = FOUNDER_PHONE
         await db.users.update_one(
             {"email": FOUNDER_EMAIL},
-            {"$set": {
-                "email": FOUNDER_EMAIL,
-                "name": "Jeffrey",
-                "role": ROLE_FOUNDER,
-                "portal_token": portal_token,
-                "source": "founder_bypass",
-                "updated_at": now,
-            }, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": now}},
+            {"$set": set_doc, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": now}},
             upsert=True,
         )
         return {"email": FOUNDER_EMAIL, "token": portal_token, "role": ROLE_FOUNDER, "redirect": "/portal/ops"}
@@ -303,10 +346,11 @@ def make_router(db, email_service=None) -> APIRouter:
         return _strip(user)
 
     # ------------------------------------------------------------------
-    # OTP (email-based; Twilio SMS auto-used if TWILIO_* env vars present)
+    # OTP — email or SMS; truthful delivery status
     # Trusted-device list lets known devices skip OTP next time.
     # ------------------------------------------------------------------
     OTP_TTL_SEC = 600
+    OTP_RESEND_COOLDOWN_SEC = 30
 
     async def _check_trusted_device(email: str, device_id: Optional[str]) -> bool:
         if not device_id:
@@ -316,58 +360,178 @@ def make_router(db, email_service=None) -> APIRouter:
         )
         return user is not None
 
+    async def _log_login_attempt(*, email: str, role: Optional[str], channel: str,
+                                  outcome: str, detail: Optional[str] = None,
+                                  delivery_ok: Optional[bool] = None,
+                                  provider_id: Optional[str] = None,
+                                  ip: Optional[str] = None) -> None:
+        """Append-only audit log. Founder sees this via /api/ops/admin/login-attempts."""
+        try:
+            await db.ops_login_attempts.insert_one({
+                "id": str(uuid.uuid4()),
+                "email": email,
+                "role": role,
+                "channel": channel,          # email | sms
+                "outcome": outcome,          # sent | delivery_failed | user_not_found | role_mismatch | inactive | invalid_code | expired | verified | rate_limited | trusted_device
+                "detail": detail,
+                "delivery_ok": delivery_ok,
+                "provider_id": provider_id,  # Resend email id or Twilio SID if available
+                "ip": ip,
+                "created_at": _now_iso(),
+            })
+        except Exception:
+            pass  # Logging must never break flows
+
     @router.post("/otp/request")
     async def otp_request(payload: OtpRequest):
+        channel = (payload.channel or "email").lower()
         if payload.role not in (ROLE_FOUNDER, ROLE_EXECUTIVE, ROLE_EMPLOYEE):
             raise HTTPException(status_code=400, detail="role must be founder | executive | employee")
-        # Look up user — must already exist (created by founder/exec key or invite)
+        if channel not in ("email", "sms"):
+            raise HTTPException(status_code=400, detail="channel must be email or sms")
+
         user = await db.users.find_one({"email": payload.email}, {"_id": 0})
-        if not user or user.get("role") != payload.role:
-            # Don't leak which exists; pretend we sent
-            return {"sent": True, "trusted_device": False, "delivery": "stub"}
+
+        # Role / existence / active gate. We keep the user-facing message generic
+        # to prevent enumeration but log the true outcome server-side.
+        generic_failure = {
+            "sent": False,
+            "trusted_device": False,
+            "channel": channel,
+            "delivery_ok": False,
+            "message": "If that email is on file for this role, a code is on its way.",
+        }
+        if not user:
+            await _log_login_attempt(email=payload.email, role=payload.role, channel=channel, outcome="user_not_found")
+            return generic_failure
+        if user.get("role") != payload.role:
+            await _log_login_attempt(email=payload.email, role=payload.role, channel=channel, outcome="role_mismatch")
+            return generic_failure
+        if user.get("active") is False:
+            await _log_login_attempt(email=payload.email, role=payload.role, channel=channel, outcome="inactive")
+            return generic_failure
+
         # Trusted device shortcut
         trusted = await _check_trusted_device(payload.email, payload.device_id)
         if trusted:
-            return {"sent": False, "trusted_device": True, "token": user["portal_token"], "role": user["role"], "redirect": "/portal/ops"}
+            await _log_login_attempt(email=payload.email, role=payload.role, channel=channel,
+                                     outcome="trusted_device", delivery_ok=True)
+            return {"sent": False, "trusted_device": True, "channel": channel,
+                    "delivery_ok": True, "token": user["portal_token"],
+                    "role": user["role"], "redirect": "/portal/ops"}
+
+        # Cooldown — check the newest existing OTP row
+        existing = await db.ops_otps.find_one({"email": payload.email, "role": payload.role}, {"_id": 0})
+        if existing and not existing.get("consumed"):
+            try:
+                last = datetime.fromisoformat(existing["created_at"])
+                if last.tzinfo is None:
+                    last = last.replace(tzinfo=timezone.utc)
+                delta = (datetime.now(timezone.utc) - last).total_seconds()
+                if delta < OTP_RESEND_COOLDOWN_SEC:
+                    retry_after = int(OTP_RESEND_COOLDOWN_SEC - delta)
+                    await _log_login_attempt(email=payload.email, role=payload.role,
+                                             channel=channel, outcome="rate_limited")
+                    return {
+                        "sent": False, "trusted_device": False, "channel": channel,
+                        "delivery_ok": False,
+                        "retry_after_sec": retry_after,
+                        "message": f"Please wait {retry_after}s before requesting another code.",
+                    }
+            except Exception:
+                pass
+
+        # Mint a fresh 6-digit code
         code = "".join(secrets.choice("0123456789") for _ in range(6))
         now = datetime.now(timezone.utc)
-        expires = now.timestamp() + OTP_TTL_SEC
         await db.ops_otps.update_one(
             {"email": payload.email, "role": payload.role},
-            {"$set": {"code": code, "expires_at": expires, "device_id": payload.device_id,
-                      "created_at": now.isoformat(), "consumed": False}},
+            {"$set": {
+                "code": code,
+                "expires_at": now.timestamp() + OTP_TTL_SEC,
+                "device_id": payload.device_id,
+                "channel": channel,
+                "created_at": now.isoformat(),
+                "consumed": False,
+                "attempts": 0,
+            }},
             upsert=True,
         )
-        delivery = {"email": "queued", "sms": "skipped"}
-        if email_service is not None:
+
+        # Channel-specific delivery
+        delivery_ok = False
+        delivery_detail: Optional[str] = None
+        provider_id: Optional[str] = None
+        destination: str = ""
+
+        if channel == "email":
+            destination = payload.email
             try:
-                email_service.send(
-                    to=payload.email,
-                    subject=f"Your CreatorBoostAI verification code: {code}",
-                    html=f"<p>Your CreatorBoostAI verification code is <strong style='font-size:24px;letter-spacing:4px'>{code}</strong>.</p><p>It expires in 10 minutes.</p>",
-                )
-                delivery["email"] = "sent"
-            except Exception as exc:
-                delivery["email"] = f"failed:{str(exc)[:80]}"
-        # SMS via Twilio — only if env vars set and user has phone on record
-        twilio_sid = os.environ.get("TWILIO_ACCOUNT_SID")
-        twilio_token = os.environ.get("TWILIO_AUTH_TOKEN")
-        twilio_from = os.environ.get("TWILIO_FROM_NUMBER")
-        phone = user.get("phone")
-        if twilio_sid and twilio_token and twilio_from and phone:
-            try:
-                from twilio.rest import Client  # lazy import
-                client = Client(twilio_sid, twilio_token)
-                client.messages.create(to=phone, from_=twilio_from,
-                                       body=f"CreatorBoostAI code: {code} (expires in 10 min)")
-                delivery["sms"] = "sent"
-            except Exception as exc:
-                delivery["sms"] = f"failed:{str(exc)[:80]}"
-        # Dev-mode return so the founder can still log in without a live key
-        dev_response = {"sent": True, "trusted_device": False, "delivery": delivery}
-        if os.environ.get("OTP_DEV_RETURN_CODE", "true").lower() == "true":
-            dev_response["dev_code"] = code  # remove in prod by setting env to "false"
-        return dev_response
+                from email_service import send_otp_code, email_delivery_available
+            except Exception:
+                send_otp_code = None
+
+                def email_delivery_available():
+                    return False
+            if not email_delivery_available():
+                delivery_detail = "Email delivery not configured yet. Please try SMS or contact support."
+            else:
+                try:
+                    delivery_ok = await send_otp_code(
+                        to_email=payload.email, code=code, role=payload.role, expires_min=10
+                    )
+                    delivery_detail = None if delivery_ok else "We could not deliver the email code."
+                except Exception as exc:
+                    delivery_ok = False
+                    delivery_detail = f"Email delivery error: {str(exc)[:140]}"
+        else:  # sms
+            from sms_service import send_otp_sms, normalize_phone, sms_configured
+            phone_on_file = user.get("phone")
+            requested_phone = normalize_phone(payload.phone or "")
+            # Require an SMS-enabled user and the entered phone to match the one on file.
+            if not phone_on_file:
+                delivery_detail = "No phone number on file for this account. Please use email or contact admin."
+            elif requested_phone and normalize_phone(phone_on_file) != requested_phone:
+                delivery_detail = "That phone number does not match the one on file."
+            elif not sms_configured():
+                delivery_detail = "SMS delivery not configured yet. Please try email or contact support."
+            else:
+                destination = phone_on_file
+                result = await send_otp_sms(to_phone=phone_on_file, code=code, role=payload.role)
+                delivery_ok = bool(result.get("ok"))
+                provider_id = result.get("sid")
+                if not delivery_ok:
+                    delivery_detail = result.get("error") or "Unable to deliver SMS."
+
+        # Mask destination for the UI (never echo full email or phone)
+        masked_destination = _mask_destination(destination, channel) if destination else None
+
+        outcome = "sent" if delivery_ok else "delivery_failed"
+        await _log_login_attempt(
+            email=payload.email, role=payload.role, channel=channel, outcome=outcome,
+            detail=delivery_detail, delivery_ok=delivery_ok, provider_id=provider_id,
+        )
+
+        response: Dict[str, Any] = {
+            "sent": delivery_ok,
+            "trusted_device": False,
+            "channel": channel,
+            "delivery_ok": delivery_ok,
+            "destination_masked": masked_destination,
+            "expires_in_sec": OTP_TTL_SEC,
+            "resend_cooldown_sec": OTP_RESEND_COOLDOWN_SEC,
+            "message": (
+                f"Code sent via {channel.upper()} — check your "
+                + ("inbox" if channel == "email" else "texts") + "."
+                if delivery_ok else (delivery_detail or "We could not deliver the code.")
+            ),
+        }
+        # Dev-mode echo ONLY when explicitly enabled and delivery failed so founders
+        # can still log in during setup. Never returned when delivery succeeded.
+        if (not delivery_ok
+                and os.environ.get("OTP_DEV_RETURN_CODE", "false").lower() == "true"):
+            response["dev_code"] = code
+        return response
 
     @router.post("/otp/verify")
     async def otp_verify(payload: OtpVerify):
@@ -375,17 +539,45 @@ def make_router(db, email_service=None) -> APIRouter:
             {"email": payload.email, "role": payload.role}, {"_id": 0}
         )
         if not rec or rec.get("consumed"):
+            await _log_login_attempt(email=payload.email, role=payload.role,
+                                     channel=rec.get("channel", "email") if rec else "email",
+                                     outcome="expired", detail="no active code")
             raise HTTPException(status_code=400, detail="No active code — request a new one")
         if rec.get("expires_at", 0) < datetime.now(timezone.utc).timestamp():
+            await _log_login_attempt(email=payload.email, role=payload.role,
+                                     channel=rec.get("channel", "email"),
+                                     outcome="expired", detail="code expired")
             raise HTTPException(status_code=400, detail="Code expired — request a new one")
+        # Hard cap 5 wrong attempts per issued code
+        if rec.get("attempts", 0) >= 5:
+            await db.ops_otps.update_one(
+                {"email": payload.email, "role": payload.role},
+                {"$set": {"consumed": True, "consumed_at": _now_iso(), "locked_out": True}},
+            )
+            await _log_login_attempt(email=payload.email, role=payload.role,
+                                     channel=rec.get("channel", "email"),
+                                     outcome="invalid_code", detail="max attempts exceeded")
+            raise HTTPException(status_code=429, detail="Too many attempts — request a new code")
         if not secrets.compare_digest(str(rec.get("code", "")), str(payload.code)):
-            raise HTTPException(status_code=401, detail="Invalid code")
+            await db.ops_otps.update_one(
+                {"email": payload.email, "role": payload.role},
+                {"$inc": {"attempts": 1}},
+            )
+            remaining = max(0, 5 - (rec.get("attempts", 0) + 1))
+            await _log_login_attempt(email=payload.email, role=payload.role,
+                                     channel=rec.get("channel", "email"),
+                                     outcome="invalid_code",
+                                     detail=f"attempts_left={remaining}")
+            raise HTTPException(status_code=401, detail=f"Invalid code ({remaining} tries left)")
         await db.ops_otps.update_one(
             {"email": payload.email, "role": payload.role},
             {"$set": {"consumed": True, "consumed_at": _now_iso()}},
         )
         user = await db.users.find_one({"email": payload.email}, {"_id": 0})
         if not user or user.get("role") != payload.role:
+            await _log_login_attempt(email=payload.email, role=payload.role,
+                                     channel=rec.get("channel", "email"),
+                                     outcome="role_mismatch")
             raise HTTPException(status_code=404, detail="User not found")
         # Trust this device
         if payload.remember_device and payload.device_id:
@@ -401,8 +593,19 @@ def make_router(db, email_service=None) -> APIRouter:
                     "trusted_at": _now_iso(),
                 }}},
             )
+        # Success — log it
+        await _log_login_attempt(
+            email=user["email"], role=user["role"],
+            channel=rec.get("channel", "email"),
+            outcome="verified", delivery_ok=True,
+        )
         return {"email": user["email"], "name": user.get("name"), "role": user["role"],
                 "token": user["portal_token"], "redirect": "/portal/ops"}
+
+    # After successful OTP verify, log it
+    async def _log_verified(email: str, role: str, channel: str) -> None:
+        await _log_login_attempt(email=email, role=role, channel=channel,
+                                 outcome="verified", delivery_ok=True)
 
     @router.post("/logout")
     async def logout(payload: LogoutRequest):
@@ -579,6 +782,163 @@ def make_router(db, email_service=None) -> APIRouter:
             "role": role,
             "token": user["portal_token"],
             "redirect": "/portal/ops",
+        }
+
+    # ------------------------------------------------------------------
+    # Founder-only admin CRUD (approved users + login attempts audit log)
+    # ------------------------------------------------------------------
+    @router.post("/admin/users/list")
+    async def admin_users_list(payload: OpsAuth):
+        await _require_founder(payload)
+        cursor = db.users.find(
+            {"role": {"$in": [ROLE_FOUNDER, ROLE_EXECUTIVE, ROLE_EMPLOYEE]}},
+            {"_id": 0, "portal_token": 0, "trusted_devices": 0}
+        ).sort("created_at", -1)
+        rows = await cursor.to_list(500)
+        # Enrich with trusted device count (separate query keeps projection safe)
+        out = []
+        for r in rows:
+            td_count = await db.users.count_documents({
+                "email": r["email"], "trusted_devices.0": {"$exists": True}
+            })
+            out.append({
+                **r,
+                "active": r.get("active", True),
+                "trusted_device_count": td_count,
+            })
+        return {"users": out, "total": len(out)}
+
+    @router.post("/admin/users/upsert")
+    async def admin_users_upsert(payload: AdminUserUpsert):
+        user = await _require_founder(payload)
+        if payload.target_role not in (ROLE_FOUNDER, ROLE_EXECUTIVE, ROLE_EMPLOYEE):
+            raise HTTPException(status_code=400, detail="Invalid role")
+        from sms_service import normalize_phone
+        normalized_phone = normalize_phone(payload.target_phone or "") if payload.target_phone else None
+        if payload.target_phone and not normalized_phone:
+            raise HTTPException(status_code=400, detail="Phone must be in valid E.164 format (e.g. +16162145861)")
+        now = _now_iso()
+        target_email = payload.target_email.lower().strip()
+        existing = await db.users.find_one({"email": target_email}, {"_id": 0})
+        portal_token = (existing or {}).get("portal_token") or secrets.token_urlsafe(32)
+        set_doc: Dict[str, Any] = {
+            "email": target_email,
+            "name": payload.target_name or (existing or {}).get("name") or target_email.split("@")[0],
+            "role": payload.target_role,
+            "portal_token": portal_token,
+            "active": payload.active,
+            "source": "admin_upsert",
+            "updated_at": now,
+            "updated_by": user["email"],
+        }
+        if normalized_phone:
+            set_doc["phone"] = normalized_phone
+        await db.users.update_one(
+            {"email": target_email},
+            {"$set": set_doc, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": now}},
+            upsert=True,
+        )
+        await db.ops_admin_audit.insert_one({
+            "id": str(uuid.uuid4()),
+            "actor_email": user["email"],
+            "action": "user_upsert",
+            "target_email": target_email,
+            "fields": {k: v for k, v in set_doc.items() if k != "portal_token"},
+            "created_at": now,
+        })
+        return {"ok": True, "email": target_email, "role": payload.target_role, "active": payload.active}
+
+    @router.post("/admin/users/deactivate")
+    async def admin_users_deactivate(payload: AdminUserAction):
+        user = await _require_founder(payload)
+        target_email = payload.target_email.lower().strip()
+        if target_email == FOUNDER_EMAIL:
+            raise HTTPException(status_code=400, detail="Cannot deactivate the founder account")
+        existing = await db.users.find_one({"email": target_email}, {"_id": 0})
+        if not existing:
+            raise HTTPException(status_code=404, detail="User not found")
+        await db.users.update_one(
+            {"email": target_email},
+            {"$set": {"active": False, "updated_at": _now_iso(),
+                      "deactivated_by": user["email"]},
+             "$unset": {"trusted_devices": ""}},
+        )
+        await db.ops_admin_audit.insert_one({
+            "id": str(uuid.uuid4()),
+            "actor_email": user["email"],
+            "action": "user_deactivate",
+            "target_email": target_email,
+            "created_at": _now_iso(),
+        })
+        return {"ok": True, "email": target_email, "active": False}
+
+    @router.post("/admin/users/reset-access")
+    async def admin_users_reset_access(payload: AdminUserAction):
+        """Rotate the user's portal_token and clear all trusted devices.
+        Forces them to OTP-verify on their next sign-in from every device."""
+        user = await _require_founder(payload)
+        target_email = payload.target_email.lower().strip()
+        existing = await db.users.find_one({"email": target_email}, {"_id": 0})
+        if not existing:
+            raise HTTPException(status_code=404, detail="User not found")
+        new_token = secrets.token_urlsafe(32)
+        await db.users.update_one(
+            {"email": target_email},
+            {"$set": {"portal_token": new_token, "trusted_devices": [],
+                      "updated_at": _now_iso(), "access_reset_by": user["email"]}},
+        )
+        # Also invalidate any outstanding access-link magic tokens
+        await db.ops_access_link_tokens.update_many(
+            {"email": target_email, "used": False},
+            {"$set": {"used": True, "invalidated_at": _now_iso(),
+                      "invalidation_reason": "admin_reset"}},
+        )
+        await db.ops_admin_audit.insert_one({
+            "id": str(uuid.uuid4()),
+            "actor_email": user["email"],
+            "action": "user_reset_access",
+            "target_email": target_email,
+            "created_at": _now_iso(),
+        })
+        return {"ok": True, "email": target_email}
+
+    @router.post("/admin/login-attempts")
+    async def admin_login_attempts(payload: AdminLoginAttemptsQuery):
+        await _require_founder(payload)
+        q: Dict[str, Any] = {}
+        if payload.outcome:
+            q["outcome"] = payload.outcome
+        cursor = db.ops_login_attempts.find(q, {"_id": 0}).sort("created_at", -1).limit(payload.limit)
+        rows = await cursor.to_list(payload.limit)
+        # Aggregate counters for the header tiles
+        totals = {"total": 0, "verified": 0, "delivery_failed": 0, "invalid_code": 0, "rate_limited": 0}
+        pipeline = [{"$group": {"_id": "$outcome", "count": {"$sum": 1}}}]
+        agg = await db.ops_login_attempts.aggregate(pipeline).to_list(20)
+        for a in agg:
+            totals["total"] += a["count"]
+            key = a["_id"]
+            if key in totals:
+                totals[key] = a["count"]
+        return {"attempts": rows, "totals": totals}
+
+    @router.post("/admin/delivery-status")
+    async def admin_delivery_status(payload: OpsAuth):
+        """Founder-only: returns the current Resend/Twilio configuration state
+        so the admin UI can display green/red pills next to each provider."""
+        await _require_founder(payload)
+        from email_service import email_delivery_available
+        from sms_service import sms_configured
+        return {
+            "email": {
+                "configured": email_delivery_available(),
+                "provider": "Resend",
+                "sender": os.environ.get("SENDER_EMAIL", ""),
+            },
+            "sms": {
+                "configured": sms_configured(),
+                "provider": "Twilio",
+                "from_number": os.environ.get("TWILIO_FROM_NUMBER", ""),
+            },
         }
 
     # ------------------------------------------------------------------

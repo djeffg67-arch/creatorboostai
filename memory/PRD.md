@@ -1,6 +1,61 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-04-28 (Iter 26c — Team-Access "Resend Access Link" self-serve recovery for founder / executive / employee)
+**Last update:** 2026-04-28 (Iter 27 — Real Email + SMS OTP + Founder Admin CRUD + Truthful Delivery Status)
+
+---
+
+## 🆕 ITER 27 (2026-04-28) — Real Email/SMS OTP, Founder Admin CRUD, Audit Log, Truthful Delivery
+
+User requested: full real-delivery email+SMS authentication pipeline, no mock/fake "code sent" messaging, phone as a channel option on `/team-access`, founder CRUD over approved users + ability to view per-attempt delivery status + roster management. Founder identity updated to `j.davidg67@gmail.com` / `+16162145861` with sender `info@bodyiq-ai.com`.
+
+**Backend**
+- `sms_service.py` (NEW) — Twilio async wrapper that returns structured `{ok, sid, error, configured}` so callers can surface truthful delivery outcomes. Lazy-imports `twilio.rest.Client`; handles invalid number (21211/21614), opt-out (21610), auth (20003). Includes `normalize_phone` (E.164 with US default) + `sms_configured()`.
+- `email_service.py` — sender now `info@bodyiq-ai.com` via `SENDER_EMAIL` env. Added `send_otp_code()` branded HTML OTP template. Added `send_founder_notification()` for internal alerts. Added `send_raw()` public helper + `email_delivery_available()` so callers can tell misconfig from failure.
+- `ops_center.py`:
+  - `OtpRequest` extended with `channel: "email"|"sms"` + `phone?: str`.
+  - `/api/ops/otp/request` rewritten — branches on channel, requires phone match against user.phone for SMS, returns `{sent, delivery_ok, channel, destination_masked, expires_in_sec, resend_cooldown_sec, retry_after_sec?, message}`. No fake success: when Resend/Twilio keys are missing, truthfully returns `sent: false` + human-readable error. Anti-enumeration preserved (unknown emails return the same generic shape).
+  - New 30s resend cooldown + 5-attempt lockout on wrong codes + structured dev-mode echo (`OTP_DEV_RETURN_CODE=true` only when delivery failed).
+  - `ops_login_attempts` (NEW collection) logs every OTP request/verify with outcome (`sent`, `delivery_failed`, `verified`, `invalid_code`, `expired`, `rate_limited`, `user_not_found`, `role_mismatch`, `inactive`, `trusted_device`), channel, `delivery_ok`, `provider_id` (Twilio SID or Resend id).
+  - `_mask_destination()` helper — shows `j.***@gmail.com` / `+1***2145861` in UI confirmations.
+  - Founder admin CRUD (founder-only):
+    - `POST /api/ops/admin/users/list` — users + trusted_device_count, strips `portal_token`/`trusted_devices` from response
+    - `POST /api/ops/admin/users/upsert` — add or update email/name/phone/role/active; phone normalized + validated E.164
+    - `POST /api/ops/admin/users/deactivate` — cannot deactivate founder
+    - `POST /api/ops/admin/users/reset-access` — rotates portal_token, clears trusted_devices, invalidates outstanding magic links
+    - `POST /api/ops/admin/login-attempts` — paginated audit log (optional `outcome` filter) + header totals
+    - `POST /api/ops/admin/delivery-status` — returns `{email: {configured, provider, sender}, sms: {configured, provider, from_number}}`
+  - Every admin action logged to `ops_admin_audit` (actor, action, target, timestamp).
+- `.env` — `FOUNDER_EMAIL=j.davidg67@gmail.com`, `FOUNDER_PHONE=+16162145861`, `SENDER_EMAIL=info@bodyiq-ai.com`, `REPLY_TO_EMAIL=info@bodyiq-ai.com`, placeholders for `RESEND_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
+- `server.py` — `/api/leads` now fires `send_founder_notification()` to `FOUNDER_EMAIL` on every real lead capture (skips synthetic reservation rows). Best-effort — never raises.
+- `requirements.txt` — `twilio==9.4.5` added.
+
+**Frontend**
+- `TeamAccessPage.jsx`:
+  - Channel radio: **Email** / **Text message** (`team-channel-email` / `team-channel-sms`).
+  - Phone field shown only when SMS selected (`team-phone-input`). Must match user's phone on file.
+  - OTP step shows: channel + masked destination confirmation pill ("Code sent via SMS to +1***2145861"), code-expiry countdown (`team-code-expires`), 30s resend cooldown on the Resend button (`team-resend-code` disabled with "Resend in Ns"), inline red error band for invalid codes (`team-otp-error`).
+  - Toast messages now surface truthful backend messages — no "Code sent" unless backend confirmed delivery.
+- `PortalOpsPage.jsx`:
+  - New **Admin** tab (sidebar nav `nav-admin`, founder-only via `me.scopes.can_see_settings`).
+  - Delivery-status pills: green "Live delivery ready" when configured, amber "Not configured — add keys to .env" when not. Shows sender email + Twilio from-number.
+  - User upsert form (email, name, phone E.164, role dropdown) → table with reset / deactivate actions.
+  - Login-attempts panel: totals tiles (Total/Verified/Delivery-failed/Invalid-code) + outcome filter + refresh + timestamped audit table with channel badges and `OutcomeBadge` component (color-coded by outcome).
+- `lib/api.js` — 6 new helpers: `opsAdminUsersList`, `opsAdminUsersUpsert`, `opsAdminUsersDeactivate`, `opsAdminUsersResetAccess`, `opsAdminLoginAttempts`, `opsAdminDeliveryStatus`.
+
+**Verified via curl + Playwright**
+- ✅ `POST /founder-access` — creates `j.davidg67@gmail.com` with `phone: +16162145861`
+- ✅ `POST /otp/request email` (no RESEND key) → truthful `{sent: false, delivery_ok: false, message: "Email delivery not configured yet..."}`
+- ✅ `POST /otp/request sms` (no TWILIO keys, within cooldown) → `{sent: false, retry_after_sec: 29}` — rate limit working
+- ✅ `POST /admin/delivery-status` → email.configured=false (sender=info@bodyiq-ai.com), sms.configured=false
+- ✅ `POST /admin/users/list` → founder row has phone, exec/employee rows include trusted_device_count
+- ✅ `POST /admin/login-attempts` → returns attempts + totals, tracks both delivery_failed and rate_limited correctly
+- ✅ Frontend channel picker switches email↔SMS, phone field appears, truthful error toast shown, Admin tab renders with all 4 sub-panels (delivery_status, upsert_form, users_table, attempts_panel)
+
+**Still pending (waiting on user)**
+- 🔑 `RESEND_API_KEY` — user said "already created", not yet pasted. Until it's in `.env`, email OTP returns truthful "not configured" error.
+- 🔑 `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_FROM_NUMBER` — none provided. Until all three are set, SMS OTP returns truthful "not configured" error.
+- 🌐 Domain verification — user stated "domain is verified" for Resend; once key lands we can verify the `info@bodyiq-ai.com` sender renders correctly (Resend dashboard logs will confirm delivery).
+- 📱 **Test instructions the moment keys arrive**: Paste the 4 secrets into `/app/backend/.env`, restart backend, then re-run `POST /api/ops/otp/request` with `{"role":"founder","email":"j.davidg67@gmail.com","channel":"email"}` — expect `delivery_ok: true` and a real inbox delivery. Then `channel: "sms"` + `phone: "+16162145861"` for SMS.
 
 ---
 
