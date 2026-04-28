@@ -286,6 +286,35 @@ async def root():
     return {"service": "BodyIQ-AI", "status": "online"}
 
 
+@api_router.get("/health/email")
+async def health_email():
+    """Public diagnostic — does the deployed backend currently see the Resend key?
+    Returns ONLY non-sensitive metadata (key length + first 4 chars). Safe to expose
+    on prod because nothing returned would let an attacker reconstruct the key.
+
+    Run from any terminal:
+      curl https://YOUR-DEPLOYED-URL/api/health/email
+    """
+    raw = os.environ.get("RESEND_API_KEY", "")
+    stripped = raw.strip()
+    sender = os.environ.get("SENDER_EMAIL", "").strip()
+    reply_to = os.environ.get("REPLY_TO_EMAIL", "").strip()
+    use_test = os.environ.get("USE_RESEND_TEST_DOMAIN", "false").lower() == "true"
+    return {
+        "configured": bool(stripped),
+        "key_present_in_env": "RESEND_API_KEY" in os.environ,
+        "key_length": len(stripped),
+        "key_prefix": (stripped[:4] + "...") if stripped else None,
+        "key_has_leading_whitespace": raw != raw.lstrip(),
+        "key_has_trailing_whitespace": raw != raw.rstrip(),
+        "sender_email": sender or None,
+        "reply_to_email": reply_to or None,
+        "use_test_domain": use_test,
+        "effective_sender": "onboarding@resend.dev" if use_test else (sender or None),
+        "expected_var_name": "RESEND_API_KEY",
+    }
+
+
 @api_router.post("/leads", response_model=Lead, status_code=201)
 async def create_lead(payload: LeadCreate):
     if payload.source not in VALID_SOURCES:

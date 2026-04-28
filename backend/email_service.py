@@ -15,11 +15,22 @@ logger = logging.getLogger(__name__)
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
 SENDER_NAME = os.environ.get("SENDER_NAME", "BodyIQ-AI")
 REPLY_TO_EMAIL = os.environ.get("REPLY_TO_EMAIL", SENDER_EMAIL)
+# NOTE: read at module import for the boot banner / SDK init only.
+# Every actual send and every `_email_enabled()` call re-reads `os.environ` so
+# new keys injected by the deployment platform are picked up without requiring
+# a full container restart.
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 # If DNS for the branded sender isn't verified yet, set USE_RESEND_TEST_DOMAIN=true
 # to temporarily send from onboarding@resend.dev (Resend's pre-verified test domain).
 USE_TEST_DOMAIN = os.environ.get("USE_RESEND_TEST_DOMAIN", "false").lower() == "true"
 EFFECTIVE_SENDER = "onboarding@resend.dev" if USE_TEST_DOMAIN else SENDER_EMAIL
+
+
+def _live_resend_key() -> str:
+    """Always re-read the env so the running process picks up secrets injected
+    after import (e.g. on a hot-redeploy that doesn't fully restart the container)."""
+    return os.environ.get("RESEND_API_KEY", "").strip()
+
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
@@ -29,38 +40,50 @@ if RESEND_API_KEY:
     )
 else:
     logger.warning(
-        "[RESEND DISABLED] RESEND_API_KEY is empty in /app/backend/.env — "
-        "no email will be delivered until the key is set."
+        "[RESEND DISABLED at import] RESEND_API_KEY was empty when backend started — "
+        "the live key (if injected later) is re-read on every send."
     )
 
 
 def _email_enabled() -> bool:
-    return bool(RESEND_API_KEY)
+    """True if a Resend key is currently in the live environment.
+    Re-reads `os.environ` on every call so deployment-time secret injection
+    is picked up without a hard restart."""
+    return bool(_live_resend_key())
 
 
 def email_delivery_available() -> bool:
-    """Public helper so callers can tell a truthful 'delivery not configured' state
-    apart from a real send attempt that failed."""
+    """Public helper — same as `_email_enabled()`."""
     return _email_enabled()
 
 
 async def _send(to: str, subject: str, html: str) -> bool:
-    if not _email_enabled():
+    # Re-read the key at request time so a freshly injected secret is picked up
+    # without requiring a hard container restart.
+    live_key = _live_resend_key()
+    if not live_key:
         logger.warning(
-            f"[RESEND DISABLED] Would have sent email — RESEND_API_KEY is empty. "
+            f"[RESEND DISABLED] Would have sent email — RESEND_API_KEY is empty in os.environ. "
             f"to={to} subject={subject!r}"
         )
         return False
+    # Always (re)assign the SDK's key — defensive against stale module state.
+    resend.api_key = live_key
+    # Re-read sender configuration so the deployed env is the source of truth.
+    live_sender = (os.environ.get("SENDER_EMAIL") or SENDER_EMAIL).strip()
+    live_reply = (os.environ.get("REPLY_TO_EMAIL") or live_sender).strip()
+    live_use_test = (os.environ.get("USE_RESEND_TEST_DOMAIN", "false").lower() == "true")
+    effective_sender = "onboarding@resend.dev" if live_use_test else live_sender
     params = {
-        "from": f"{SENDER_NAME} <{EFFECTIVE_SENDER}>",
+        "from": f"{SENDER_NAME} <{effective_sender}>",
         "to": [to],
         "subject": subject,
         "html": html,
-        "reply_to": REPLY_TO_EMAIL,
+        "reply_to": live_reply,
     }
     logger.info(
         f"[RESEND CALL] from={params['from']} to={to} subject={subject!r} "
-        f"key_prefix={RESEND_API_KEY[:6]}... key_len={len(RESEND_API_KEY)}"
+        f"key_prefix={live_key[:6]}... key_len={len(live_key)}"
     )
     try:
         result = await asyncio.to_thread(resend.Emails.send, params)
