@@ -933,6 +933,7 @@ def make_router(db, email_service=None) -> APIRouter:
                 "configured": email_delivery_available(),
                 "provider": "Resend",
                 "sender": os.environ.get("SENDER_EMAIL", ""),
+                "sender_name": os.environ.get("SENDER_NAME", ""),
             },
             "sms": {
                 "configured": sms_configured(),

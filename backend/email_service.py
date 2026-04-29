@@ -12,18 +12,14 @@ import resend
 
 logger = logging.getLogger(__name__)
 
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
-SENDER_NAME = os.environ.get("SENDER_NAME", "BodyIQ-AI")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "infocreatorboostai@bodyiq-ai.com")
+SENDER_NAME = os.environ.get("SENDER_NAME", "CreatorBoostAI")
 REPLY_TO_EMAIL = os.environ.get("REPLY_TO_EMAIL", SENDER_EMAIL)
 # NOTE: read at module import for the boot banner / SDK init only.
 # Every actual send and every `_email_enabled()` call re-reads `os.environ` so
 # new keys injected by the deployment platform are picked up without requiring
 # a full container restart.
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
-# If DNS for the branded sender isn't verified yet, set USE_RESEND_TEST_DOMAIN=true
-# to temporarily send from onboarding@resend.dev (Resend's pre-verified test domain).
-USE_TEST_DOMAIN = os.environ.get("USE_RESEND_TEST_DOMAIN", "false").lower() == "true"
-EFFECTIVE_SENDER = "onboarding@resend.dev" if USE_TEST_DOMAIN else SENDER_EMAIL
 
 
 def _live_resend_key() -> str:
@@ -35,7 +31,7 @@ def _live_resend_key() -> str:
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
     logger.warning(
-        f"[RESEND ENABLED] sender={EFFECTIVE_SENDER} reply_to={REPLY_TO_EMAIL} "
+        f"[RESEND ENABLED] sender={SENDER_NAME} <{SENDER_EMAIL}> reply_to={REPLY_TO_EMAIL} "
         f"key_prefix={RESEND_API_KEY[:6]}... key_len={len(RESEND_API_KEY)}"
     )
 else:
@@ -72,10 +68,9 @@ async def _send(to: str, subject: str, html: str) -> bool:
     # Re-read sender configuration so the deployed env is the source of truth.
     live_sender = (os.environ.get("SENDER_EMAIL") or SENDER_EMAIL).strip()
     live_reply = (os.environ.get("REPLY_TO_EMAIL") or live_sender).strip()
-    live_use_test = (os.environ.get("USE_RESEND_TEST_DOMAIN", "false").lower() == "true")
-    effective_sender = "onboarding@resend.dev" if live_use_test else live_sender
+    live_name = (os.environ.get("SENDER_NAME") or SENDER_NAME).strip()
     params = {
-        "from": f"{SENDER_NAME} <{effective_sender}>",
+        "from": f"{live_name} <{live_sender}>",
         "to": [to],
         "subject": subject,
         "html": html,
@@ -125,11 +120,10 @@ async def send_with_result(to: str, subject: str, html: str) -> Dict[str, Any]:
     resend.api_key = live_key
     live_sender = (os.environ.get("SENDER_EMAIL") or SENDER_EMAIL).strip()
     live_reply = (os.environ.get("REPLY_TO_EMAIL") or live_sender).strip()
-    live_use_test = (os.environ.get("USE_RESEND_TEST_DOMAIN", "false").lower() == "true")
-    effective_sender = "onboarding@resend.dev" if live_use_test else live_sender
+    live_name = (os.environ.get("SENDER_NAME") or SENDER_NAME).strip()
 
     params = {
-        "from": f"{SENDER_NAME} <{effective_sender}>",
+        "from": f"{live_name} <{live_sender}>",
         "to": [to],
         "subject": subject,
         "html": html,

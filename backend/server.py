@@ -331,7 +331,7 @@ async def health_email():
     stripped = raw.strip()
     sender = os.environ.get("SENDER_EMAIL", "").strip()
     reply_to = os.environ.get("REPLY_TO_EMAIL", "").strip()
-    use_test = os.environ.get("USE_RESEND_TEST_DOMAIN", "false").lower() == "true"
+    sender_name = os.environ.get("SENDER_NAME", "").strip()
     return {
         "configured": bool(stripped),
         "key_present_in_env": "RESEND_API_KEY" in os.environ,
@@ -340,9 +340,9 @@ async def health_email():
         "key_has_leading_whitespace": raw != raw.lstrip(),
         "key_has_trailing_whitespace": raw != raw.rstrip(),
         "sender_email": sender or None,
+        "sender_name": sender_name or None,
         "reply_to_email": reply_to or None,
-        "use_test_domain": use_test,
-        "effective_sender": "onboarding@resend.dev" if use_test else (sender or None),
+        "effective_from": f"{sender_name} <{sender}>" if (sender_name and sender) else None,
         "expected_var_name": "RESEND_API_KEY",
     }
 
