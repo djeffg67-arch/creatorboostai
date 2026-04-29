@@ -1,6 +1,39 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-04-28 (Iter 27 — Real Email + SMS OTP + Founder Admin CRUD + Truthful Delivery Status)
+**Last update:** 2026-02-XX (Iter 28 — Option A Revenue Flow: Universal Conversion Overlay on All Demos)
+
+---
+
+## 🆕 ITER 28 — Universal `<ActivateCommandCenter />` Overlay on All 5 Demos
+
+User shipped "Option A" of the revenue flow: every cinematic demo, when it concludes (`done=true`), now mounts a universal `<ActivateCommandCenter />` conversion overlay routing the viewer to `/pricing?from=<demoOrigin>` or `/contact?intent=setup-call`. The overlay is dismissable via X button or backdrop click.
+
+**Frontend changes**
+- `InsuranceDemoPage.jsx`, `NoldusDemoPage.jsx`, `SupermarketDemoPage.jsx`, `CreatorDemoPage.jsx` — imported `ActivateCommandCenter`, added `overlayDismissed` state, mounted overlay just before `</Layout>` with industry-specific `industry`, `demoOrigin`, and 4 `capability` bullets per vertical.
+- `RealtorDemoPage.jsx` was already wired in the previous session (reference pattern).
+
+**Test IDs surfaced**
+`activate-command-center`, `activate-headline`, `activate-cta-pricing`, `activate-cta-start`, `activate-cta-setup`, `activate-close`.
+
+**Verification**
+Testing agent (iteration_23.json): 5/5 demos pass — overlay opens at `done`, all 4 inner test IDs present, 3 CTAs route correctly with `?from=<demoOrigin>` attribution, industry copy correct, X + backdrop dismiss both work, 0 console errors.
+
+**Industry copy mapping**
+| Demo | industry prop | demoOrigin |
+| --- | --- | --- |
+| Realtor | Real Estate | realtor |
+| Insurance | Insurance | insurance |
+| Noldus | Behavioral Research | noldus |
+| Supermarket | Retail / Supermarket | supermarket |
+| Creator | Creators | creator |
+
+**Stripe** — 4 new tier placeholders (`STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_TEAM_MONTHLY`, `STRIPE_PRICE_GROWTH_MONTHLY`, `STRIPE_PRICE_ENTERPRISE_MONTHLY`) live in `server.py` and `PricingPage.jsx`. **MOCKED** — awaiting user to inject real Stripe Price IDs into deployment env vars before checkout buttons can transact.
+
+**Non-blocking action items from testing agent**
+- NoldusDemoPage `handleStart()` does not honor `?scene=N` URL param (other 4 demos do) — minor QA-only inconsistency.
+- Inconsistent `data-testid` naming for Start/Mute buttons across demos (`start-demo-btn` vs `start-<vertical>-demo-btn`, `control-mute` vs `<vertical>-control-mute`) — recommend standardization for QA reuse.
+- Routes are `/demo/<vertical>` (singular), not `/demos/<vertical>`.
+- Demo page files are 1500–1800 lines each — refactor backlog (P2) to extract shared `SceneStage`/`SceneHeader` components.
 
 ---
 
