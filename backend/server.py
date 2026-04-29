@@ -318,6 +318,91 @@ async def root():
     return {"service": "BodyIQ-AI", "status": "online"}
 
 
+# =============================================================================
+# Domain warmup — proves the verified Resend domain is live the moment the
+# RESEND_API_KEY is injected, without waiting for a real user to trigger OTP.
+#
+# - Fires once per backend boot (per-key fingerprint, throttled to 24h)
+# - Sends a single email to the verified mailbox itself
+# - Records {ok, message_id, error, timestamp, key_prefix, from, to, trigger}
+#   into the `system_health` collection — permanent audit trail
+# - Exposed as GET (last 10 records) + POST (force a fresh send)
+# =============================================================================
+
+WARMUP_RECIPIENT = "infocreatorboostai@bodyiq-ai.com"
+
+
+def _warmup_html(key_prefix: str, trigger: str) -> str:
+    when = datetime.now(timezone.utc).isoformat()
+    return f"""
+    <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#0F172A;color:#F8FAFC;border-radius:12px;">
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#22D3EE;margin:0 0 12px;">CreatorBoostAI · System Health</p>
+      <h2 style="font-size:22px;margin:0 0 12px;color:#F8FAFC;">Domain warmup</h2>
+      <p style="font-size:14px;line-height:1.6;color:#CBD5E1;margin:0 0 20px;">
+        This is an automated send confirming that the verified Resend domain
+        <strong>bodyiq-ai.com</strong> is live and routing through the
+        <strong>CreatorBoostAI &lt;{WARMUP_RECIPIENT}&gt;</strong> sender identity.
+      </p>
+      <table style="width:100%;font-size:12px;color:#94A3B8;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;">Trigger</td><td style="padding:6px 0;color:#F8FAFC;">{trigger}</td></tr>
+        <tr><td style="padding:6px 0;">Timestamp (UTC)</td><td style="padding:6px 0;color:#F8FAFC;">{when}</td></tr>
+        <tr><td style="padding:6px 0;">Key fingerprint</td><td style="padding:6px 0;color:#F8FAFC;font-family:ui-monospace,Menlo,monospace;">{key_prefix}</td></tr>
+      </table>
+      <p style="font-size:11px;color:#64748B;margin:24px 0 0;">If you didn't expect this email, your RESEND_API_KEY may have been rotated or the backend was redeployed.</p>
+    </div>
+    """
+
+
+async def _run_warmup(trigger: str = "startup", force: bool = False) -> Dict[str, Any]:
+    """Send a single warmup email to the verified mailbox and persist the
+    result. Throttles to 1 send per 24h per key fingerprint unless `force`."""
+    raw = os.environ.get("RESEND_API_KEY", "").strip()
+    if not raw:
+        return {"skipped": True, "reason": "RESEND_API_KEY not present in env"}
+    key_prefix = raw[:8]
+
+    if not force:
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        existing = await db.system_health.find_one(
+            {"kind": "warmup", "key_prefix": key_prefix, "timestamp": {"$gte": cutoff}},
+            {"_id": 0},
+        )
+        if existing:
+            return {"skipped": True, "reason": "warmup already recorded in last 24h",
+                    "last_record": existing}
+
+    sender = os.environ.get("SENDER_EMAIL", "").strip() or "infocreatorboostai@bodyiq-ai.com"
+    sender_name = os.environ.get("SENDER_NAME", "").strip() or "CreatorBoostAI"
+    from_header = f"{sender_name} <{sender}>"
+
+    result = await send_with_result(
+        to=WARMUP_RECIPIENT,
+        subject=f"[CreatorBoostAI] Domain warmup · {trigger}",
+        html=_warmup_html(key_prefix, trigger),
+    )
+    record = {
+        "id": str(uuid.uuid4()),
+        "kind": "warmup",
+        "trigger": trigger,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "key_prefix": key_prefix,
+        "from": from_header,
+        "to": WARMUP_RECIPIENT,
+        "ok": bool(result.get("ok")),
+        "message_id": result.get("id"),
+        "error": result.get("error"),
+        "error_kind": result.get("error_kind"),
+        "status_code": result.get("status_code"),
+    }
+    await db.system_health.insert_one(dict(record))
+    logger_msg = ("OK" if record["ok"] else f"FAIL ({record['error_kind']})")
+    logging.getLogger(__name__).warning(
+        f"[WARMUP {logger_msg}] trigger={trigger} key_prefix={key_prefix} "
+        f"message_id={record['message_id']} error={record['error']!r}"
+    )
+    return {"skipped": False, "record": record}
+
+
 @api_router.get("/health/email")
 async def health_email():
     """Public diagnostic — does the deployed backend currently see the Resend key?
@@ -345,6 +430,23 @@ async def health_email():
         "effective_from": f"{sender_name} <{sender}>" if (sender_name and sender) else None,
         "expected_var_name": "RESEND_API_KEY",
     }
+
+
+@api_router.get("/health/email/warmup")
+async def health_email_warmup_audit():
+    """Returns the last 10 warmup records — permanent audit trail proving the
+    verified Resend domain has been live."""
+    cursor = db.system_health.find({"kind": "warmup"}, {"_id": 0}) \
+        .sort("timestamp", -1).limit(10)
+    rows = await cursor.to_list(length=10)
+    return {"count": len(rows), "records": rows}
+
+
+@api_router.post("/health/email/warmup")
+async def health_email_warmup_send():
+    """Force a fresh warmup send (bypasses the 24h throttle). Useful after
+    rotating the Resend key or redeploying."""
+    return await _run_warmup(trigger="manual", force=True)
 
 
 @api_router.post("/leads", response_model=Lead, status_code=201)
@@ -2077,6 +2179,17 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def _startup_warmup():
+    """Best-effort: fire the domain warmup email on boot if the Resend key is
+    present and we haven't already recorded a warmup in the last 24h."""
+    try:
+        result = await _run_warmup(trigger="startup", force=False)
+        logging.getLogger(__name__).info(f"[WARMUP STARTUP] {result.get('reason') or 'sent'}")
+    except Exception as e:
+        logging.getLogger(__name__).error(f"[WARMUP STARTUP FAIL] {e!r}")
 
 
 @app.on_event("shutdown")
