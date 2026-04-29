@@ -5,6 +5,7 @@ import { analyzeLead, shareDemo } from "@/lib/api";
 import { useDemoTracking } from "@/lib/useDemoTracking";
 import { useRefMirror, hardSilence, useDemoCleanup } from "@/lib/demoAudioFix";
 import { DemoConversionCTA } from "@/components/site/DemoConversionCTA";
+import { ActivateCommandCenter } from "@/components/ActivateCommandCenter";
 import {
     Play, Pause, ArrowRight, ArrowLeft, RotateCcw, Volume2, VolumeX,
     Sparkles, Building2, Users, MessageSquare, CalendarCheck, DollarSign,
@@ -207,8 +208,7 @@ const SCENE_GAP_MS = 600;
 // Page
 // =================================================================
 export default function RealtorDemoPage() {
-    const [started, setStarted] = useState(false);
-    const [scene, setScene] = useState(0);
+    const [started, setStarted] = useState(false);    const [scene, setScene] = useState(0);
     const [muted, setMuted] = useState(false);
     const [paused, setPaused] = useState(false);
     const [speaking, setSpeaking] = useState(false);
@@ -216,6 +216,7 @@ export default function RealtorDemoPage() {
     const [prefetching, setPrefetching] = useState(false);
     const [prefetchProgress, setPrefetchProgress] = useState(0);
     const [done, setDone] = useState(false);
+    const [overlayDismissed, setOverlayDismissed] = useState(false);
     const [sceneElapsed, setSceneElapsed] = useState(0); // ms within current scene
 
     const audioRef = useRef(null);
@@ -510,6 +511,18 @@ export default function RealtorDemoPage() {
                 <div className="mt-12"><TryYourLead /></div>
                 <div className="mt-12"><CustomerEmailSection /></div>
             </div>
+            <ActivateCommandCenter
+                open={done && !overlayDismissed}
+                onClose={() => setOverlayDismissed(true)}
+                industry="Real Estate"
+                demoOrigin="realtor"
+                capability={[
+                    "Lead capture across MLS, Zillow, social",
+                    "AI follow-up + buyer intent scoring",
+                    "Pipeline + commission tracking",
+                    "Listing co-pilot + showing automation",
+                ]}
+            />
         </Layout>
     );
 }

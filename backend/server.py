@@ -129,33 +129,65 @@ PRODUCTS: Dict[str, Dict[str, Any]] = {
 # NOTE: $7K and $27K programs are intentionally NOT here — they require an
 # application + booking call and are closed manually via Stripe invoice or Zelle.
 SUBSCRIPTIONS: Dict[str, Dict[str, Any]] = {
-    "cb_starter_monthly": {
+    # ----- Canonical multi-industry plans (Iter 28 — public-facing) -----
+    "starter_monthly": {
         "name": "CreatorBoostAI Starter", "tier": "starter", "interval": "month",
+        "amount": 297.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_STARTER_MONTHLY",
+    },
+    "starter_annual": {
+        "name": "CreatorBoostAI Starter", "tier": "starter", "interval": "year",
+        "amount": 2970.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_STARTER_ANNUAL",
+    },
+    "team_monthly": {
+        "name": "CreatorBoostAI Team", "tier": "team", "interval": "month",
+        "amount": 997.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_TEAM_MONTHLY",
+    },
+    "team_annual": {
+        "name": "CreatorBoostAI Team", "tier": "team", "interval": "year",
+        "amount": 9970.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_TEAM_ANNUAL",
+    },
+    "growth_monthly": {
+        "name": "CreatorBoostAI Growth", "tier": "growth", "interval": "month",
+        "amount": 1997.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_GROWTH_MONTHLY",
+    },
+    "growth_annual": {
+        "name": "CreatorBoostAI Growth", "tier": "growth", "interval": "year",
+        "amount": 19970.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_GROWTH_ANNUAL",
+    },
+    # ----- Legacy plans (kept active so existing webhook flows keep working) -----
+    "cb_starter_monthly": {
+        "name": "CreatorBoostAI Starter (legacy)", "tier": "starter_legacy", "interval": "month",
         "amount": 97.00, "currency": "usd",
         "price_id_env": "STRIPE_PRICE_CB_STARTER_MONTHLY",
     },
     "cb_starter_annual":  {
-        "name": "CreatorBoostAI Starter", "tier": "starter", "interval": "year",
+        "name": "CreatorBoostAI Starter (legacy)", "tier": "starter_legacy", "interval": "year",
         "amount": 970.00, "currency": "usd",
         "price_id_env": "STRIPE_PRICE_CB_STARTER_ANNUAL",
     },
     "cb_growth_monthly":  {
-        "name": "CreatorBoostAI Growth",  "tier": "growth",  "interval": "month",
+        "name": "CreatorBoostAI Growth (legacy)",  "tier": "growth_legacy",  "interval": "month",
         "amount": 297.00, "currency": "usd",
         "price_id_env": "STRIPE_PRICE_CB_GROWTH_MONTHLY",
     },
     "cb_growth_annual":   {
-        "name": "CreatorBoostAI Growth",  "tier": "growth",  "interval": "year",
+        "name": "CreatorBoostAI Growth (legacy)",  "tier": "growth_legacy",  "interval": "year",
         "amount": 2970.00, "currency": "usd",
         "price_id_env": "STRIPE_PRICE_CB_GROWTH_ANNUAL",
     },
     "cb_pro_monthly":     {
-        "name": "CreatorBoostAI Pro",     "tier": "pro",     "interval": "month",
+        "name": "CreatorBoostAI Pro (legacy)",     "tier": "pro_legacy",     "interval": "month",
         "amount": 997.00, "currency": "usd",
         "price_id_env": "STRIPE_PRICE_CB_PRO_MONTHLY",
     },
     "cb_pro_annual":      {
-        "name": "CreatorBoostAI Pro",     "tier": "pro",     "interval": "year",
+        "name": "CreatorBoostAI Pro (legacy)",     "tier": "pro_legacy",     "interval": "year",
         "amount": 9970.00, "currency": "usd",
         "price_id_env": "STRIPE_PRICE_CB_PRO_ANNUAL",
     },

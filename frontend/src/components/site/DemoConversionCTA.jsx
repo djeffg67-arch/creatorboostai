@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
     Calendar, ArrowRight, Sparkles, BookOpen, LayoutDashboard, Send,
+    Rocket, PhoneCall,
 } from "lucide-react";
 
 /**
@@ -85,21 +86,37 @@ export const DemoConversionCTA = ({
                 decision-makers on your side. CreatorBoostAI sits on top of what you already run — onboarding starts in days.
             </p>
 
-            {/* Primary CTA */}
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            {/* Primary CTAs — Activate Command Center spec (Iter 28) */}
+            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3" data-testid="conversion-primary-row">
                 <Link
-                    to="/apply/strategy"
-                    data-testid="conversion-primary-book"
-                    className="group inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-7 py-4 text-sm font-semibold text-ink-900 shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_45px_rgba(6,182,212,0.6)]"
+                    to={`/pricing?from=${encodeURIComponent(demoType || "demo")}`}
+                    data-testid="conversion-cta-get-access"
+                    className="group inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-5 py-4 text-sm font-semibold text-ink-900 shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_45px_rgba(6,182,212,0.6)]"
                 >
-                    <Calendar size={16} />
-                    Book a Live Demo
-                    <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+                    <Rocket size={15} />
+                    Get Access to CreatorBoostAI
+                    <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
                 </Link>
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500 sm:ml-2">
-                    30-min strategy call · no auto-charges
-                </p>
+                <Link
+                    to={`/pricing?from=${encodeURIComponent(demoType || "demo")}`}
+                    data-testid="conversion-cta-start-system"
+                    className="group inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-5 py-4 text-sm font-semibold text-cyan-200 transition-all hover:bg-cyan-500 hover:text-ink-900"
+                >
+                    <Sparkles size={14} />
+                    Start Using the System
+                </Link>
+                <Link
+                    to={`/contact?intent=setup-call&from=${encodeURIComponent(demoType || "demo")}`}
+                    data-testid="conversion-cta-book-setup"
+                    className="group inline-flex items-center justify-center gap-2 rounded-md border border-white/10 bg-ink-900 px-5 py-4 text-sm font-semibold text-slate-200 transition-all hover:border-cyan-500/40 hover:text-cyan-300"
+                >
+                    <PhoneCall size={14} />
+                    Book Setup Call
+                </Link>
             </div>
+            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                14-day money-back guarantee · cancel any time · no auto-charges on setup calls
+            </p>
 
             {/* Secondary CTAs */}
             <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -146,10 +163,24 @@ export const DemoConversionCTA = ({
             </div>
 
             <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500" data-testid="conversion-demo-tag">
-                Demo · {demoType === "insurance" ? "Insurance" : "Real Estate"} vertical
+                Demo · {DEMO_LABELS[demoType] || "CreatorBoostAI"} vertical
             </p>
         </section>
     );
+};
+
+const DEMO_LABELS = {
+    insurance: "Insurance",
+    realtor: "Real Estate",
+    realestate: "Real Estate",
+    supermarket: "Retail",
+    retail: "Retail",
+    noldus: "Enterprise",
+    enterprise: "Enterprise",
+    creator: "Creator + Influencer",
+    influencer: "Creator + Influencer",
+    contractor: "Contractors",
+    contractors: "Contractors",
 };
 
 const SecondaryCTA = ({ to, Icon, label, sub, testid }) => (
