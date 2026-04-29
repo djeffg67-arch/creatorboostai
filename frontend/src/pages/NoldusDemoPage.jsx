@@ -5,6 +5,7 @@ import { useDemoTracking } from "@/lib/useDemoTracking";
 import { useRefMirror, hardSilence, useDemoCleanup } from "@/lib/demoAudioFix";
 import { toast } from "sonner";
 import { SCENE_IMG_NOLDUS } from "@/lib/images";
+import { ActivateCommandCenter } from "@/components/ActivateCommandCenter";
 import {
     Play, Pause, Volume2, VolumeX, Check, ArrowRight, Sparkles, Mic,
     Eye, Activity, Brain, Zap, Globe2, Send, Copy, QrCode, Cpu, Target,
@@ -224,6 +225,7 @@ export default function NoldusDemoPage() {
     const [prefetching, setPrefetching] = useState(false);
     const [prefetchProgress, setPrefetchProgress] = useState(0);
     const [done, setDone] = useState(false);
+    const [overlayDismissed, setOverlayDismissed] = useState(false);
     const [sceneElapsed, setSceneElapsed] = useState(0);
 
     const audioRef = useRef(null);
@@ -488,6 +490,18 @@ export default function NoldusDemoPage() {
                     </div>
                 )}
             </div>
+            <ActivateCommandCenter
+                open={done && !overlayDismissed}
+                onClose={() => setOverlayDismissed(true)}
+                industry="Behavioral Research"
+                demoOrigin="noldus"
+                capability={[
+                    "AI behavioral coding + real-time tagging",
+                    "Multi-modal sensor + video sync",
+                    "Study management + audit-ready reports",
+                    "Cross-lab data unification + insights",
+                ]}
+            />
         </Layout>
     );
 }

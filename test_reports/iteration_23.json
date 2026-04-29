@@ -1,0 +1,33 @@
+{
+  "summary": "Frontend-only smoke + ActivateCommandCenter overlay verification across all 5 demo pages (Realtor, Insurance, Noldus, Supermarket, Creator). Used Playwright with init-script setTimeout speedup (50x-200x) to compress the ~10min auto-play loop and force the demo's `done=true` state so the overlay mounts. All 5 pages render without runtime errors, the universal overlay opens at `done`, all 4 inner test IDs are present, the 3 CTAs route to the correct hrefs with the correct `?from=<demoOrigin>` attribution, the industry copy is correct per demo, and both close paths (X button + backdrop click) dismiss the overlay.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results_per_demo": {
+    "realtor":     {"smoke": "pass", "overlay": "pass", "cta_pricing": "/pricing?from=realtor",     "cta_start": "/pricing?from=realtor",     "cta_setup": "/contact?intent=setup-call&from=realtor",     "industry_copy": "Real Estate (matched)",         "close_x": "pass", "console_errors": 0},
+    "insurance":   {"smoke": "pass", "overlay": "pass", "cta_pricing": "/pricing?from=insurance",   "cta_start": "/pricing?from=insurance",   "cta_setup": "/contact?intent=setup-call&from=insurance",   "industry_copy": "Insurance (matched)",            "close_x": "pass", "console_errors": 0},
+    "noldus":      {"smoke": "pass", "overlay": "pass", "cta_pricing": "/pricing?from=noldus",      "cta_start": "/pricing?from=noldus",      "cta_setup": "/contact?intent=setup-call&from=noldus",      "industry_copy": "Behavioral Research (matched)",  "close_x": "pass", "console_errors": 0},
+    "supermarket": {"smoke": "pass", "overlay": "pass", "cta_pricing": "/pricing?from=supermarket", "cta_start": "/pricing?from=supermarket", "cta_setup": "/contact?intent=setup-call&from=supermarket", "industry_copy": "Retail / Supermarket (matched)", "close_x": "pass", "console_errors": 0},
+    "creator":     {"smoke": "pass", "overlay": "pass", "cta_pricing": "/pricing?from=creator",     "cta_start": "/pricing?from=creator",     "cta_setup": "/contact?intent=setup-call&from=creator",     "industry_copy": "Creators (matched)",             "close_x": "pass", "close_backdrop": "pass", "console_errors": 0}
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(Non-blocking, optional consistency cleanup) NoldusDemoPage.handleStart() at line ~391-396 does not honor the `?scene=N` URL deep-link parameter — it always calls setScene(0). The other 4 demo pages (Realtor/Insurance/Supermarket/Creator) parse URLSearchParams and use startIdx. This makes Noldus harder to QA but does not affect end users. Suggest mirroring the Insurance pattern (lines 411-419).",
+    "(Non-blocking, testability) Inconsistent data-testid naming for the Start button & toolbar controls: Realtor + Insurance use generic `start-demo-btn` and `control-mute`; Supermarket uses `start-supermarket-demo-btn`; Creator uses `start-creator-demo-btn`; Noldus uses `start-noldus-demo-btn` and `noldus-control-mute`. Recommend standardizing on a single convention so QA scripts can reuse one selector.",
+    "(Routing reference) The review request mentioned `/demos/<vertical>` — actual routes are `/demo/<vertical>` (singular). Updating the request/docs would prevent confusion."
+  ],
+  "critical_code_review_comments": [
+    "ActivateCommandCenter.jsx is clean (~140 lines, 5 testids, all 3 CTAs use react-router Link with the demoOrigin attribution param, backdrop click handler correctly compares e.target===e.currentTarget). No issues.",
+    "All 5 demo pages mount <ActivateCommandCenter open={done && !overlayDismissed} /> with the right industry+demoOrigin props.",
+    "Demo pages exceed 700 lines (Realtor/Insurance/Supermarket/Creator/Noldus all 1500-1800 lines). Pre-existing — flagged for future refactor (per DRY/file-size code-review guideline) but out of scope this session."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% (5/5 demos pass overlay+routing+industry+close)"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "ActivateCommandCenter universal overlay is verified across all 5 demo pages. To force `done=true` quickly without waiting ~10 min, override window.setTimeout in an init-script (50x-200x speedup) — the muted path uses pure setTimeout chains so this collapses the entire scene loop into seconds. Note Noldus's handleStart does NOT honor `?scene=N` so deep-linking to the last scene won't work for Noldus; just use timer speedup + click Start. Mute toggles are: Realtor/Insurance=`control-mute`, Supermarket has no testid on its mute toggle (only pause), Creator/Noldus use `<vertical>-control-mute`. Start buttons: Realtor/Insurance=`start-demo-btn`, others=`start-<vertical>-demo-btn`."
+}

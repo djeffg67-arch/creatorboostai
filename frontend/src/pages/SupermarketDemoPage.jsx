@@ -5,6 +5,7 @@ import { useDemoTracking } from "@/lib/useDemoTracking";
 import { useRefMirror, hardSilence, useDemoCleanup } from "@/lib/demoAudioFix";
 import { SCENE_IMG_RETAIL } from "@/lib/images";
 import { toast } from "sonner";
+import { ActivateCommandCenter } from "@/components/ActivateCommandCenter";
 import {
     Play, Pause, Volume2, VolumeX, Check, ArrowRight, Sparkles, Mic,
     Activity, Brain, Zap, Globe2, Send, Copy, QrCode, Cpu, Target,
@@ -288,6 +289,7 @@ export default function SupermarketDemoPage() {
     const [prefetching, setPrefetching] = useState(false);
     const [prefetchProgress, setPrefetchProgress] = useState(0);
     const [done, setDone] = useState(false);
+    const [overlayDismissed, setOverlayDismissed] = useState(false);
     const [sceneElapsed, setSceneElapsed] = useState(0);
 
     const audioRef = useRef(null);
@@ -521,6 +523,18 @@ export default function SupermarketDemoPage() {
                     </div>
                 )}
             </div>
+            <ActivateCommandCenter
+                open={done && !overlayDismissed}
+                onClose={() => setOverlayDismissed(true)}
+                industry="Retail / Supermarket"
+                demoOrigin="supermarket"
+                capability={[
+                    "Shrink + waste detection across stores",
+                    "Smart replenishment + supplier orchestration",
+                    "Energy + cold-chain monitoring",
+                    "Store-level command center + KPIs",
+                ]}
+            />
         </Layout>
     );
 }

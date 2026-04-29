@@ -5,6 +5,7 @@ import { shareDemo } from "@/lib/api";
 import { useDemoTracking } from "@/lib/useDemoTracking";
 import { useRefMirror, hardSilence, useDemoCleanup } from "@/lib/demoAudioFix";
 import { DemoConversionCTA } from "@/components/site/DemoConversionCTA";
+import { ActivateCommandCenter } from "@/components/ActivateCommandCenter";
 import {
     Play, Pause, Sparkles, Users, MessageSquare, CalendarCheck, DollarSign,
     Target, Activity, Copy, Check, ShieldCheck, Mail,
@@ -234,6 +235,7 @@ export default function InsuranceDemoPage() {
     const [prefetching, setPrefetching] = useState(false);
     const [prefetchProgress, setPrefetchProgress] = useState(0);
     const [done, setDone] = useState(false);
+    const [overlayDismissed, setOverlayDismissed] = useState(false);
     const [sceneElapsed, setSceneElapsed] = useState(0);
 
     const audioRef = useRef(null);
@@ -517,6 +519,18 @@ export default function InsuranceDemoPage() {
 
                 <div className="mt-12"><DemoEmailSection /></div>
             </div>
+            <ActivateCommandCenter
+                open={done && !overlayDismissed}
+                onClose={() => setOverlayDismissed(true)}
+                industry="Insurance"
+                demoOrigin="insurance"
+                capability={[
+                    "Lead capture across CRM, AMS, carrier portals",
+                    "AI underwriting + carrier appetite matching",
+                    "Commission engine + producer ledger",
+                    "Always audit-ready compliance + e-sign chain",
+                ]}
+            />
         </Layout>
     );
 }

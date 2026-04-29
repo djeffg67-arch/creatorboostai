@@ -5,6 +5,7 @@ import { shareDemo } from "@/lib/api";
 import { DemoConversionCTA } from "@/components/site/DemoConversionCTA";
 import { useDemoTracking } from "@/lib/useDemoTracking";
 import { useRefMirror, hardSilence, useDemoCleanup } from "@/lib/demoAudioFix";
+import { ActivateCommandCenter } from "@/components/ActivateCommandCenter";
 import {
     Play, Pause, Volume2, VolumeX, Check, ArrowRight, Sparkles,
     Mic, TrendingUp, DollarSign, Users, Brain, Activity, Zap,
@@ -195,6 +196,7 @@ export default function CreatorDemoPage() {
     const [prefetching, setPrefetching] = useState(false);
     const [prefetchProgress, setPrefetchProgress] = useState(0);
     const [done, setDone] = useState(false);
+    const [overlayDismissed, setOverlayDismissed] = useState(false);
     const [sceneElapsed, setSceneElapsed] = useState(0);
 
     const audioRef = useRef(null);
@@ -466,6 +468,18 @@ export default function CreatorDemoPage() {
                     demoType="creator"
                 />
             </div>
+            <ActivateCommandCenter
+                open={done && !overlayDismissed}
+                onClose={() => setOverlayDismissed(true)}
+                industry="Creators"
+                demoOrigin="creator"
+                capability={[
+                    "Audience growth + content scoring",
+                    "Brand-deal pipeline + revenue tracking",
+                    "AI follow-up to fans + sponsors",
+                    "Creator command center + analytics",
+                ]}
+            />
         </Layout>
     );
 }
