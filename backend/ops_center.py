@@ -926,14 +926,14 @@ def make_router(db, email_service=None) -> APIRouter:
         """Founder-only: returns the current Resend/Twilio configuration state
         so the admin UI can display green/red pills next to each provider."""
         await _require_founder(payload)
-        from email_service import email_delivery_available
+        from email_service import email_delivery_available, SENDER_EMAIL as _SENDER, SENDER_NAME as _SENDER_NAME
         from sms_service import sms_configured
         return {
             "email": {
                 "configured": email_delivery_available(),
                 "provider": "Resend",
-                "sender": os.environ.get("SENDER_EMAIL", ""),
-                "sender_name": os.environ.get("SENDER_NAME", ""),
+                "sender": _SENDER,
+                "sender_name": _SENDER_NAME,
             },
             "sms": {
                 "configured": sms_configured(),

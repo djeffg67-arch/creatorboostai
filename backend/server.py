@@ -37,6 +37,8 @@ from email_service import (
     send_lead_welcome, send_contact_ack, send_training_confirmation,
     send_forensic_confirmation, send_demo_share, send_welcome_with_access,
     send_founder_notification, send_with_result, send_demo_share_with_result,
+    SENDER_EMAIL as EMAIL_SENDER, SENDER_NAME as EMAIL_SENDER_NAME,
+    REPLY_TO_EMAIL as EMAIL_REPLY_TO, FROM_HEADER as EMAIL_FROM_HEADER,
 )
 
 # ---------- TTS ----------
@@ -329,7 +331,7 @@ async def root():
 # - Exposed as GET (last 10 records) + POST (force a fresh send)
 # =============================================================================
 
-WARMUP_RECIPIENT = "infocreatorboostai@bodyiq-ai.com"
+WARMUP_RECIPIENT = EMAIL_SENDER
 
 
 def _warmup_html(key_prefix: str, trigger: str) -> str:
@@ -371,9 +373,10 @@ async def _run_warmup(trigger: str = "startup", force: bool = False) -> Dict[str
             return {"skipped": True, "reason": "warmup already recorded in last 24h",
                     "last_record": existing}
 
-    sender = os.environ.get("SENDER_EMAIL", "").strip() or "infocreatorboostai@bodyiq-ai.com"
-    sender_name = os.environ.get("SENDER_NAME", "").strip() or "CreatorBoostAI"
-    from_header = f"{sender_name} <{sender}>"
+    # Sender identity is hard-coded in email_service — re-export here for the
+    # audit-log record (so the `from` field in the warmup row reflects what
+    # was actually sent, not what env vars happened to say).
+    from_header = EMAIL_FROM_HEADER
 
     result = await send_with_result(
         to=WARMUP_RECIPIENT,
@@ -414,9 +417,10 @@ async def health_email():
     """
     raw = os.environ.get("RESEND_API_KEY", "")
     stripped = raw.strip()
-    sender = os.environ.get("SENDER_EMAIL", "").strip()
-    reply_to = os.environ.get("REPLY_TO_EMAIL", "").strip()
-    sender_name = os.environ.get("SENDER_NAME", "").strip()
+    env_sender = os.environ.get("SENDER_EMAIL", "").strip()
+    env_reply = os.environ.get("REPLY_TO_EMAIL", "").strip()
+    env_name = os.environ.get("SENDER_NAME", "").strip()
+    env_override_active = bool(env_sender) and env_sender.lower() != EMAIL_SENDER.lower()
     return {
         "configured": bool(stripped),
         "key_present_in_env": "RESEND_API_KEY" in os.environ,
@@ -424,10 +428,20 @@ async def health_email():
         "key_prefix": (stripped[:4] + "...") if stripped else None,
         "key_has_leading_whitespace": raw != raw.lstrip(),
         "key_has_trailing_whitespace": raw != raw.rstrip(),
-        "sender_email": sender or None,
-        "sender_name": sender_name or None,
-        "reply_to_email": reply_to or None,
-        "effective_from": f"{sender_name} <{sender}>" if (sender_name and sender) else None,
+        "sender_email": EMAIL_SENDER,
+        "sender_name": EMAIL_SENDER_NAME,
+        "reply_to_email": EMAIL_REPLY_TO,
+        "effective_from": EMAIL_FROM_HEADER,
+        "sender_is_hardcoded": True,
+        "env_sender_email": env_sender or None,
+        "env_sender_name": env_name or None,
+        "env_reply_to_email": env_reply or None,
+        "env_override_ignored": env_override_active,
+        "env_override_warning": (
+            f"Deployment env SENDER_EMAIL={env_sender!r} is being IGNORED. "
+            f"Application has hard-coded {EMAIL_SENDER!r}. Remove SENDER_EMAIL "
+            f"from your deployment platform's env-var dashboard to silence."
+        ) if env_override_active else None,
         "expected_var_name": "RESEND_API_KEY",
     }
 

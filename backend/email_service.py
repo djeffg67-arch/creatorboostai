@@ -2,6 +2,13 @@
 
 If RESEND_API_KEY is empty or sending fails, we log and return False without
 raising so checkout / lead flows never break because of email issues.
+
+SENDER IDENTITY IS HARD-CODED — bodyiq-ai.com is the verified Resend domain
+and `infocreatorboostai@bodyiq-ai.com` is the only authorized From address.
+This is NOT read from environment variables on purpose: in the past a stale
+`SENDER_EMAIL=info@bodyiq-ai.com` deployment-platform secret was overriding
+the application configuration and silently sending from the wrong identity.
+If you ever need to change it, change the constants below.
 """
 import os
 import asyncio
@@ -12,13 +19,14 @@ import resend
 
 logger = logging.getLogger(__name__)
 
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "infocreatorboostai@bodyiq-ai.com")
-SENDER_NAME = os.environ.get("SENDER_NAME", "CreatorBoostAI")
-REPLY_TO_EMAIL = os.environ.get("REPLY_TO_EMAIL", SENDER_EMAIL)
-# NOTE: read at module import for the boot banner / SDK init only.
-# Every actual send and every `_email_enabled()` call re-reads `os.environ` so
-# new keys injected by the deployment platform are picked up without requiring
-# a full container restart.
+# ---------------------------------------------------------------------------
+# Hard-coded verified sender identity — DO NOT read from env, DO NOT override.
+# ---------------------------------------------------------------------------
+SENDER_EMAIL = "infocreatorboostai@bodyiq-ai.com"
+SENDER_NAME = "CreatorBoostAI"
+REPLY_TO_EMAIL = "infocreatorboostai@bodyiq-ai.com"
+FROM_HEADER = f"{SENDER_NAME} <{SENDER_EMAIL}>"
+
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 
 
@@ -31,13 +39,25 @@ def _live_resend_key() -> str:
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
     logger.warning(
-        f"[RESEND ENABLED] sender={SENDER_NAME} <{SENDER_EMAIL}> reply_to={REPLY_TO_EMAIL} "
+        f"[RESEND ENABLED] from={FROM_HEADER} reply_to={REPLY_TO_EMAIL} "
         f"key_prefix={RESEND_API_KEY[:6]}... key_len={len(RESEND_API_KEY)}"
     )
 else:
     logger.warning(
         "[RESEND DISABLED at import] RESEND_API_KEY was empty when backend started — "
         "the live key (if injected later) is re-read on every send."
+    )
+
+
+# Loud warning if any env is trying to override the hard-coded sender. Helps
+# users notice misconfigured deployment-platform secrets on their dashboard.
+_env_sender = os.environ.get("SENDER_EMAIL", "").strip()
+if _env_sender and _env_sender.lower() != SENDER_EMAIL.lower():
+    logger.warning(
+        f"[SENDER OVERRIDE IGNORED] Deployment env SENDER_EMAIL={_env_sender!r} is "
+        f"being IGNORED — the application has hard-coded the verified sender to "
+        f"{SENDER_EMAIL!r}. Remove SENDER_EMAIL from your deployment platform's "
+        f"environment-variable dashboard to silence this warning."
     )
 
 
@@ -65,16 +85,15 @@ async def _send(to: str, subject: str, html: str) -> bool:
         return False
     # Always (re)assign the SDK's key — defensive against stale module state.
     resend.api_key = live_key
-    # Re-read sender configuration so the deployed env is the source of truth.
-    live_sender = (os.environ.get("SENDER_EMAIL") or SENDER_EMAIL).strip()
-    live_reply = (os.environ.get("REPLY_TO_EMAIL") or live_sender).strip()
-    live_name = (os.environ.get("SENDER_NAME") or SENDER_NAME).strip()
+    # Sender identity is hard-coded above (verified Resend domain). We do NOT
+    # read SENDER_EMAIL/SENDER_NAME/REPLY_TO_EMAIL from env any more — see the
+    # module docstring for why.
     params = {
-        "from": f"{live_name} <{live_sender}>",
+        "from": FROM_HEADER,
         "to": [to],
         "subject": subject,
         "html": html,
-        "reply_to": live_reply,
+        "reply_to": REPLY_TO_EMAIL,
     }
     logger.info(
         f"[RESEND CALL] from={params['from']} to={to} subject={subject!r} "
@@ -118,16 +137,13 @@ async def send_with_result(to: str, subject: str, html: str) -> Dict[str, Any]:
                 "error_kind": "no_api_key", "status_code": None}
 
     resend.api_key = live_key
-    live_sender = (os.environ.get("SENDER_EMAIL") or SENDER_EMAIL).strip()
-    live_reply = (os.environ.get("REPLY_TO_EMAIL") or live_sender).strip()
-    live_name = (os.environ.get("SENDER_NAME") or SENDER_NAME).strip()
-
+    # Sender identity is hard-coded — see module docstring.
     params = {
-        "from": f"{live_name} <{live_sender}>",
+        "from": FROM_HEADER,
         "to": [to],
         "subject": subject,
         "html": html,
-        "reply_to": live_reply,
+        "reply_to": REPLY_TO_EMAIL,
     }
     logger.info(
         f"[RESEND CALL] from={params['from']} to={to} subject={subject!r} "
