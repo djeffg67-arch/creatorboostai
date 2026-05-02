@@ -1,0 +1,44 @@
+{
+  "summary": "Tested Airport enterprise sales demo (9-scene full rewrite). Start-screen shows all 9 scene titles in the correct order; voice copy 'SAGE (FEMALE · AMERICAN)' + 'Every scene ends with a quantified outcome' present on start screen. All 9 stages mount cleanly via airport-control-jump (stage-problem, stage-leakage, stage-command, stage-operations, stage-service, stage-lifecycle, stage-vendors, stage-passengers, stage-growth) and the airport-business-outcome panel renders on EVERY scene (verified on all 9). Scene-specific content verified: problem shows SITA/Sabre/Amadeus + $6.4M; leakage shows $6.4M + concession; command shows sits-on-top + 'don't replace'; service shows jet bridge B-12 + $38K + $4,200; lifecycle shows all 5 EOL assets (HVAC-RT1, ESC-A3, BB-C2, LGT-T2, GSE-DI-4); vendors show $1.84M + 60/90/120d; passengers show $1.42/$19.8M/23%. Closing CTAs on stage-growth have correct hrefs (source_demo=airport, intent=enterprise | setup-call) and share module renders. prev/next/mute/jump controls all functional. Backend /api/demo/session/start with demo_type='airport' returns 201 (no 422 regex); /heartbeat returns 200. Regression on /demo/{noldus,supermarket,realtor,insurance,creator} all load 200. All 10 pytest tests pass (backend/tests/test_airport_demo.py). Total runtime target validated: 62+66+60+64+66+64+62+62+62 = 568000ms = 9.47 min (within 540-600k target).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Start → prefetch", "issue": "After clicking start-airport-demo-btn, loader visually appears stuck at 'Loading audio... 0%' (stage-problem did not become visible within 60s wait). However airport-control-jump IS mounted and functional — selecting any scene via jump successfully renders that stage. Likely a UI state/loader-progress bug: prefetch progress callback may not be updating or the stage-problem visibility is gated on a flag that never flips when prefetch stalls. Does NOT block scene navigation.", "affected_selectors": ["start-airport-demo-btn", "stage-problem"]},
+      {"flow": "Pause → SavePauseDialog", "issue": "Clicking airport-control-pause does not surface any element with data-testid='save-pause-dialog' NOR role='dialog' — same issue flagged in iteration 24. Dialog appears visually (confirmed in earlier screenshot from this session) but lacks a testable root id. Add data-testid='save-pause-dialog' on SavePauseDialog root.", "affected_selectors": ["save-pause-dialog"]},
+      {"flow": "ActivateCommandCenter end-of-demo overlay", "issue": "After jumping to scene 9 (growth) and clicking next, activate-command-center did not appear in DOM within 2.5s. Overlay open={done && !overlayDismissed} — in tests the transient 'done' state may be short-lived or ActivateCommandCenter is only rendered on natural last-scene auto-advance. Manual trigger from jump+next is not reliable. Recommend exposing a data-testid on the overlay backdrop and ensuring it stays open until explicit dismissal.", "affected_selectors": ["activate-command-center"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_airport_demo.py",
+    "/app/test_reports/pytest/iter25_airport.xml"
+  ],
+  "action_items": [
+    "Investigate prefetch 'Loading audio... 0%' stuck state — progress callback may not be firing for first scene; stage-problem visibility may be gated on a ready flag that never flips when a single TTS request lags. Users who click start and wait see a non-progressing loader despite scenes being navigable via jump.",
+    "Add data-testid='save-pause-dialog' on the SavePauseDialog root element (carried over from iteration 24 — still not done).",
+    "Consider adding data-testid on ActivateCommandCenter overlay backdrop AND keep open flag sticky until explicit dismissal, so the overlay is deterministically testable after last scene completes.",
+    "Optional: split AirportDemoPage.jsx (1636 lines) into /components/airport/stages/*.jsx for maintainability (>700-line guideline)."
+  ],
+  "critical_code_review_comments": [
+    "Scene order, titles, and focus keys all match the user spec exactly (problem → leakage → command → operations → service → lifecycle → vendors → passengers → growth).",
+    "Total runtime = 568,000ms (9.47 min) — within the 7-10 min requirement.",
+    "Positioning compliance VERIFIED: narrations use 'sits on top', 'does not/don't replace', 'We do not rip anything out', 'connect', 'overlay'. The word 'replace' appears only in legitimate contexts: (a) negations ('don't/do not replace/rip out'), (b) airport-equipment maintenance ('Replace the manifold', 'Bearing replacement', 'Phase 1 · ROI 22mo'). CreatorBoostAI is never positioned as replacing SITA/Sabre/Amadeus/ERPs.",
+    "BusinessOutcomePanel renders on ALL 9 scenes (verified).",
+    "Closing CTAs carry correct query params: /contact?intent=enterprise&source_demo=airport and /contact?intent=setup-call&source_demo=airport.",
+    "File is 1636 lines — exceeds 700-line guideline; recommend extracting stages.",
+    "No backend regressions; all 10 airport pytest cases green; other demo pages (noldus, supermarket, realtor, insurance, creator) return 200.",
+    "Loader stuck-at-0% UX bug — may confuse users; needs investigation of prefetch progress wiring."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (10/10 pytest + 3/3 manual curl incl. heartbeat)", "frontend": "~92% (all 9 stages, BO panels, content, CTAs, share, prev/next/mute/jump verified; 3 minor issues: loader progress stuck, save-pause-dialog testid missing, activate overlay not deterministic)"},
+  "test_credentials": "N/A (public demo)",
+  "seed_data_creation": "Created two test demo sessions with demo_type='airport' via POST /api/demo/session/start (one UUID per call).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "AirportDemoPage.jsx was expanded to 1636 lines with 9 full enterprise scenes. All stage testids follow pattern 'stage-{id}'. New airport-business-outcome testid renders on the right sidebar for every scene. Backend airport tracking works (regex fix from iter24 is intact). If retesting UI, DO NOT wait for start-btn auto-prefetch to complete — use airport-control-jump to hop scenes. Loader may appear stuck at 'Loading audio... 0%' but jump still works. save-pause-dialog testid and activate-command-center deterministic visibility are known gaps from iter24 — still not fixed.",
+  "rca_of_the_issue": "Loader-progress stuck: the 'Loading audio... 0%' text remains on-screen even though subsequent stage navigation via airport-control-jump works. Hypothesis: the progress counter is tied to a completed-prefetches count that only updates on per-scene TTS success; if the first scene's TTS call is slow (~13s sage) or the onProgress callback is wired after the first resolve, the UI stays at 0% until all prefetch promises settle. Alternatively the visibility gate for stage-problem is a different flag than the gate for airport-control-jump, so the control shows but the stage doesn't auto-render until jump triggers it. Main agent should inspect the prefetch progress state machine in AirportDemoPage.jsx (search 'prefetch' / 'Loading audio'). Not a blocker — all flows function via jump."
+}
