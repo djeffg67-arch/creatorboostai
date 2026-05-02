@@ -361,6 +361,9 @@ export default function HomePage() {
             {/* LEADS / REVENUE ENGINE — mounted directly below hero */}
             <GetLeadsSection />
 
+            {/* OPERATIONS · MAINTENANCE · EQUIPMENT LIFECYCLE */}
+            <OperationsLifecycleSection />
+
             {/* INDUSTRIES */}
             <section id="industries" className="relative isolate border-b border-white/5 py-20" data-testid="industries-section">
                 <div className="absolute inset-0 -z-10">
@@ -953,8 +956,5 @@ const MiniKPI = ({ label, value, trend }) => (
         <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{label}</p>
         <p className="font-heading mt-0.5 text-base font-semibold text-cyan-300">{value}</p>
         <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">{trend}</p>
-    </div>
-);
- text-slate-500">{trend}</p>
     </div>
 );

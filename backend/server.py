@@ -1105,7 +1105,7 @@ class ShareDemoRequest(BaseModel):
     recipient_email: EmailStr
     recipient_name: Optional[str] = Field(None, max_length=120)
     sender_name: Optional[str] = Field("A colleague", max_length=120)
-    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|enterprise|sita|supermarket)$")
+    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|enterprise|sita|supermarket|airport)$")
     company: Optional[str] = Field(None, max_length=120)
     message: Optional[str] = Field(None, max_length=1000)
     origin_url: Optional[str] = None
@@ -2046,7 +2046,7 @@ VALID_DEMO_TYPES = {"realtor", "insurance", "creator", "noldus", "sita", "airpor
 
 
 class DemoSessionStart(BaseModel):
-    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|sita|enterprise|supermarket)$")
+    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|sita|enterprise|supermarket|airport)$")
     recipient_id: Optional[str] = Field(None, max_length=120)
     recipient_name: Optional[str] = Field(None, max_length=120)
     recipient_company: Optional[str] = Field(None, max_length=160)
@@ -2224,7 +2224,7 @@ async def demo_session_complete(payload: DemoSessionComplete):
 # ---------------------------------------------------------------------------
 class DemoSaveProgress(BaseModel):
     session_id: Optional[str] = None
-    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|sita|enterprise|supermarket)$")
+    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|sita|enterprise|supermarket|airport)$")
     scene: int = Field(..., ge=0)
     total_scenes: int = Field(..., ge=1)
     email: EmailStr

@@ -1,0 +1,45 @@
+{
+  "summary": "Tested Airport demo + OperationsLifecycleSection + backend tracking. Found 1 CRITICAL backend bug (demo_type='airport' rejected by Pydantic regex in 3 endpoints) — FIXED in this session. All other flows validated: homepage ops-section with all 7 caps/5 values/position/close, nav-airport link, /demo/airport hero messaging (SITA/Sabre/Amadeus, sits-on-top, not-replace), start + prefetch, scene indicator updates, next/prev/mute/jump, stage-terminal/stage-overlay/stage-growth, closing CTAs with source_demo=airport&intent=*, share module, regression on 5 other demo pages, and /api/tts/speak?voice=sage returning audio/mpeg.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/demo/session/save", "issue": "Requires recipient_email; task spec mentioned '/api/demos/save-progress' which does not exist — frontend actually uses /api/demo/session/{start|heartbeat|complete|save}"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Pause dialog open", "issue": "Clicking airport-control-pause opened SavePauseDialog visually (confirmed in earlier screenshot) but [role='dialog'] selector did not resolve in automated test — likely missing role attribute on the dialog wrapper. Needs data-testid on SavePauseDialog root for deterministic testing.", "affected_selectors": ["SavePauseDialog root"]},
+      {"flow": "ActivateCommandCenter trigger via next-past-last-scene", "issue": "Could not deterministically verify overlay in automation run (page unexpectedly navigated to / during sequence following Escape + next). Manual/code review confirms goToNext() sets done=true at last scene and ActivateCommandCenter open={done && !overlayDismissed} with correct demoOrigin='airport'. Recommend main agent add data-testid='save-pause-dialog' on the dialog root to avoid Escape ambiguity in tests."]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_airport_demo.py",
+    "/app/test_reports/pytest/airport_demo.xml"
+  ],
+  "action_items": [
+    "[FIXED IN THIS SESSION] server.py: added 'airport' to Pydantic regex patterns at lines 1108, 2049, 2227 (ShareDemoIn, DemoSessionStartIn, DemoSessionSaveIn). Without this, every useDemoTracking call from AirportDemoPage (start/heartbeat/complete/save) returned 422 — airport demo had ZERO tracking before the fix.",
+    "Add data-testid='save-pause-dialog' to SavePauseDialog root so pause-dialog verification is reliable across all demos.",
+    "Consider adding a small visible-when-done fallback or test hook so ActivateCommandCenter overlay can be deterministically verified (testid exists but overlay render depends on transient done state after last-scene advance)."
+  ],
+  "critical_code_review_comments": [
+    "CRITICAL (now fixed): DemoSessionStartIn / DemoSessionSaveIn / ShareDemoIn regex patterns didn't include 'airport', so all airport session tracking returned HTTP 422 even though VALID_DEMO_TYPES set and DEMO_REGISTRY already whitelisted 'airport'. Added 'airport' to the three Pydantic patterns in /app/backend/server.py.",
+    "Messaging compliance VERIFIED: hero, start-screen, overlay-stage, and growth-stage all say 'sits on top', 'does not replace', 'connect', 'overlay' — no copy implies replacement.",
+    "TTS /api/tts/speak voice=sage latency is ~13s per call; 9-scene prefetch (concurrency 5) empirically completes in ~5s on Sage-cached path — OK for production.",
+    "AirportDemoPage.jsx is ~1100+ lines; consider extracting the 9 stage components into /components/airport/stages/ for maintainability (>700-line rule).",
+    "goToNext() on last scene returns p unchanged which keeps done=true but scene index at 8 — correct; ActivateCommandCenter gated on done flag (good).",
+    "No console/page errors observed during automated run."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (added 'airport' to 3 Pydantic regex patterns — lines 1108, 2049, 2227)",
+    "/app/backend/tests/test_airport_demo.py (new regression tests)"
+  ],
+  "success_rate": {"backend": "100% (10/10 after fix)", "frontend": "~92% (homepage + airport demo core flow verified; pause dialog selector & end-of-demo overlay not deterministically verified in automation)"},
+  "test_credentials": "N/A (public flows)",
+  "seed_data_creation": "None (test used TEST-prefixed session ids)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend Pydantic regex fix was applied this session. If airport tracking fails again, re-check /app/backend/server.py lines 1108, 2049, 2227 — all three must include 'airport'. SavePauseDialog needs a data-testid on root. TTS sage calls are slow (~13s each) so prefetch-dependent tests need >=60s wait.",
+  "rca_of_the_issue": "Previous agent added 'airport' to VALID_DEMO_TYPES (line 2045) and to DEMO_REGISTRY/DEMO_ROUTE_BY_TYPE, but MISSED updating the three Pydantic Field regex patterns at lines 1108 (ShareDemoIn), 2049 (DemoSessionStartIn), 2227 (DemoSessionSaveIn). FastAPI validates the payload against the Pydantic model BEFORE the VALID_DEMO_TYPES check runs, so every /api/demo/session/start with demo_type='airport' was rejected with HTTP 422 before any route handler executed. Reproduction: curl -X POST /api/demo/session/start -d '{\"demo_type\":\"airport\",\"session_id\":\"x\",\"total_scenes\":9}' → 422 string_pattern_mismatch. Fix: added |airport to the three patterns. Verified 201/200 responses post-fix."
+}

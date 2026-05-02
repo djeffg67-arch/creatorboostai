@@ -36,8 +36,8 @@ export const ActivateCommandCenter = ({
 }) => {
     if (!open) return null;
     const pricingHref = `/pricing?from=${encodeURIComponent(demoOrigin)}`;
-    const contactHref = `/contact?intent=setup-call&from=${encodeURIComponent(demoOrigin)}`;
-    const enterpriseHref = `/contact?intent=enterprise&from=${encodeURIComponent(demoOrigin)}`;
+    const contactHref = `/contact?intent=setup-call&from=${encodeURIComponent(demoOrigin)}&source_demo=${encodeURIComponent(demoOrigin)}`;
+    const enterpriseHref = `/contact?intent=enterprise&from=${encodeURIComponent(demoOrigin)}&source_demo=${encodeURIComponent(demoOrigin)}`;
 
     const track = (kind, metadata = {}) => {
         try {

@@ -25,6 +25,7 @@ export const Navbar = () => {
         { to: "/services/audit", label: "Audit", testid: "nav-audit" },
         { to: "/demo", label: t("nav.demo"), testid: "nav-demo" },
         { to: "/demo/noldus", label: "Enterprise Demo", testid: "nav-noldus", highlight: true },
+        { to: "/demo/airport", label: "Airport Demo", testid: "nav-airport", highlight: true },
         { to: "/demo/supermarket", label: "Retail Demo", testid: "nav-supermarket", highlight: true },
         { to: "/preview", label: "Command Center", testid: "nav-preview" },
         { to: "/pricing", label: t("nav.pricing"), testid: "nav-pricing" },
