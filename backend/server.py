@@ -2240,6 +2240,67 @@ DEMO_ROUTE_BY_TYPE = {
 }
 
 
+def _real_client_ip(request: Request) -> Optional[str]:
+    """Extract the best-effort real client IP from proxy headers.
+
+    Emergent deploys behind a Kubernetes ingress + CDN — `request.client.host`
+    usually returns the internal `10.x.x.x` cluster IP. The real viewer IP
+    arrives in the `X-Forwarded-For` chain (first hop wins) or `X-Real-IP`.
+    Local/preview development falls back to `request.client.host`.
+    """
+    xff = request.headers.get("x-forwarded-for") or request.headers.get("X-Forwarded-For")
+    if xff:
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    xri = request.headers.get("x-real-ip") or request.headers.get("X-Real-IP")
+    if xri:
+        return xri.strip()
+    cf = request.headers.get("cf-connecting-ip") or request.headers.get("CF-Connecting-IP")
+    if cf:
+        return cf.strip()
+    return request.client.host if request.client else None
+
+
+async def _lookup_city_from_ip(ip: Optional[str]) -> Dict[str, Optional[str]]:
+    """Best-effort city-level geo lookup — used only to enrich the public
+    social-proof ticker. Never raises, never blocks, never stores the full IP
+    beyond what we already log. Returns {city, region, country_code} or all
+    None if anything fails (no key, rate-limited, private IP, timeout).
+
+    Uses ip-api.com's free no-auth endpoint (no signup, 45 req/min per source
+    IP). If you outgrow the free tier, swap to MaxMind GeoLite2 via the
+    `geoip2` package and keep the same return shape — callers don't need to
+    change.
+    """
+    if not ip:
+        return {"city": None, "region": None, "country_code": None}
+    # Skip private / loopback addresses — they'd return noise.
+    if ip.startswith(("10.", "127.", "192.168.", "172.")) or ip == "::1":
+        return {"city": None, "region": None, "country_code": None}
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get(
+                f"http://ip-api.com/json/{ip}",
+                params={"fields": "status,country,countryCode,region,regionName,city"},
+            )
+            if r.status_code != 200:
+                return {"city": None, "region": None, "country_code": None}
+            j = r.json()
+            if j.get("status") != "success":
+                return {"city": None, "region": None, "country_code": None}
+            return {
+                "city": (j.get("city") or None),
+                "region": (j.get("region") or j.get("regionName") or None),
+                "country_code": (j.get("countryCode") or None),
+            }
+    except Exception as e:
+        logging.getLogger(__name__).info(f"geoip lookup skipped: {e}")
+        return {"city": None, "region": None, "country_code": None}
+
+
+
 @api_router.post("/demo/session/save", status_code=200)
 async def demo_session_save(payload: DemoSaveProgress, request: Request):
     """Save the viewer's current scene + email them a resume link.
@@ -2254,6 +2315,8 @@ async def demo_session_save(payload: DemoSaveProgress, request: Request):
     resume_url = f"{payload.origin_url.rstrip('/')}{route}?scene={payload.scene + 1}&resume=1"
 
     # Persist a "saved" record per session so it survives multiple restarts.
+    ip = _real_client_ip(request)
+    geo = await _lookup_city_from_ip(ip)
     saved_row = {
         "id": str(uuid.uuid4()),
         "demo_type": payload.demo_type,
@@ -2264,7 +2327,10 @@ async def demo_session_save(payload: DemoSaveProgress, request: Request):
         "resume_url": resume_url,
         "session_id": payload.session_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "ip": request.client.host if request.client else None,
+        "ip": ip,
+        "city": geo["city"],
+        "region": geo["region"],
+        "country_code": geo["country_code"],
     }
     await db.demo_saves.insert_one(dict(saved_row))
 
@@ -2349,6 +2415,18 @@ async def demo_recent_saves(limit: int = Query(8, ge=1, le=20)):
             delta_min = max(1, int((now - ts).total_seconds() // 60))
         except Exception:
             delta_min = None
+        # City-level geo — never full address, never IP.
+        city = (r.get("city") or "").strip() or None
+        region = (r.get("region") or "").strip() or None
+        country_code = (r.get("country_code") or "").strip() or None
+        if city and region and city.lower() != region.lower():
+            location = f"{city}, {region}"
+        elif city:
+            location = city
+        elif country_code:
+            location = country_code
+        else:
+            location = None
         out.append({
             "name": first,
             "industry": industry_map.get(r.get("demo_type"), "Other"),
@@ -2356,6 +2434,7 @@ async def demo_recent_saves(limit: int = Query(8, ge=1, le=20)):
             "scene": r.get("scene"),
             "total_scenes": r.get("total_scenes"),
             "minutes_ago": delta_min,
+            "location": location,
         })
     return {"count": len(out), "items": out}
 

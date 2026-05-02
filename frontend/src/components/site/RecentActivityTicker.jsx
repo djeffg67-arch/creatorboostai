@@ -54,6 +54,12 @@ export const RecentActivityTicker = () => {
                 <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Live</span>
                 <span className="truncate text-xs text-slate-200 sm:text-[13px]">
                     <span className="font-semibold text-white">{item.name}</span>
+                    {item.location && (
+                        <>
+                            {" from "}
+                            <span className="font-semibold text-white">{item.location}</span>
+                        </>
+                    )}
                     {" "}saved the{" "}
                     <span className="font-semibold text-cyan-300">{item.industry}</span>
                     {" "}demo
