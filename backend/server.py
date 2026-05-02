@@ -2217,6 +2217,110 @@ async def demo_session_complete(payload: DemoSessionComplete):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------------------
+# Save & resume — avatar-prompted "save my spot, email me a link".
+# Sends an email with a deep-link back to the same demo at the current scene.
+# Logs a `demo_saved` event for the founder dashboard.
+# ---------------------------------------------------------------------------
+class DemoSaveProgress(BaseModel):
+    session_id: Optional[str] = None
+    demo_type: str = Field(..., pattern=r"^(realtor|insurance|creator|noldus|sita|enterprise|supermarket)$")
+    scene: int = Field(..., ge=0)
+    total_scenes: int = Field(..., ge=1)
+    email: EmailStr
+    name: Optional[str] = Field(None, max_length=120)
+    origin_url: str = Field(..., max_length=400)
+
+
+DEMO_ROUTE_BY_TYPE = {
+    "realtor": "/demo/realtor", "insurance": "/demo/insurance",
+    "creator": "/demo/creator", "noldus": "/demo/noldus",
+    "supermarket": "/demo/supermarket", "sita": "/demo/sita",
+    "enterprise": "/demo/noldus",
+}
+
+
+@api_router.post("/demo/session/save", status_code=200)
+async def demo_session_save(payload: DemoSaveProgress, request: Request):
+    """Save the viewer's current scene + email them a resume link.
+
+    Fires a `demo_saved` event on the session so the Founder Dashboard
+    Activity Feed rolls it up. The resume email is sent via the verified
+    Resend sender — if Resend isn't configured we persist the saved record
+    and return ok=True so the UI can still show "Saved, check your inbox"
+    (the founder will see the queued notification).
+    """
+    route = DEMO_ROUTE_BY_TYPE.get(payload.demo_type) or f"/demo/{payload.demo_type}"
+    resume_url = f"{payload.origin_url.rstrip('/')}{route}?scene={payload.scene + 1}&resume=1"
+
+    # Persist a "saved" record per session so it survives multiple restarts.
+    saved_row = {
+        "id": str(uuid.uuid4()),
+        "demo_type": payload.demo_type,
+        "email": str(payload.email),
+        "name": payload.name,
+        "scene": payload.scene,
+        "total_scenes": payload.total_scenes,
+        "resume_url": resume_url,
+        "session_id": payload.session_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "ip": request.client.host if request.client else None,
+    }
+    await db.demo_saves.insert_one(dict(saved_row))
+
+    # Tack a `demo_saved` event onto the live session so the dashboard feed
+    # lights up immediately.
+    if payload.session_id:
+        await db.demo_sessions.update_one(
+            {"id": payload.session_id},
+            {"$push": {"events": {
+                "type": "demo_saved",
+                "at": saved_row["created_at"],
+                "metadata": {"scene": payload.scene, "resume_url": resume_url},
+            }}},
+        )
+
+    # Send the resume email (best-effort — never block the UX on Resend).
+    progress_pct = int(round(((payload.scene + 1) / max(1, payload.total_scenes)) * 100))
+    html = f"""
+    <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#0F172A;color:#F8FAFC;border-radius:12px;">
+      <p style="font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#22D3EE;margin:0 0 12px;">CreatorBoostAI · Saved demo</p>
+      <h2 style="font-size:22px;margin:0 0 12px;color:#F8FAFC;">Your spot is saved.</h2>
+      <p style="font-size:14px;line-height:1.6;color:#CBD5E1;margin:0 0 20px;">
+        Hi{f" {payload.name}" if payload.name else ""}, you stopped on
+        <strong>scene {payload.scene + 1} of {payload.total_scenes}</strong>
+        ({progress_pct}% done) of the {payload.demo_type.title()} demo.
+        Jump back in any time with the button below.
+      </p>
+      <p style="margin:28px 0;text-align:center;">
+        <a href="{resume_url}" style="display:inline-block;padding:14px 28px;background:#06B6D4;color:#0F172A;font-weight:700;text-decoration:none;border-radius:8px;">Resume from scene {payload.scene + 1}</a>
+      </p>
+      <p style="font-size:12px;color:#64748B;margin-top:24px;word-break:break-all;">{resume_url}</p>
+    </div>
+    """
+    from email_service import send_with_result
+    try:
+        result = await send_with_result(
+            to=str(payload.email),
+            subject=f"Your {payload.demo_type.title()} demo · saved at scene {payload.scene + 1}",
+            html=html,
+        )
+        saved_row["email_ok"] = bool(result.get("ok"))
+        saved_row["email_id"] = result.get("id")
+        saved_row["email_error"] = result.get("error")
+    except Exception as e:
+        saved_row["email_ok"] = False
+        saved_row["email_error"] = str(e)
+
+    return {
+        "ok": True,
+        "resume_url": resume_url,
+        "email_sent": bool(saved_row.get("email_ok")),
+        "email_error": saved_row.get("email_error"),
+    }
+
+
+
 @api_router.get("/admin/demo-sessions")
 async def admin_list_demo_sessions(
     _: str = Depends(verify_admin),

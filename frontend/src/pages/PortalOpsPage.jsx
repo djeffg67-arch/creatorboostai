@@ -236,23 +236,40 @@ const PerformanceTab = ({ auth, me }) => {
 const LeadsTab = ({ auth, me }) => {
     const [leads, setLeads] = useState([]);
     const [showForm, setShowForm] = useState(false);
+    const [demoFilter, setDemoFilter] = useState(false); // Filter: closed from demo only
     const refresh = () => opsListLeads(auth).then((d) => setLeads(d.leads || [])).catch(() => {});
     useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth]);
 
+    const visibleLeads = demoFilter
+        ? leads.filter((l) => Boolean(l.closed_source_demo))
+        : leads;
+    const demoClosedCount = leads.filter((l) => Boolean(l.closed_source_demo)).length;
+
     return (
         <div data-testid="tab-leads" className="space-y-5">
-            <SectionHeader sub={me.scopes.can_see_all_leads ? "All leads" : "Your assigned leads"} title={`${leads.length} leads`}>
-                <button onClick={() => setShowForm((p) => !p)} data-testid="leads-add-btn" className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 text-xs font-semibold text-ink-900 hover:bg-cyan-400">
-                    <Plus size={11} /> Add lead
-                </button>
+            <SectionHeader sub={me.scopes.can_see_all_leads ? "All leads" : "Your assigned leads"} title={`${visibleLeads.length} leads`}>
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={() => setDemoFilter((p) => !p)}
+                        data-testid="leads-filter-demo-closed"
+                        className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] transition-all ${demoFilter ? "border border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border border-white/10 text-slate-300 hover:border-emerald-500/40 hover:text-emerald-300"}`}
+                    >
+                        <DollarSign size={11} />
+                        Closed from demo
+                        <span className={`ml-1 rounded-sm px-1.5 py-0.5 text-[9px] ${demoFilter ? "bg-emerald-500/20 text-emerald-200" : "bg-ink-900 text-slate-400"}`}>{demoClosedCount}</span>
+                    </button>
+                    <button onClick={() => setShowForm((p) => !p)} data-testid="leads-add-btn" className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 text-xs font-semibold text-ink-900 hover:bg-cyan-400">
+                        <Plus size={11} /> Add lead
+                    </button>
+                </div>
             </SectionHeader>
             {showForm && <LeadForm auth={auth} me={me} onCreated={() => { setShowForm(false); refresh(); }} />}
             <div className="space-y-2">
-                {leads.length === 0 ? (
+                {visibleLeads.length === 0 ? (
                     <p className="rounded-md border border-white/10 bg-ink-700/40 p-6 text-center text-sm text-slate-400" data-testid="leads-empty">
-                        No leads yet. Add your first one above.
+                        {demoFilter ? "No demo-attributed wins yet. Share a demo and track conversions." : "No leads yet. Add your first one above."}
                     </p>
-                ) : leads.map((l) => <LeadCard key={l.lead_id} lead={l} auth={auth} me={me} onChange={refresh} />)}
+                ) : visibleLeads.map((l) => <LeadCard key={l.lead_id} lead={l} auth={auth} me={me} onChange={refresh} />)}
             </div>
         </div>
     );

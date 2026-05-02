@@ -6,8 +6,9 @@ import { useRefMirror, hardSilence, useDemoCleanup } from "@/lib/demoAudioFix";
 import { SCENE_IMG_RETAIL } from "@/lib/images";
 import { toast } from "sonner";
 import { ActivateCommandCenter } from "@/components/ActivateCommandCenter";
+import { SavePauseDialog } from "@/components/SavePauseDialog";
 import {
-    Play, Pause, Volume2, VolumeX, Check, ArrowRight, Sparkles, Mic,
+    Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Check, ArrowRight, Sparkles, Mic,
     Activity, Brain, Zap, Globe2, Send, Copy, QrCode, Cpu, Target,
     Mail, Shield, AlertTriangle, CheckCircle2, X, BarChart3, Layers,
     ShoppingCart, Truck, Wrench, Users, Camera, Fuel, Boxes, Building2,
@@ -312,7 +313,7 @@ export default function SupermarketDemoPage() {
     const overallProgress = Math.min(100, Math.round(((elapsedBeforeScene + sceneElapsed) / totalRuntimeMs) * 100));
 
     const apiBase = useMemo(() => `${process.env.REACT_APP_BACKEND_URL || ""}/api`, []);
-    const { personalization, trackEvent } = useDemoTracking({
+    const { personalization, trackEvent, sessionId } = useDemoTracking({
         demoType: "supermarket",
         started, scene, totalScenes: total,
         watchSeconds: Math.round((elapsedBeforeScene + sceneElapsed) / 1000),
@@ -464,6 +465,29 @@ export default function SupermarketDemoPage() {
         setScene(0); setDone(false); setPaused(false);
         setTimeout(() => speakScene(0), 150);
     };
+    // ----- Scene scrubbing + save-dialog (shared pattern) -----
+    const jumpToScene = (idx) => {
+        const bounded = Math.max(0, Math.min(SCENES.length - 1, idx));
+        clearAllTimers();
+        hardSilence(audioRef);
+        setScene(bounded);
+        setDone(false);
+        setSceneElapsed(0);
+        sceneStart.current = Date.now();
+        setPaused(false);
+        setTimeout(() => speakScene(bounded), 150);
+    };
+    const handlePrevScene = () => jumpToScene(scene - 1);
+    const handleNextScene = () => jumpToScene(scene + 1);
+    const [saveOpen, setSaveOpen] = useState(false);
+    const openSaveDialog = () => {
+        if (!paused) {
+            setPaused(true);
+            clearAllTimers();
+            hardSilence(audioRef);
+        }
+        setSaveOpen(true);
+    };
     const handleMute = () => {
         setMuted((p) => {
             const n = !p;
@@ -500,7 +524,7 @@ export default function SupermarketDemoPage() {
                     <StartScreen onStart={handleStart} prefetching={prefetching} progress={prefetchProgress} personalization={personalization} />
                 ) : (
                     <div className="mt-6">
-                        <SceneHeader scene={scene} current={current} total={total} paused={paused} speaking={speaking} muted={muted} onPauseResume={handlePauseResume} onMute={handleMute} />
+                        <SceneHeader scene={scene} current={current} total={total} paused={paused} speaking={speaking} muted={muted} onPauseResume={openSaveDialog} onMute={handleMute} onPrev={handlePrevScene} onNext={handleNextScene} onJump={jumpToScene} scenes={SCENES} />
                         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
                             <div className="lg:col-span-8">
                                 <SceneStage scene={current} />
@@ -534,6 +558,17 @@ export default function SupermarketDemoPage() {
                     "Energy + cold-chain monitoring",
                     "Store-level command center + KPIs",
                 ]}
+            />
+            <SavePauseDialog
+                open={saveOpen}
+                onClose={() => setSaveOpen(false)}
+                onContinue={() => { setSaveOpen(false); handlePauseResume(); }}
+                demoType="supermarket"
+                scene={scene}
+                totalScenes={total}
+                demoOrigin="supermarket"
+                sessionId={sessionId}
+                industry="Retail / Supermarket"
             />
         </Layout>
     );
@@ -646,7 +681,7 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
     </div>
 );
 
-const SceneHeader = ({ scene, current, total, paused, speaking, muted, onPauseResume, onMute }) => (
+const SceneHeader = ({ scene, current, total, paused, speaking, muted, onPauseResume, onMute, onPrev, onNext, onJump, scenes }) => (
     <div className="sticky top-0 z-50 -mx-4 mb-2 border-b border-white/10 bg-ink-900/90 px-4 py-3 backdrop-blur-md lg:-mx-8 lg:px-8" data-testid="scene-header">
         <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -654,8 +689,15 @@ const SceneHeader = ({ scene, current, total, paused, speaking, muted, onPauseRe
                 <p className="truncate font-heading text-base font-semibold text-white sm:text-lg">{current.section}</p>
             </div>
             <div className="flex items-center gap-2">
+                {onPrev && (<Btn onClick={onPrev} icon={SkipBack} label="Prev scene" testid="prev-scene-btn" disabled={scene <= 0} />)}
                 <Btn onClick={onPauseResume} icon={paused ? Play : Pause} label={paused ? "Resume" : "Pause"} primary testid="pause-btn" />
+                {onNext && (<Btn onClick={onNext} icon={SkipForward} label="Next scene" testid="next-scene-btn" disabled={scene >= total - 1} />)}
                 <Btn onClick={onMute} icon={muted ? VolumeX : Volume2} label={muted ? "Muted" : "On"} testid="mute-btn" />
+                {onJump && scenes && (
+                    <select data-testid="scene-jump" value={scene} onChange={(e) => onJump(Number(e.target.value))} aria-label="Jump to scene" className="rounded-md border border-white/10 bg-ink-900 px-2 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-200 focus:border-cyan-500/50 focus:outline-none">
+                        {scenes.map((s, i) => (<option key={i} value={i}>{String(i + 1).padStart(2, "0")} · {s.section}</option>))}
+                    </select>
+                )}
                 {speaking && !muted && !paused && (
                     <span className="hidden items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300 sm:inline-flex">
                         <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-cyan-400" /> Live narration
@@ -666,9 +708,9 @@ const SceneHeader = ({ scene, current, total, paused, speaking, muted, onPauseRe
     </div>
 );
 
-const Btn = ({ onClick, icon: Icon, label, primary, testid }) => (
-    <button onClick={onClick} data-testid={testid}
-        className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] transition-all ${primary ? "border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500 hover:text-ink-900" : "border border-white/10 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"}`}>
+const Btn = ({ onClick, icon: Icon, label, primary, testid, disabled }) => (
+    <button onClick={onClick} data-testid={testid} disabled={disabled}
+        className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] transition-all disabled:cursor-not-allowed disabled:opacity-40 ${primary ? "border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500 hover:text-ink-900" : "border border-white/10 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"}`}>
         <Icon size={12} /> <span>{label}</span>
     </button>
 );

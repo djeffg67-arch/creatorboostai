@@ -6,8 +6,9 @@ import { useRefMirror, hardSilence, useDemoCleanup } from "@/lib/demoAudioFix";
 import { toast } from "sonner";
 import { SCENE_IMG_NOLDUS } from "@/lib/images";
 import { ActivateCommandCenter } from "@/components/ActivateCommandCenter";
+import { SavePauseDialog } from "@/components/SavePauseDialog";
 import {
-    Play, Pause, Volume2, VolumeX, Check, ArrowRight, Sparkles, Mic,
+    Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Check, ArrowRight, Sparkles, Mic,
     Eye, Activity, Brain, Zap, Globe2, Send, Copy, QrCode, Cpu, Target,
     Mail, Shield, AlertTriangle, CheckCircle2, X, BarChart3, Layers,
 } from "lucide-react";
@@ -260,7 +261,7 @@ export default function NoldusDemoPage() {
     );
 
     // Demo-delivery tracking (founder dashboard, half-view notifications)
-    const { personalization, trackEvent } = useDemoTracking({
+    const { personalization, trackEvent, sessionId } = useDemoTracking({
         demoType: "noldus",
         started, scene, totalScenes: total,
         watchSeconds: Math.round((elapsedBeforeScene + sceneElapsed) / 1000),
@@ -416,6 +417,29 @@ export default function NoldusDemoPage() {
         setScene(0); setDone(false); setPaused(false);
         setTimeout(() => speakScene(0), 150);
     };
+    // ----- Scene scrubbing + save-dialog (shared pattern) -----
+    const jumpToScene = (idx) => {
+        const bounded = Math.max(0, Math.min(SCENES.length - 1, idx));
+        clearAllTimers();
+        hardSilence(audioRef);
+        setScene(bounded);
+        setDone(false);
+        setSceneElapsed(0);
+        sceneStart.current = Date.now();
+        setPaused(false);
+        setTimeout(() => speakScene(bounded), 150);
+    };
+    const handlePrevScene = () => jumpToScene(scene - 1);
+    const handleNextScene = () => jumpToScene(scene + 1);
+    const [saveOpen, setSaveOpen] = useState(false);
+    const openSaveDialog = () => {
+        if (!paused) {
+            setPaused(true);
+            clearAllTimers();
+            hardSilence(audioRef);
+        }
+        setSaveOpen(true);
+    };
     const handleMute = () => {
         setMuted((p) => {
             const n = !p;
@@ -467,7 +491,9 @@ export default function NoldusDemoPage() {
                         <SceneHeader
                             scene={scene} current={current} total={total}
                             paused={paused} speaking={speaking} muted={muted}
-                            onPauseResume={handlePauseResume} onMute={handleMute}
+                            onPauseResume={openSaveDialog} onMute={handleMute}
+                            onPrev={handlePrevScene} onNext={handleNextScene}
+                            onJump={jumpToScene} scenes={SCENES}
                         />
 
                         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
@@ -501,6 +527,17 @@ export default function NoldusDemoPage() {
                     "Study management + audit-ready reports",
                     "Cross-lab data unification + insights",
                 ]}
+            />
+            <SavePauseDialog
+                open={saveOpen}
+                onClose={() => setSaveOpen(false)}
+                onContinue={() => { setSaveOpen(false); handlePauseResume(); }}
+                demoType="noldus"
+                scene={scene}
+                totalScenes={total}
+                demoOrigin="noldus"
+                sessionId={sessionId}
+                industry="Behavioral Research"
             />
         </Layout>
     );
@@ -617,7 +654,7 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
 // =================================================================
 // SCENE HEADER + NARRATION + INDEX (shared chrome)
 // =================================================================
-const SceneHeader = ({ scene, current, total, paused, speaking, muted, onPauseResume, onMute }) => (
+const SceneHeader = ({ scene, current, total, paused, speaking, muted, onPauseResume, onMute, onPrev, onNext, onJump, scenes }) => (
     <div className="sticky top-[72px] z-20 mt-2 flex flex-col gap-3 rounded-md border border-white/10 bg-ink-900/85 p-4 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -631,14 +668,21 @@ const SceneHeader = ({ scene, current, total, paused, speaking, muted, onPauseRe
             <h2 className="font-heading mt-1 truncate text-base font-semibold text-white sm:text-lg lg:text-xl">{current.title}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+            {onPrev && (<Btn onClick={onPrev} icon={SkipBack} label="Prev scene" testid="noldus-control-prev" disabled={scene <= 0} />)}
             <Btn onClick={onPauseResume} icon={paused ? Play : Pause} label={paused ? "Resume" : "Pause"} primary testid="noldus-control-pause" />
+            {onNext && (<Btn onClick={onNext} icon={SkipForward} label="Next scene" testid="noldus-control-next" disabled={scene >= total - 1} />)}
             <Btn onClick={onMute} icon={muted ? VolumeX : Volume2} label={muted ? "Voice On" : "Voice Off"} testid="noldus-control-mute" />
+            {onJump && scenes && (
+                <select data-testid="noldus-control-jump" value={scene} onChange={(e) => onJump(Number(e.target.value))} aria-label="Jump to scene" className="rounded-md border border-white/10 bg-ink-900 px-2 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-200 focus:border-cyan-500/50 focus:outline-none">
+                    {scenes.map((s, i) => (<option key={i} value={i}>{String(i + 1).padStart(2, "0")} · {s.section}</option>))}
+                </select>
+            )}
         </div>
     </div>
 );
-const Btn = ({ onClick, icon: Icon, label, primary, testid }) => (
-    <button onClick={onClick} data-testid={testid}
-        className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] transition-all ${primary ? "border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500 hover:text-ink-900" : "border border-white/10 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"}`}>
+const Btn = ({ onClick, icon: Icon, label, primary, testid, disabled }) => (
+    <button onClick={onClick} data-testid={testid} disabled={disabled}
+        className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] transition-all disabled:cursor-not-allowed disabled:opacity-40 ${primary ? "border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500 hover:text-ink-900" : "border border-white/10 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"}`}>
         <Icon size={12} /> <span>{label}</span>
     </button>
 );

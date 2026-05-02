@@ -241,6 +241,10 @@ export const opsAdminDeliveryStatus = (auth) =>
 export const opsDemoRevenue = (payload) =>
     api.post("/ops/demo-revenue", payload).then((r) => r.data);
 
+// --- Demo save-&-resume (avatar-prompted) ---
+export const saveDemoProgress = (payload) =>
+    api.post("/demo/session/save", payload).then((r) => r.data);
+
 export const opsAccessLinkRequest = (payload) =>
     api.post("/ops/access-link/request", payload).then((r) => r.data);
 
