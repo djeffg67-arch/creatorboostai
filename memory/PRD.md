@@ -1,6 +1,54 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-02 (Iter 32 — Homepage Revenue Section + Demo-to-Revenue Tracking + Founder Dashboard)
+**Last update:** 2026-05-02 (Iter 33 — Operations/Lifecycle Homepage Section + 9-Scene Airport Demo)
+
+---
+
+## 🆕 ITER 33 — Operations/Lifecycle Homepage Block + SITA-Style Airport Demo
+
+**Part 1 — Homepage `<OperationsLifecycleSection />`**
+- Section already authored in prior session; this iter **mounts** it on `HomePage.jsx` directly below `<GetLeadsSection />`.
+- Positions CreatorBoostAI as an operations / maintenance / lifecycle layer that sits ON TOP of existing systems (never replaces them).
+- Surface: `ops-section`, `ops-title`, `ops-intro`, `ops-cap-0..6` (7 core capabilities), `ops-value-0..4` (5 enterprise-value bullets), `ops-position` panel ("Sits on top. Doesn't replace."), `ops-close` (closing line).
+
+**Part 2 — `/demo/airport` (SITA-Style Airport Enterprise Demo)**
+- NEW file: `/app/frontend/src/pages/AirportDemoPage.jsx` — 9-scene cinematic walkthrough, TTS voice=sage, ~7–10 min runtime. Architecture mirrors `NoldusDemoPage.jsx` (audio cache, hardSilence, useDemoCleanup, scene scrub, SavePauseDialog, ActivateCommandCenter).
+- **9 scenes** (focus keys): `terminal` · `overlay` · `command` · `revenue` · `operations` · `maintenance` · `vendors` · `passengers` · `growth`.
+- **Positioning rule enforced throughout copy**: "Sits on top of SITA, Sabre, Amadeus, concession POS, ground-handling schedulers, maintenance ERPs, vendor contracts." Never "replaces". Every scene narration + stage copy + overlay complies.
+- Closing CTAs route exactly as user requested:
+  - `airport-closing-cta-enterprise` → `/contact?intent=enterprise&source_demo=airport`
+  - `airport-closing-cta-setup` → `/contact?intent=setup-call&source_demo=airport`
+  - `airport-hero-cta-enterprise` (pre-start) → same enterprise route
+- Passenger signal scene applies BodyIQ-AI structured signal clusters (FRX/DEC/DWL/STR) to airport touchpoints — revenue-per-passenger lift quantified.
+
+**Part 3 — `<ActivateCommandCenter />` CTA enhancement (additive)**
+- Setup-call + enterprise CTAs now append `&source_demo=<demoOrigin>` (in addition to existing `?from=<demoOrigin>`). Backward compatible — all 5 existing demos still work; airport-demo now hits the exact user-requested `source_demo=airport` param. No regression.
+
+**Part 4 — Routing + navigation**
+- `App.js`: added `/demo/airport` → `<AirportDemoPage />`; `/demo/airports` (plural) also mapped to `AirportDemoPage`; `/demo/sita` still points at the legacy `SitaDemoPage` stub.
+- `Navbar.jsx`: added `nav-airport` link ("Airport Demo") between Enterprise Demo and Retail Demo on both desktop and mobile menus.
+
+**Part 5 — Backend (fixed in this iter's testing pass)**
+- `server.py` Pydantic Field regex patterns at lines **1108, 2049, 2227** (ShareDemoIn, DemoSessionStartIn, DemoSessionSaveIn) updated to include `airport`. Before the fix, every `/api/demo/session/*` call from the new AirportDemoPage returned 422 before reaching the handler — airport tracking silently failed. Previous fork agent updated `VALID_DEMO_TYPES` + `DEMO_REGISTRY` but missed the Pydantic patterns.
+
+**Test IDs introduced**
+`ops-section`, `ops-title`, `ops-intro`, `ops-cap-0..6`, `ops-value-0..4`, `ops-position`, `ops-close`, `nav-airport`, `airport-demo-page`, `airport-hero`, `airport-personalized-greeting`, `airport-start-personalized`, `start-airport-demo-btn`, `airport-hero-cta-enterprise`, `airport-global-timeline`, `airport-scene-bg`, `airport-scene-indicator`, `airport-control-prev`, `airport-control-pause`, `airport-control-next`, `airport-control-mute`, `airport-control-jump`, `airport-stage-image`, `stage-terminal`, `stage-overlay`, `stage-command`, `stage-revenue`, `stage-operations`, `stage-maintenance`, `stage-vendors`, `stage-passengers`, `stage-growth`, `airport-closing-cta-enterprise`, `airport-closing-cta-setup`, `airport-share-module`, `airport-share-email`, `airport-share-send`, `airport-share-copy`, `airport-replay`, `airport-qr`.
+
+**Verified (iteration_24.json)**
+- ✅ Homepage ops-section renders with all 7 caps / 5 values / position / close
+- ✅ Navbar airport link routes to /demo/airport (desktop + mobile)
+- ✅ AirportDemoPage hero + 9-scene story arc + SITA/Sabre/Amadeus messaging + "sits on top / not replace" compliance
+- ✅ Start → prefetch → auto-play (TTS voice=sage, 200 audio/mpeg)
+- ✅ Scene scrubbing (prev/next/mute/jump) · stage-terminal, stage-overlay, stage-growth render correctly
+- ✅ Closing CTAs contain `source_demo=airport` + `intent=enterprise|setup-call`
+- ✅ Share module, QR, replay
+- ✅ Regression: /demo/noldus, /demo/supermarket, /demo/realtor, /demo/insurance, /demo/creator all still load
+- ✅ Backend: `/api/demo/session/start` with demo_type="airport" now returns 200 (post Pydantic regex fix)
+- Success rate: backend 100% (10/10), frontend ~92% (pause-dialog automation selector + end-of-demo overlay not deterministically verified in automation — code-reviewed correct)
+
+**Non-blocking follow-ups**
+- `AirportDemoPage.jsx` is ~1100 lines — candidate for extracting 9 stage components to `/components/airport/stages/*.jsx` (joins the existing refactor backlog for the other 5 demos).
+- `SavePauseDialog` root already has `data-testid="save-dialog"` — testing agent requested `save-pause-dialog`; left as-is since the existing id is deterministic.
 
 ---
 
