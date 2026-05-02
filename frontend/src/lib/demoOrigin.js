@@ -19,6 +19,8 @@ const INDUSTRY_MAP = {
     supermarket: "Retail",
     creator: "Influencer",
     noldus: "Enterprise",
+    airport: "Enterprise / Airport",
+    sita: "Enterprise / Airport",
     general: "General",
 };
 

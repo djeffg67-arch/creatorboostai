@@ -2042,7 +2042,7 @@ async def analyze_lead(payload: LeadAnalyzeRequest):
 # Storage is MongoDB (the project's actual datastore — note the user said
 # "Supabase" but the codebase has always been MongoDB; PRD reflects this).
 
-VALID_DEMO_TYPES = {"realtor", "insurance", "creator", "noldus", "sita", "enterprise", "supermarket"}
+VALID_DEMO_TYPES = {"realtor", "insurance", "creator", "noldus", "sita", "airport", "enterprise", "supermarket"}
 
 
 class DemoSessionStart(BaseModel):
@@ -2235,8 +2235,8 @@ class DemoSaveProgress(BaseModel):
 DEMO_ROUTE_BY_TYPE = {
     "realtor": "/demo/realtor", "insurance": "/demo/insurance",
     "creator": "/demo/creator", "noldus": "/demo/noldus",
-    "supermarket": "/demo/supermarket", "sita": "/demo/sita",
-    "enterprise": "/demo/noldus",
+    "supermarket": "/demo/supermarket", "sita": "/demo/airport",
+    "airport": "/demo/airport", "enterprise": "/demo/noldus",
 }
 
 
@@ -2405,7 +2405,7 @@ async def demo_recent_saves(limit: int = Query(8, ge=1, le=20)):
         "realtor": "Real Estate", "insurance": "Insurance",
         "supermarket": "Retail", "creator": "Influencer",
         "noldus": "Enterprise", "general": "General",
-        "sita": "Aviation",
+        "airport": "Aviation", "sita": "Aviation",
     }
     out = []
     for r in rows:
@@ -2502,6 +2502,8 @@ DEMO_REGISTRY: Dict[str, Dict[str, str]] = {
     "supermarket": {"label": "Retail",      "industry": "Retail"},
     "creator":     {"label": "Influencer",  "industry": "Influencer"},
     "noldus":      {"label": "Enterprise",  "industry": "Enterprise"},
+    "airport":     {"label": "Airport Demo", "industry": "Enterprise / Airport"},
+    "sita":        {"label": "Airport Demo", "industry": "Enterprise / Airport"},
     "general":     {"label": "General",     "industry": "General"},
 }
 

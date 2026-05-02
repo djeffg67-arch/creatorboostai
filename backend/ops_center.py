@@ -1051,6 +1051,8 @@ def make_router(db, email_service=None) -> APIRouter:
             "supermarket": {"label": "Retail",      "industry": "Retail"},
             "creator":     {"label": "Influencer",  "industry": "Influencer"},
             "noldus":      {"label": "Enterprise",  "industry": "Enterprise"},
+            "airport":     {"label": "Airport Demo", "industry": "Enterprise / Airport"},
+            "sita":        {"label": "Airport Demo", "industry": "Enterprise / Airport"},
             "general":     {"label": "General",     "industry": "General"},
         }
         demo_keys = set(DEMO_REGISTRY.keys())

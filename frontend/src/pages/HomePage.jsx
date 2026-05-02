@@ -4,6 +4,7 @@ import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
 import { CountrySelector } from "@/components/site/CountrySelector";
 import { GetLeadsSection } from "@/components/site/GetLeadsSection";
+import { OperationsLifecycleSection } from "@/components/site/OperationsLifecycleSection";
 import { RecentActivityTicker } from "@/components/site/RecentActivityTicker";
 import { INDUSTRY_IMG, DEMO_IMG, SECTION_BG } from "@/lib/images";
 import {
@@ -952,5 +953,8 @@ const MiniKPI = ({ label, value, trend }) => (
         <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{label}</p>
         <p className="font-heading mt-0.5 text-base font-semibold text-cyan-300">{value}</p>
         <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">{trend}</p>
+    </div>
+);
+ text-slate-500">{trend}</p>
     </div>
 );

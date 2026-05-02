@@ -96,3 +96,17 @@ export const SCENE_IMG_NOLDUS = {
     training:           u("photo-1517245386807-bb43f82c33c4", 1800, 70),   // mentorship
     closing:            "/generated/industry-enterprise.jpg",
 };
+
+// Per-scene backdrops for the Airport / SITA-style enterprise demo
+export const SCENE_IMG_AIRPORT = {
+    terminal:     u("photo-1540962351504-03099e0a754b", 1800, 70), // airport terminal
+    revenue:      u("photo-1558618666-fcd25c85cd64", 1800, 70),    // retail / commercial
+    command:      u("photo-1551288049-bebda4e38f71", 1800, 70),    // command dashboard
+    operations:   u("photo-1556155092-490a1ba16284", 1800, 70),    // runway / ops
+    maintenance:  u("photo-1504917595217-d4dc5ebe6122", 1800, 70), // baggage / maintenance
+    vendors:      u("photo-1556742049-0cfed4f6a45d", 1800, 70),    // vendor / contract
+    passengers:   u("photo-1517336714731-489689fd1ca8", 1800, 70), // passenger flow
+    growth:       u("photo-1554224155-6726b3ff858f", 1800, 70),    // exec / growth
+    future:       u("photo-1436491865332-7a61a109cc05", 1800, 70), // aerial / network
+};
+
