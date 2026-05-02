@@ -1,6 +1,57 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-02 (Iter 35 — Live Stripe Activation · 6 Price IDs wired · /apply High-Stakes Intake)
+**Last update:** 2026-05-02 (Iter 36 — Conditional Calendly on /apply · keyword + deal-size priority upgrade · high-value lead mirror)
+
+---
+
+## 🆕 ITER 36 — Conditional Calendly + Priority Upgrade Logic on /apply
+
+Jeffrey's follow-up: let high-value applicants book a strategy call immediately; keep normal applicants in a review-first flow. Stripe stays untouched.
+
+**Priority assessment (Iter 36 helper `_assess_priority`)** — combines 3 signals into one decision:
+1. **Deal size** — `$250K–$1M` → `high` · `$1M+` → `urgent`
+2. **Monthly revenue** — `$500K–$1M` → `high` · `Over $1M` → `urgent`
+3. **Keyword match on use_case** — any hit on `enterprise, multi-location, national rollout, investor, litigation, board, acquisition, contract, negotiation, sales team, airport, insurance, real estate brokerage, brokerage, grocery, retail chain, government, security` upgrades `standard`/`medium` → `high`.
+
+Final priority = strongest signal (urgent > high > medium > standard). `calendly_eligible` = `high` or `urgent`.
+
+**Calendly gating** — the widget only renders when BOTH conditions are met:
+- applicant is `calendly_eligible` (high or urgent), AND
+- `CALENDLY_URL` env var is populated.
+
+Graceful fallback: if high-value applicant submits but `CALENDLY_URL` is empty, the admin side still gets the high-value signal (badge, `new_high_value_application` lead status, flagged founder email subject), but the applicant-facing copy falls back to the standard "review manually" message so we never promise a widget we can't render.
+
+**Confirmation screen copy (exact Iter 36 spec)**
+- High-value + CALENDLY_URL set → "Application received. Based on your submission, you qualify to request a strategy review. Please book a private call below." + inline Calendly `<iframe>` (720px tall) + "Open in new tab" fallback link + QUALIFIED priority badge.
+- Normal (or high-value w/o URL set) → "Application received. We review all requests manually. If aligned, you'll receive a private scheduling link."
+
+**Backend fields now stored on every application** (per Iter 36 spec)
+`priority_level`, `qualification_reason` (e.g. `deal_size:$1M+ · keywords:acquisition,enterprise`), `source_page` (from referer header or client-sent), `created_at` (timestamp), `engagement_type`, `deal_size`, `email`, `company`, `calendly_shown` boolean, plus existing attribution (`source_demo`, `source_industry`), `role`, `monthly_revenue`, `use_case`, `phone`, `upload_url`.
+
+**Lead mirror** — high/urgent applicants land in `ops_leads` with `status='new_high_value_application'`; normal applicants keep `status='new'`. Both get `qualification_reason` + `calendly_shown` copied onto the lead row.
+
+**Founder email**
+- High-value: subject `"High-Value BodyIQ Application — Immediate Review · {name} ({company})"` with a gradient HIGH-VALUE header banner in the HTML.
+- Normal: subject `"[Application · STANDARD] {name} — {company}"`.
+- Body includes Priority, Qualification reason, Calendly-shown flag, Source page (new fields vs Iter 35).
+
+**Frontend form additions** — `/apply` now has 2 new dropdowns: `apply-field-engagement-type` (Sales · Negotiation · Hiring · Leadership · Legal · Enterprise · Other) and `apply-field-deal-size` (<$50K · $50K–$250K · $250K–$1M · $1M+). Form auto-sends `source_page = window.location.pathname + search`.
+
+**New test IDs**
+`apply-field-engagement-type`, `apply-field-deal-size`, `apply-highvalue-badge`, `apply-confirm-highvalue-copy`, `apply-confirm-standard-copy`, `apply-calendly`, `apply-calendly-open`, `apply-calendly-iframe`.
+
+**Env addition**
+`CALENDLY_URL=` (empty slot ready for Jeffrey's Calendly URL. Widget dark until populated).
+
+**Manually verified end-to-end**
+- Standard flow (boutique shop, no keywords, no deal size) → `priority=standard`, `lead_status=new`, standard copy + no Calendly ✅
+- Keyword-only upgrade ("airport" + "contract" + "negotiation") → `priority=high`, `lead_status=new_high_value_application`, `qualification_reason=keywords:contract,negotiation,airport` ✅
+- Deal-size urgent ($1M+ + "acquisition") → `priority=urgent`, `qualification_reason=deal_size:$1M+ · keywords:acquisition` ✅
+- Full high-value flow with CALENDLY_URL populated → iframe rendered with correct src, "you qualify to request a strategy review. Please book a private call below." copy, QUALIFIED · URGENT PRIORITY badge ✅
+- With CALENDLY_URL empty, high-value applicants still get the qualified badge + `new_high_value_application` lead status but frontend gracefully shows standard copy ✅
+
+**Non-blocking follow-up**
+- Calendly embed script (`assets.calendly.com/assets/external/widget.js`) could replace the iframe for richer styling. Current iframe approach works with any calendar provider and zero 3rd-party JS — intentional conservative choice.
 
 ---
 

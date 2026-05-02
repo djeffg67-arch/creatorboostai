@@ -1778,9 +1778,242 @@ class EngagementApplicationIn(BaseModel):
     timeline: Optional[str] = Field(default=None, max_length=60)
     phone: Optional[str] = Field(default=None, max_length=40)
     upload_url: Optional[str] = Field(default=None, max_length=1000)
-    # attribution
+    # attribution + referrer (Iter 36)
     source_demo: Optional[str] = Field(default=None, max_length=120)
     source_industry: Optional[str] = Field(default=None, max_length=120)
+    source_page: Optional[str] = Field(default=None, max_length=500)
+
+
+# Iter 36 · keyword list for priority upgrade. Any match on any token in a
+# candidate's use_case (case-insensitive) elevates them to high priority.
+HIGH_VALUE_KEYWORDS = [
+    "enterprise", "multi-location", "multi location", "multilocation",
+    "national rollout", "national roll-out", "nationwide rollout",
+    "investor", "litigation", "board", "acquisition",
+    "contract", "negotiation", "sales team",
+    "airport", "insurance", "real estate brokerage", "brokerage",
+    "grocery", "retail chain", "government", "security",
+]
+
+
+def _assess_priority(payload: "EngagementApplicationIn") -> tuple[str, str, bool]:
+    """Combine deal-size + keyword + revenue signals into a single priority
+    decision. Returns (priority_level, qualification_reason, calendly_eligible).
+
+    Priority levels: standard | medium | high | urgent.
+    Calendly is shown for high + urgent (per Jeffrey's Iter 36 spec).
+    """
+    reasons: list[str] = []
+
+    # 1) Deal-size band (strongest signal — explicitly called out in spec).
+    deal_priority = _priority_for_deal_size(payload.deal_size)
+    if deal_priority == "urgent":
+        reasons.append(f"deal_size:{payload.deal_size}")
+    elif deal_priority == "high":
+        reasons.append(f"deal_size:{payload.deal_size}")
+
+    # 2) Revenue band (secondary signal).
+    rev_priority = _priority_for_revenue(payload.monthly_revenue)
+    if rev_priority in ("high", "urgent"):
+        reasons.append(f"monthly_revenue:{payload.monthly_revenue}")
+
+    # 3) Keyword match on use_case — upgrades any non-high applicant to high.
+    use_case_lc = (payload.use_case or "").lower()
+    matched_keywords: list[str] = [kw for kw in HIGH_VALUE_KEYWORDS if kw in use_case_lc]
+    if matched_keywords:
+        reasons.append("keywords:" + ",".join(matched_keywords[:6]))
+
+    # Final priority = strongest of the three signals; keywords never override
+    # "urgent" but will promote standard/medium to high.
+    ranks = {"standard": 0, "medium": 1, "high": 2, "urgent": 3}
+    base = max(deal_priority, rev_priority, key=lambda p: ranks[p])
+    if matched_keywords and ranks[base] < ranks["high"]:
+        base = "high"
+
+    calendly_eligible = base in ("high", "urgent")
+    qualification_reason = " · ".join(reasons) if reasons else "standard_review"
+    return base, qualification_reason, calendly_eligible
+
+
+@api_router.post("/submit-application")
+async def submit_engagement_application(payload: EngagementApplicationIn, http_request: Request):
+    """High-stakes engagement intake. Writes to enterprise_applications,
+    mirrors to ops_leads, emails the founder inbox + an applicant confirmation.
+
+    Priority is assessed from deal_size + revenue band + keyword match on the
+    use_case text (Iter 36). High/urgent applicants are marked
+    calendly_eligible and receive a `calendly_url` in the response payload."""
+    now = datetime.now(timezone.utc).isoformat()
+    priority, qualification_reason, calendly_eligible = _assess_priority(payload)
+
+    calendly_url = os.environ.get("CALENDLY_URL", "").strip()
+    calendly_shown = bool(calendly_eligible and calendly_url)
+    source_page = (payload.source_page or http_request.headers.get("referer") or "").strip() or None
+
+    app_id = str(uuid.uuid4())
+    app_doc = {
+        "id": app_id,
+        "full_name": payload.full_name.strip(),
+        "email": str(payload.email).strip().lower(),
+        "company": (payload.company or "").strip() or None,
+        "role": (payload.role or "").strip() or None,
+        "monthly_revenue": payload.monthly_revenue,
+        "use_case": payload.use_case.strip(),
+        "engagement_type": payload.engagement_type,
+        "deal_size": payload.deal_size,
+        "timeline": payload.timeline,
+        "phone": (payload.phone or "").strip() or None,
+        "upload_url": payload.upload_url,
+        "source": "high_stakes_apply",
+        "status": "new",
+        "priority": priority,
+        "priority_level": priority,  # explicit alias per Iter 36 field spec
+        "qualification_reason": qualification_reason,
+        "calendly_shown": calendly_shown,
+        "calendly_eligible": calendly_eligible,
+        "source_page": source_page,
+        "source_demo": payload.source_demo,
+        "source_industry": payload.source_industry,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.enterprise_applications.insert_one(dict(app_doc))
+
+    # Mirror into ops_leads so the lead surfaces immediately in the portal.
+    # High/urgent applicants get status='new_high_value_application' per spec.
+    lead_status = "new_high_value_application" if calendly_eligible else "new"
+    lead_doc = {
+        "id": str(uuid.uuid4()),
+        "lead_id": app_id,
+        "contact_name": app_doc["full_name"],
+        "contact_email": app_doc["email"],
+        "contact_phone": app_doc["phone"],
+        "company": app_doc["company"],
+        "source": "high_stakes_apply",
+        "source_demo": app_doc["source_demo"],
+        "source_industry": app_doc["source_industry"],
+        "source_page": source_page,
+        "status": lead_status,
+        "priority": priority,
+        "qualification_reason": qualification_reason,
+        "calendly_shown": calendly_shown,
+        "notes": [{
+            "at": now,
+            "body": (
+                f"Engagement application · priority={priority} · "
+                f"reason={qualification_reason} · "
+                f"role={app_doc['role'] or '—'} · "
+                f"rev_band={app_doc['monthly_revenue'] or '—'} · "
+                f"deal_size={app_doc['deal_size'] or '—'} · "
+                f"engagement_type={app_doc['engagement_type'] or '—'} · "
+                f"timeline={app_doc['timeline'] or '—'}\n\n{app_doc['use_case']}"
+            ),
+        }],
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.ops_leads.insert_one(dict(lead_doc))
+
+    # Notify founder / applications inbox — subject line flags high-value clearly.
+    founder_inbox = os.environ.get("APPLICATIONS_INBOX", "").strip() or os.environ.get("FOUNDER_EMAIL", "").strip()
+    if founder_inbox:
+        try:
+            if calendly_eligible:
+                subject = f"High-Value BodyIQ Application — Immediate Review · {app_doc['full_name']} ({app_doc['company'] or 'no company'})"
+                header_banner = (
+                    "<div style=\"background:linear-gradient(90deg,#22d3ee,#06b6d4);padding:12px 18px;border-radius:6px;color:#0b1221;font-family:ui-sans-serif,system-ui;font-weight:700;margin-bottom:16px;\">"
+                    f"HIGH-VALUE APPLICATION · {priority.upper()} PRIORITY · Immediate Review"
+                    "</div>"
+                )
+            else:
+                subject = f"[Application · {priority.upper()}] {app_doc['full_name']} — {app_doc['company'] or 'no company'}"
+                header_banner = ""
+
+            body_html = (
+                header_banner
+                + "<h2 style=\"font-family:ui-sans-serif,system-ui;\">New High-Stakes Engagement Application</h2>"
+                + "".join(f"<p style=\"font-family:ui-sans-serif,system-ui;font-size:14px;\"><strong>{k}</strong>: {v}</p>" for k, v in [
+                    ("Name", app_doc['full_name']),
+                    ("Email", app_doc['email']),
+                    ("Phone", app_doc['phone'] or '—'),
+                    ("Company", app_doc['company'] or '—'),
+                    ("Role", app_doc['role'] or '—'),
+                    ("Monthly revenue band", app_doc['monthly_revenue'] or '—'),
+                    ("Engagement type", app_doc['engagement_type'] or '—'),
+                    ("Deal size", app_doc['deal_size'] or '—'),
+                    ("Timeline", app_doc['timeline'] or '—'),
+                    ("Priority level", priority.upper()),
+                    ("Qualification reason", qualification_reason),
+                    ("Calendly shown to applicant", "YES" if calendly_shown else "NO"),
+                    ("Source page", source_page or '—'),
+                    ("Source demo / industry", f"{app_doc['source_demo'] or '—'} / {app_doc['source_industry'] or '—'}"),
+                ])
+                + f"<hr/><p style=\"font-family:ui-sans-serif,system-ui;font-size:14px;\"><strong>Use case:</strong></p><p style=\"white-space:pre-wrap;font-family:ui-sans-serif,system-ui;font-size:14px;line-height:1.55;\">{app_doc['use_case']}</p>"
+                + f"<p style=\"font-family:monospace;font-size:12px;color:#6b7280;\">Application ID: {app_id} · Submitted: {now}</p>"
+            )
+            await send_founder_notification(
+                to_email=founder_inbox,
+                subject=subject,
+                body_html=body_html,
+            )
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Founder application email failed (non-blocking): {e}")
+
+    # Applicant confirmation — copy varies by calendly eligibility.
+    try:
+        first_name = app_doc['full_name'].split()[0] if app_doc['full_name'] else 'there'
+        if calendly_shown:
+            ack_headline = "Application received · you qualify to request a strategy review"
+            ack_body = (
+                "Based on your submission, you qualify to request a strategy review. "
+                "Use the private calendar link on the confirmation page (or below) to book a call."
+            )
+        else:
+            ack_headline = "Application received · under review"
+            ack_body = (
+                "We review all requests manually. If aligned, you'll receive a private scheduling link."
+            )
+        calendly_block = (
+            f"<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">"
+            f"<a href=\"{calendly_url}\" style=\"color:#22d3ee;\">Book your strategy review →</a></p>"
+            if calendly_shown else ""
+        )
+        ack_html = (
+            "<div style=\"font-family:ui-sans-serif,system-ui;background:#0b1221;color:#e5e7eb;padding:32px;border-radius:8px;\">"
+            f"<h2 style=\"color:#22d3ee;margin:0 0 12px;\">{ack_headline}</h2>"
+            f"<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">Hi {first_name},</p>"
+            f"<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">{ack_body}</p>"
+            f"{calendly_block}"
+            "<p style=\"font-size:12px;color:#64748b;margin:24px 0 0;font-family:monospace;\">"
+            f"Application reference: {app_id}<br/>"
+            f"Submitted: {now}"
+            "</p>"
+            "</div>"
+        )
+        await send_founder_notification(
+            to_email=app_doc["email"],
+            subject="Your BodyIQ engagement application — under review",
+            body_html=ack_html,
+        )
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Applicant ack email failed (non-blocking): {e}")
+
+    # Response payload — frontend decides whether to render the Calendly widget.
+    return {
+        "ok": True,
+        "application_id": app_id,
+        "priority": priority,
+        "priority_level": priority,
+        "qualification_reason": qualification_reason,
+        "calendly_shown": calendly_shown,
+        "calendly_url": calendly_url if calendly_shown else None,
+        "lead_status": lead_status,
+        "message": (
+            "Application received. Based on your submission, you qualify to request a strategy review. Please book a private call below."
+            if calendly_shown
+            else "Application received. We review all requests manually. If aligned, you'll receive a private scheduling link."
+        ),
+    }
 
 
 def _priority_for_deal_size(v: Optional[str]) -> str:
@@ -1810,127 +2043,6 @@ def _priority_for_revenue(v: Optional[str]) -> str:
         return "medium"
     return "standard"
 
-
-@api_router.post("/submit-application")
-async def submit_engagement_application(payload: EngagementApplicationIn):
-    """High-stakes engagement intake. Writes to enterprise_applications,
-    mirrors to ops_leads, emails the founder inbox + an applicant confirmation.
-
-    Auto-prioritized from deal_size (when provided) or monthly_revenue."""
-    now = datetime.now(timezone.utc).isoformat()
-    priority = _priority_for_deal_size(payload.deal_size) if payload.deal_size else _priority_for_revenue(payload.monthly_revenue)
-
-    app_id = str(uuid.uuid4())
-    app_doc = {
-        "id": app_id,
-        "full_name": payload.full_name.strip(),
-        "email": str(payload.email).strip().lower(),
-        "company": (payload.company or "").strip() or None,
-        "role": (payload.role or "").strip() or None,
-        "monthly_revenue": payload.monthly_revenue,
-        "use_case": payload.use_case.strip(),
-        "engagement_type": payload.engagement_type,
-        "deal_size": payload.deal_size,
-        "timeline": payload.timeline,
-        "phone": (payload.phone or "").strip() or None,
-        "upload_url": payload.upload_url,
-        "source": "high_stakes_apply",
-        "status": "new",
-        "priority": priority,
-        "source_demo": payload.source_demo,
-        "source_industry": payload.source_industry,
-        "created_at": now,
-        "updated_at": now,
-    }
-    await db.enterprise_applications.insert_one(dict(app_doc))
-
-    # Mirror into ops_leads so it surfaces in the Leads tab immediately.
-    lead_doc = {
-        "id": str(uuid.uuid4()),
-        "lead_id": app_id,
-        "contact_name": app_doc["full_name"],
-        "contact_email": app_doc["email"],
-        "contact_phone": app_doc["phone"],
-        "company": app_doc["company"],
-        "source": "high_stakes_apply",
-        "source_demo": app_doc["source_demo"],
-        "source_industry": app_doc["source_industry"],
-        "status": "new",
-        "priority": priority,
-        "notes": [{
-            "at": now,
-            "body": (
-                f"Engagement application · role={app_doc['role'] or '—'} · "
-                f"rev_band={app_doc['monthly_revenue'] or '—'} · "
-                f"deal_size={app_doc['deal_size'] or '—'} · "
-                f"timeline={app_doc['timeline'] or '—'}\n\n{app_doc['use_case']}"
-            ),
-        }],
-        "created_at": now,
-        "updated_at": now,
-    }
-    await db.ops_leads.insert_one(dict(lead_doc))
-
-    # Notify founder / applications inbox
-    founder_inbox = os.environ.get("APPLICATIONS_INBOX", "").strip() or os.environ.get("FOUNDER_EMAIL", "").strip()
-    if founder_inbox:
-        try:
-            subject = f"[High-Stakes Application · {priority.upper()}] {app_doc['full_name']} — {app_doc['company'] or 'no company'}"
-            body_html = (
-                "<h2 style=\"font-family:ui-sans-serif,system-ui;\">New High-Stakes Engagement Application</h2>"
-                + "".join(f"<p style=\"font-family:ui-sans-serif,system-ui;font-size:14px;\"><strong>{k}</strong>: {v}</p>" for k, v in [
-                    ("Name", app_doc['full_name']),
-                    ("Email", app_doc['email']),
-                    ("Phone", app_doc['phone'] or '—'),
-                    ("Company", app_doc['company'] or '—'),
-                    ("Role", app_doc['role'] or '—'),
-                    ("Monthly revenue band", app_doc['monthly_revenue'] or '—'),
-                    ("Engagement type", app_doc['engagement_type'] or '—'),
-                    ("Deal size", app_doc['deal_size'] or '—'),
-                    ("Timeline", app_doc['timeline'] or '—'),
-                    ("Priority", priority.upper()),
-                    ("Source demo / industry", f"{app_doc['source_demo'] or '—'} / {app_doc['source_industry'] or '—'}"),
-                ])
-                + f"<hr/><p style=\"font-family:ui-sans-serif,system-ui;font-size:14px;\"><strong>Use case:</strong></p><p style=\"white-space:pre-wrap;font-family:ui-sans-serif,system-ui;font-size:14px;line-height:1.55;\">{app_doc['use_case']}</p>"
-                + f"<p style=\"font-family:monospace;font-size:12px;color:#6b7280;\">Application ID: {app_id} · Submitted: {now}</p>"
-            )
-            await send_founder_notification(
-                to_email=founder_inbox,
-                subject=subject,
-                body_html=body_html,
-            )
-        except Exception as e:
-            logging.getLogger(__name__).warning(f"Founder application email failed (non-blocking): {e}")
-
-    # Applicant confirmation
-    try:
-        ack_html = (
-            "<div style=\"font-family:ui-sans-serif,system-ui;background:#0b1221;color:#e5e7eb;padding:32px;border-radius:8px;\">"
-            f"<h2 style=\"color:#22d3ee;margin:0 0 12px;\">Application received · under review</h2>"
-            f"<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">Hi {app_doc['full_name'].split()[0] if app_doc['full_name'] else 'there'},</p>"
-            "<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">Thank you for submitting a high-stakes engagement application. Our team will review your request within 24 hours.</p>"
-            "<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">If your engagement is qualified, we will send a private scheduling link so we can align on scope, timeline, and outcomes on a brief strategy call.</p>"
-            "<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">This process exists because every engagement we take carries real decision weight — and we only accept work we're confident we can move the needle on.</p>"
-            "<p style=\"font-size:12px;color:#64748b;margin:24px 0 0;font-family:monospace;\">"
-            f"Application reference: {app_id}<br/>"
-            f"Submitted: {now}"
-            "</p>"
-            "</div>"
-        )
-        await send_founder_notification(
-            to_email=app_doc["email"],
-            subject="Your high-stakes engagement application — under review",
-            body_html=ack_html,
-        )
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"Applicant ack email failed (non-blocking): {e}")
-
-    return {
-        "ok": True,
-        "application_id": app_id,
-        "priority": priority,
-        "message": "Application received. If qualified, you will receive a private scheduling link within 24 hours.",
-    }
 
 
 @api_router.get("/checkout/status/{session_id}", response_model=CheckoutStatusOut)
