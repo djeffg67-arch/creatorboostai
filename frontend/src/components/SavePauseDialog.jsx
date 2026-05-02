@@ -74,6 +74,7 @@ export const SavePauseDialog = ({
             <div
                 onClick={(e) => e.stopPropagation()}
                 className="relative w-full max-w-[560px] overflow-hidden rounded-xl border border-cyan-500/30 bg-gradient-to-br from-ink-800 via-ink-900 to-ink-900 p-7 shadow-[0_0_60px_rgba(6,182,212,0.2)]"
+                data-testid="save-pause-dialog"
             >
                 <button
                     data-testid="save-dialog-close"

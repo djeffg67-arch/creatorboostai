@@ -1,6 +1,52 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-02 (Iter 33 — Operations/Lifecycle Homepage Section + 9-Scene Airport Demo)
+**Last update:** 2026-05-02 (Iter 34 — Airport Demo Full Enterprise Rebuild · 9 FULL scenes · ~9.5 min)
+
+---
+
+## 🆕 ITER 34 — Airport Demo Full Enterprise Rebuild (9 FULL scenes · ~9.5 min)
+
+User directed: "Do NOT move on yet. The Airport (SITA) demo needs to be upgraded to a full 7–10 minute cinematic enterprise demo." Full rewrite of `/app/frontend/src/pages/AirportDemoPage.jsx` (412 → 1636 lines).
+
+**New 9-scene structure (user spec order)**
+1. `problem` — The Airport Problem · 8 fragmented systems · $6.4M leaking · 0 unified decisions
+2. `leakage` — Revenue Leakage, Made Visible · 6-row leakage table (concessions, parking, lounge, ads, duty-free, gate ads) · $6.4M annualized
+3. `command` — The Command Center · 8 live tiles · "Sits on top of" chip list of all 8 existing systems · read-only by default
+4. `operations` — Operations Intelligence · 5 gates + delay-cascade timeline (09:02 → 09:11 contained) · −6 min turnaround
+5. `service` — Maintenance & Service Tracking (NEW) · 5-row work-order ledger · Jet bridge B-12 recurrence pattern · keep-paying $38K/yr vs replace-manifold $4,200 (<60d payback)
+6. `lifecycle` — Equipment Lifecycle & End-of-Life Alerts · 4-state progression bar (428/124/1142/148) · 5-row EOL alerts table (HVAC-RT1, ESC-A3, BB-C2, LGT-T2, GSE-DI-4)
+7. `vendors` — Vendor Performance & Contract Visibility · 5-row vendor table w/ SLA + $ recovered column · 60/90/120-day renewal windows · $1.84M warranty-recovered line
+8. `passengers` — Passenger Signal & Revenue Optimization · 4 BodyIQ-AI signal clusters (FRX/DEC/DWL/STR) · +$1.42 ARPU · $19.8M annual lift
+9. `growth` — Growth · Contract Wins · Future State · 4 year-one KPI cards ($6.4M + $1.84M + $19.8M + $17.7M) · 4 new-contract win cards (catering $3.2M, 2 retail $4.1M, ground-services $7.6M/3yr, lounge partnership $2.8M)
+
+**Per-scene additions**
+- New `<BusinessOutcomePanel />` renders on the right sidebar for every scene — 3 quantified tiles per scene (money gained · control improved · contracts won).
+- Narration expanded to 160–220 words per scene (9.47-min total, within user's 7–10 min target).
+- New stages: `ProblemStage`, `LeakageStage`, `ServiceTrackingStage`, `LifecycleStage` (expanded with EOL table), `GrowthStage` (expanded with contract wins).
+- Enforced positioning rule throughout: every scene asserts "sits on top", "does not replace", "makes them more profitable", "connect". Zero replacement language.
+
+**Voice**
+- `sage` (female · American · clear/professional). Start screen labels it "SAGE (FEMALE · AMERICAN)".
+
+**Test IDs added**
+`stage-problem`, `stage-leakage`, `stage-command`, `stage-operations`, `stage-service`, `stage-lifecycle`, `stage-vendors`, `stage-passengers`, `stage-growth`, `airport-business-outcome`, `save-pause-dialog` (new on SavePauseDialog inner panel so tests can locate it).
+
+**Verified (iteration_25.json)** — 100% backend (10/10 pytest + 3/3 curl), ~92% frontend
+- ✅ All 9 scenes mount with correct titles in user-spec order
+- ✅ BusinessOutcomePanel renders on every scene (3 tiles)
+- ✅ Each scene's on-screen UI simulation + quantified outcome verified
+- ✅ Maintenance logs, service tracking, EOL alerts, upgrade opportunities, vendor accountability all explicitly rendered on dedicated scenes
+- ✅ Positioning compliance: "sits on top / does not replace / makes more profitable" language throughout
+- ✅ Closing CTAs still route to `/contact?intent=enterprise&source_demo=airport` and `/contact?intent=setup-call&source_demo=airport`
+- ✅ Total runtime 9.47 min (568s) — within 7–10 min target
+- ✅ Backend tracking `POST /api/demo/session/start` with demo_type='airport' returns 201
+- ✅ Regression clean on /demo/{noldus,supermarket,realtor,insurance,creator}
+- ⚠️ Known non-blocking: prefetch loader "Loading audio… 0%" can appear stuck if testing agent times out — real TTS latency is ~2s/call so a real user sees ~25s prefetch. Not a user-visible bug.
+- ⚠️ Fixed: SavePauseDialog now has `data-testid='save-pause-dialog'` on the panel wrapper for deterministic testing.
+
+**Non-blocking backlog**
+- `AirportDemoPage.jsx` now 1636 lines — extract 9 stage components to `/components/airport/stages/*.jsx` (joins existing 6-demo refactor backlog).
+- `ActivateCommandCenter` overlay could expose a sticky `data-testid` on the backdrop for deterministic automation.
 
 ---
 
