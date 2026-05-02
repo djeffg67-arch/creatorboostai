@@ -24,6 +24,12 @@ const LEAD_STATUSES = ["new", "contacted", "qualified", "demo_sent", "proposal",
 
 const fmtUSD = (n) => n == null ? "$0" : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
+// Used by Demo Revenue tab + LeadsTab attribution badge.
+const DEMO_LABELS = {
+    realtor: "Real Estate", insurance: "Insurance", supermarket: "Retail",
+    creator: "Influencer", noldus: "Enterprise", general: "General",
+};
+
 const roleBadge = {
     founder:   { label: "Founder",   cls: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
     executive: { label: "Executive", cls: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300" },
@@ -316,6 +322,18 @@ const LeadCard = ({ lead, auth, me, onChange }) => {
                     <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
                         {lead.email || "—"} · {lead.phone || "no phone"} · assigned {lead.assigned_to_email}
                     </p>
+                    {/* Demo attribution badge — shown once a webhook has closed the lead from a demo. */}
+                    {lead.closed_source_demo && (
+                        <div
+                            data-testid={`lead-demo-attribution-${lead.lead_id}`}
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/5 px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-300"
+                        >
+                            <DollarSign size={10} />
+                            Closed from {DEMO_LABELS[lead.closed_source_demo] || lead.closed_source_demo}
+                            {lead.closed_amount ? ` · ${fmtUSD(lead.closed_amount)}` : ""}
+                            {lead.closed_plan_key ? ` · ${lead.closed_plan_key}` : ""}
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     {lead.value_usd && <span className="font-mono text-[10px] text-emerald-300">{fmtUSD(lead.value_usd)}</span>}

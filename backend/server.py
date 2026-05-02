@@ -1826,22 +1826,32 @@ async def _record_demo_revenue_event(txn: Dict[str, Any], event) -> None:
     except Exception as e:
         logging.getLogger(__name__).warning(f"demo_revenue_events insert failed: {e}")
 
-    # If we have a lead_id, flip its status to closed_won + attach subscription
+    # If we have a lead_id, flip its status to closed_won + attach subscription.
+    # Portal CRM lives in `ops_leads`; legacy marketing leads live in `leads`.
+    # Update both defensively — first match wins, unmatched ones are no-ops.
     if row["lead_id"]:
+        close_update = {
+            "status": "closed_won",
+            "closed_at": row["at"],
+            "closed_amount": amount,
+            "closed_session_id": row["session_id"],
+            "closed_plan_key": plan_key,
+            "closed_source_demo": row["source_demo"],
+        }
+        try:
+            await db.ops_leads.update_one(
+                {"lead_id": row["lead_id"]},
+                {"$set": close_update},
+            )
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"ops_leads close-won update failed: {e}")
         try:
             await db.leads.update_one(
                 {"id": row["lead_id"]},
-                {"$set": {
-                    "status": "closed_won",
-                    "closed_at": row["at"],
-                    "closed_amount": amount,
-                    "closed_session_id": row["session_id"],
-                    "closed_plan_key": plan_key,
-                    "closed_source_demo": row["source_demo"],
-                }},
+                {"$set": close_update},
             )
         except Exception as e:
-            logging.getLogger(__name__).warning(f"lead close-won update failed: {e}")
+            logging.getLogger(__name__).warning(f"leads close-won update failed: {e}")
 
 
 
