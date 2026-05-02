@@ -23,6 +23,7 @@ import SupermarketDemoPage from "@/pages/SupermarketDemoPage";
 import VerticalPickerPage from "@/pages/VerticalPickerPage";
 import PressPage from "@/pages/PressPage";
 import ApplyPage from "@/pages/ApplyPage";
+import EngagementApplyPage from "@/pages/EngagementApplyPage";
 import PricingPage from "@/pages/PricingPage";
 import PortalPage from "@/pages/PortalPage";
 import FounderPage from "@/pages/FounderPage";
@@ -63,6 +64,7 @@ function App() {
                     <Route path="/demo/:variant" element={<DemoPage />} />
                     <Route path="/press" element={<PressPage />} />
                     <Route path="/training" element={<TrainingPage />} />
+                    <Route path="/apply" element={<EngagementApplyPage />} />
                     <Route path="/apply/:program" element={<ApplyPage />} />
                     <Route path="/pricing" element={<PricingPage />} />
                     <Route path="/portal" element={<PortalPage />} />

@@ -109,6 +109,14 @@ export const listHighTicket = () =>
 export const createSubscriptionSession = (payload) =>
     api.post("/checkout/subscription", { ...demoAttributionPayload(), ...payload }).then((r) => r.data);
 
+// Live Stripe Checkout (Iter 35) — accepts { priceId, customerEmail, successUrl, cancelUrl, ...attribution }
+export const createLiveCheckoutSession = (payload) =>
+    api.post("/create-checkout-session", { ...demoAttributionPayload(), ...payload }).then((r) => r.data);
+
+// High-Stakes Engagement application (Iter 35) — routes to /api/submit-application
+export const submitEngagementApplication = (payload) =>
+    api.post("/submit-application", { ...demoAttributionPayload(), ...payload }).then((r) => r.data);
+
 export const portalLogin = (payload) =>
     api.post("/portal/login", payload).then((r) => r.data);
 

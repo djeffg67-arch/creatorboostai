@@ -178,8 +178,8 @@ const SIGNAL_PRODUCTS = [
         title: "Full Signal Intelligence Report",
         body: "End-to-end video breakdown, decision mapping, resistance & alignment identification, plus insight + execution strategy for high-stakes sales or legal engagements.",
         priceLabel: "$10,000 – $35,000+",
-        ctaLabel: "Request a Report",
-        href: "/services/report",
+        ctaLabel: "Request Engagement",
+        href: "/apply",
     },
 ];
 
@@ -334,7 +334,7 @@ export default function HomePage() {
                                     See Your Industry <ArrowRight size={14} />
                                 </a>
                                 <Link
-                                    to="/apply/strategy"
+                                    to="/apply"
                                     data-testid="hero-cta-request-access"
                                     className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-transparent px-6 py-3.5 text-sm font-semibold text-white transition-all hover:border-cyan-500/50 hover:text-cyan-400"
                                 >
@@ -735,7 +735,7 @@ export default function HomePage() {
                         <Link to="/preview" data-testid="home-cta-preview" className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-6 py-3.5 text-sm font-semibold text-cyan-300 hover:bg-cyan-500 hover:text-ink-900">
                             Open Command Center
                         </Link>
-                        <Link to="/apply/strategy" data-testid="home-cta-apply" className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-transparent px-6 py-3.5 text-sm font-semibold text-white hover:border-cyan-500/50 hover:text-cyan-400">
+                        <Link to="/apply" data-testid="home-cta-apply" className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-transparent px-6 py-3.5 text-sm font-semibold text-white hover:border-cyan-500/50 hover:text-cyan-400">
                             Request Access
                         </Link>
                     </div>

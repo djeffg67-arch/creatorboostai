@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
-import { listSubscriptions, createSubscriptionSession } from "@/lib/api";
+import { listSubscriptions, createSubscriptionSession, createLiveCheckoutSession } from "@/lib/api";
 import { PAGE_HERO } from "@/lib/images";
 import { toast } from "sonner";
 import {
@@ -74,8 +74,38 @@ export default function PricingPage() {
             .finally(() => setLoading(false));
     }, []);
 
+    // Live Stripe Price IDs (Iter 35 · monthly subscriptions)
+    const LIVE_MONTHLY_PRICE_IDS = {
+        starter: "price_1TShrkFyohsNSVMek8hffreQ",
+        growth:  "price_1TShwTFyohsNSVMeTIFsimmm",
+        pro:     "price_1TSi0RFyohsNSVMej0P2vrf2",
+    };
+
     const subscribe = async (tier) => {
-        const planKey = `cb_${tier}_${billing === "year" ? "annual" : "monthly"}`;
+        // Monthly → live Price ID flow (Jeffrey's active Stripe products)
+        const livePriceId = billing === "month" ? LIVE_MONTHLY_PRICE_IDS[tier] : null;
+        if (livePriceId) {
+            setRedirecting(`live_${tier}_monthly`);
+            try {
+                const { url } = await createLiveCheckoutSession({
+                    priceId: livePriceId,
+                    successUrl: `${window.location.origin}/success?session_id={CHECKOUT_SESSION_ID}&product=live_${tier}_monthly`,
+                    cancelUrl: `${window.location.origin}/pricing?canceled=${tier}`,
+                    plan_type: "subscription",
+                });
+                toast.success("Opening secure checkout…");
+                window.location.href = url;
+                return;
+            } catch (err) {
+                const detail = err?.response?.data?.detail;
+                toast.error(typeof detail === "string" ? detail : "Could not open checkout");
+                setRedirecting(null);
+                return;
+            }
+        }
+
+        // Annual (or anything else) → legacy plan_key flow
+        const planKey = `cb_${tier}_annual`;
         if (!plans[planKey]) { toast.error("Plan unavailable"); return; }
         setRedirecting(planKey);
         try {
@@ -92,7 +122,11 @@ export default function PricingPage() {
         }
     };
 
+    const LIVE_MONTHLY_PRICES = { starter: 97, growth: 297, pro: 997 };
     const priceFor = (tier) => {
+        if (billing === "month" && LIVE_MONTHLY_PRICES[tier] != null) {
+            return { amount: LIVE_MONTHLY_PRICES[tier], interval: "month" };
+        }
         const planKey = `cb_${tier}_${billing === "year" ? "annual" : "monthly"}`;
         return plans[planKey];
     };

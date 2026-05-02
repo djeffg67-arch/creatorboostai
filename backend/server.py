@@ -1576,6 +1576,363 @@ async def create_subscription_session(payload: SubscriptionCheckoutCreate, http_
     return CheckoutSessionOut(url=session.url, session_id=session.session_id)
 
 
+# =================================================================
+# LIVE CHECKOUT · Iter 35 · revenue activation
+# =================================================================
+# The 6 live Stripe products Jeffrey shipped. Each is identified by its
+# live Stripe Price ID — the ONLY values we accept at /api/create-checkout-session.
+# Strategy ($7K) is deliberately NOT included here — it routes to /apply.
+LIVE_PRODUCT_CATALOG: Dict[str, Dict[str, Any]] = {
+    # Recurring subscriptions
+    os.environ.get("STRIPE_PRICE_LIVE_STARTER", "").strip(): {
+        "product_name": "CreatorBoostAI Starter",
+        "plan_key": "live_starter_monthly",
+        "plan_tier": "starter",
+        "plan_interval": "month",
+        "product_type": "subscription",
+        "amount": 97.00,
+        "currency": "usd",
+    },
+    os.environ.get("STRIPE_PRICE_LIVE_GROWTH", "").strip(): {
+        "product_name": "CreatorBoostAI Growth",
+        "plan_key": "live_growth_monthly",
+        "plan_tier": "growth",
+        "plan_interval": "month",
+        "product_type": "subscription",
+        "amount": 297.00,
+        "currency": "usd",
+    },
+    os.environ.get("STRIPE_PRICE_LIVE_PRO", "").strip(): {
+        "product_name": "CreatorBoostAI Pro",
+        "plan_key": "live_pro_monthly",
+        "plan_tier": "pro",
+        "plan_interval": "month",
+        "product_type": "subscription",
+        "amount": 997.00,
+        "currency": "usd",
+    },
+    # One-time
+    os.environ.get("STRIPE_PRICE_LIVE_FOUNDATIONS", "").strip(): {
+        "product_name": "BodyIQ-AI Foundations",
+        "plan_key": "live_foundations",
+        "plan_tier": "foundations",
+        "plan_interval": "one_time",
+        "product_type": "training",
+        "amount": 400.00,
+        "currency": "usd",
+    },
+    os.environ.get("STRIPE_PRICE_LIVE_APPLIED", "").strip(): {
+        "product_name": "BodyIQ-AI Applied",
+        "plan_key": "live_applied",
+        "plan_tier": "applied",
+        "plan_interval": "one_time",
+        "product_type": "training",
+        "amount": 1500.00,
+        "currency": "usd",
+    },
+    # Strategy IS in the catalog for lookup but blocked at the endpoint so we can
+    # surface a clean 403 if anyone tries to hit it directly instead of /apply.
+    os.environ.get("STRIPE_PRICE_LIVE_STRATEGY", "").strip(): {
+        "product_name": "BodyIQ-AI Strategy",
+        "plan_key": "live_strategy",
+        "plan_tier": "strategy",
+        "plan_interval": "one_time",
+        "product_type": "training_application_required",
+        "amount": 7000.00,
+        "currency": "usd",
+        "requires_application": True,
+    },
+}
+# Strip empty-key entry (when an env var is missing, the key becomes "" and
+# would collide). Only keep entries with a real price_... id.
+LIVE_PRODUCT_CATALOG = {k: v for k, v in LIVE_PRODUCT_CATALOG.items() if k.startswith("price_")}
+
+
+class LiveCheckoutIn(BaseModel):
+    priceId: str = Field(..., min_length=5, max_length=255)
+    customerEmail: Optional[EmailStr] = None
+    successUrl: Optional[str] = None
+    cancelUrl: Optional[str] = None
+    # Attribution (all optional — preserved on the txn + Stripe metadata)
+    product_type: Optional[str] = None
+    source_demo: Optional[str] = Field(default=None, max_length=120)
+    source_industry: Optional[str] = Field(default=None, max_length=120)
+    plan_type: Optional[str] = Field(default=None, max_length=60)
+    lead_id: Optional[str] = Field(default=None, max_length=120)
+    company: Optional[str] = Field(default=None, max_length=200)
+    origin_url: Optional[str] = None  # fallback when successUrl/cancelUrl not given
+
+
+@api_router.post("/create-checkout-session", response_model=CheckoutSessionOut)
+async def create_checkout_session_live(payload: LiveCheckoutIn, http_request: Request):
+    """Live Stripe Checkout entrypoint — validates priceId against the allow-list,
+    opens a Checkout Session with full attribution metadata, writes a
+    payment_transactions row, and returns the Stripe-hosted checkout URL.
+
+    Strategy (7K) is intentionally rejected — those go through /apply."""
+    if not STRIPE_API_KEY:
+        raise HTTPException(status_code=503, detail="Payments not configured (missing STRIPE_API_KEY)")
+
+    price_id = (payload.priceId or "").strip()
+    product = LIVE_PRODUCT_CATALOG.get(price_id)
+    if not product:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Unknown or unauthorized priceId. If this is a new product, add the "
+                "Price ID to STRIPE_PRICE_LIVE_* in backend/.env and the LIVE_PRODUCT_CATALOG."
+            ),
+        )
+    if product.get("requires_application"):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "This product requires an application. Please submit your request at "
+                "/apply — it will be reviewed and a private checkout link delivered on qualification."
+            ),
+        )
+
+    origin_header = (http_request.headers.get("origin") or "").rstrip("/")
+    origin_fallback = (payload.origin_url or origin_header or "").rstrip("/")
+    success_url = (payload.successUrl or f"{origin_fallback}/success?session_id={{CHECKOUT_SESSION_ID}}&product={product['plan_key']}").strip()
+    cancel_url = (payload.cancelUrl or f"{origin_fallback}/pricing?canceled={product['plan_key']}").strip()
+    if "{CHECKOUT_SESSION_ID}" not in success_url:
+        sep = "&" if "?" in success_url else "?"
+        success_url = f"{success_url}{sep}session_id={{CHECKOUT_SESSION_ID}}"
+
+    metadata: Dict[str, str] = {
+        "priceId": price_id,
+        "product_name": product["product_name"],
+        "product_type": payload.product_type or product["product_type"],
+        "plan_key": product["plan_key"],
+        "plan_tier": product["plan_tier"],
+        "plan_interval": product["plan_interval"],
+        "plan_type": payload.plan_type or product["product_type"],
+        "source": "live_checkout",
+    }
+    if payload.customerEmail:
+        metadata["customer_email_hint"] = str(payload.customerEmail)
+    if payload.source_demo:
+        metadata["source_demo"] = payload.source_demo
+    if payload.source_industry:
+        metadata["source_industry"] = payload.source_industry
+    if payload.lead_id:
+        metadata["lead_id"] = payload.lead_id
+    if payload.company:
+        metadata["company"] = payload.company
+
+    stripe_checkout = _stripe_client(http_request)
+    req = CheckoutSessionRequest(
+        stripe_price_id=price_id,
+        quantity=1,
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata=metadata,
+    )
+    try:
+        session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(req)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Live Stripe session create failed: {e}")
+        raise HTTPException(status_code=502, detail="Unable to create checkout session")
+
+    is_subscription = product["product_type"] == "subscription"
+    txn_doc = {
+        "id": str(uuid.uuid4()),
+        "session_id": session.session_id,
+        "product_key": product["plan_key"],
+        "product_name": product["product_name"],
+        "amount": product["amount"],
+        "currency": product["currency"],
+        "email": str(payload.customerEmail) if payload.customerEmail else None,
+        "origin_url": origin_fallback,
+        "status": "open",
+        "payment_status": "unpaid",
+        "subscription": is_subscription,
+        "subscription_mode": "stripe_native" if is_subscription else None,
+        "stripe_price_id": price_id,
+        "tier": product["plan_tier"],
+        "interval": product["plan_interval"],
+        "email_sent": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "metadata": metadata,
+    }
+    await db.payment_transactions.insert_one(txn_doc)
+
+    return CheckoutSessionOut(url=session.url, session_id=session.session_id)
+
+
+# =================================================================
+# HIGH-STAKES ENGAGEMENT APPLICATION · Iter 35
+# =================================================================
+class EngagementApplicationIn(BaseModel):
+    full_name: str = Field(..., min_length=2, max_length=200)
+    email: EmailStr
+    company: Optional[str] = Field(default=None, max_length=200)
+    role: Optional[str] = Field(default=None, max_length=120)
+    monthly_revenue: Optional[str] = Field(default=None, max_length=60)
+    use_case: str = Field(..., min_length=10, max_length=4000)
+    # optional fields from earlier spec variant — accepted but not required
+    engagement_type: Optional[str] = Field(default=None, max_length=60)
+    deal_size: Optional[str] = Field(default=None, max_length=60)
+    timeline: Optional[str] = Field(default=None, max_length=60)
+    phone: Optional[str] = Field(default=None, max_length=40)
+    upload_url: Optional[str] = Field(default=None, max_length=1000)
+    # attribution
+    source_demo: Optional[str] = Field(default=None, max_length=120)
+    source_industry: Optional[str] = Field(default=None, max_length=120)
+
+
+def _priority_for_deal_size(v: Optional[str]) -> str:
+    """Map the deal-size string to a simple priority bucket."""
+    if not v:
+        return "standard"
+    s = v.lower()
+    if "1m" in s or "1,000,000" in s or "$1m" in s:
+        return "urgent"
+    if "250k" in s or "250,000" in s:
+        return "high"
+    if "50k" in s or "50,000" in s:
+        return "medium"
+    return "standard"
+
+
+def _priority_for_revenue(v: Optional[str]) -> str:
+    """Map the monthly-revenue string to a priority bucket."""
+    if not v:
+        return "standard"
+    s = v.lower()
+    if "1m" in s or "$1m" in s or "over $1" in s:
+        return "urgent"
+    if "500k" in s or "500,000" in s or "$500k" in s:
+        return "high"
+    if "100k" in s or "100,000" in s or "$100k" in s:
+        return "medium"
+    return "standard"
+
+
+@api_router.post("/submit-application")
+async def submit_engagement_application(payload: EngagementApplicationIn):
+    """High-stakes engagement intake. Writes to enterprise_applications,
+    mirrors to ops_leads, emails the founder inbox + an applicant confirmation.
+
+    Auto-prioritized from deal_size (when provided) or monthly_revenue."""
+    now = datetime.now(timezone.utc).isoformat()
+    priority = _priority_for_deal_size(payload.deal_size) if payload.deal_size else _priority_for_revenue(payload.monthly_revenue)
+
+    app_id = str(uuid.uuid4())
+    app_doc = {
+        "id": app_id,
+        "full_name": payload.full_name.strip(),
+        "email": str(payload.email).strip().lower(),
+        "company": (payload.company or "").strip() or None,
+        "role": (payload.role or "").strip() or None,
+        "monthly_revenue": payload.monthly_revenue,
+        "use_case": payload.use_case.strip(),
+        "engagement_type": payload.engagement_type,
+        "deal_size": payload.deal_size,
+        "timeline": payload.timeline,
+        "phone": (payload.phone or "").strip() or None,
+        "upload_url": payload.upload_url,
+        "source": "high_stakes_apply",
+        "status": "new",
+        "priority": priority,
+        "source_demo": payload.source_demo,
+        "source_industry": payload.source_industry,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.enterprise_applications.insert_one(dict(app_doc))
+
+    # Mirror into ops_leads so it surfaces in the Leads tab immediately.
+    lead_doc = {
+        "id": str(uuid.uuid4()),
+        "lead_id": app_id,
+        "contact_name": app_doc["full_name"],
+        "contact_email": app_doc["email"],
+        "contact_phone": app_doc["phone"],
+        "company": app_doc["company"],
+        "source": "high_stakes_apply",
+        "source_demo": app_doc["source_demo"],
+        "source_industry": app_doc["source_industry"],
+        "status": "new",
+        "priority": priority,
+        "notes": [{
+            "at": now,
+            "body": (
+                f"Engagement application · role={app_doc['role'] or '—'} · "
+                f"rev_band={app_doc['monthly_revenue'] or '—'} · "
+                f"deal_size={app_doc['deal_size'] or '—'} · "
+                f"timeline={app_doc['timeline'] or '—'}\n\n{app_doc['use_case']}"
+            ),
+        }],
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.ops_leads.insert_one(dict(lead_doc))
+
+    # Notify founder / applications inbox
+    founder_inbox = os.environ.get("APPLICATIONS_INBOX", "").strip() or os.environ.get("FOUNDER_EMAIL", "").strip()
+    if founder_inbox:
+        try:
+            subject = f"[High-Stakes Application · {priority.upper()}] {app_doc['full_name']} — {app_doc['company'] or 'no company'}"
+            body_html = (
+                "<h2 style=\"font-family:ui-sans-serif,system-ui;\">New High-Stakes Engagement Application</h2>"
+                + "".join(f"<p style=\"font-family:ui-sans-serif,system-ui;font-size:14px;\"><strong>{k}</strong>: {v}</p>" for k, v in [
+                    ("Name", app_doc['full_name']),
+                    ("Email", app_doc['email']),
+                    ("Phone", app_doc['phone'] or '—'),
+                    ("Company", app_doc['company'] or '—'),
+                    ("Role", app_doc['role'] or '—'),
+                    ("Monthly revenue band", app_doc['monthly_revenue'] or '—'),
+                    ("Engagement type", app_doc['engagement_type'] or '—'),
+                    ("Deal size", app_doc['deal_size'] or '—'),
+                    ("Timeline", app_doc['timeline'] or '—'),
+                    ("Priority", priority.upper()),
+                    ("Source demo / industry", f"{app_doc['source_demo'] or '—'} / {app_doc['source_industry'] or '—'}"),
+                ])
+                + f"<hr/><p style=\"font-family:ui-sans-serif,system-ui;font-size:14px;\"><strong>Use case:</strong></p><p style=\"white-space:pre-wrap;font-family:ui-sans-serif,system-ui;font-size:14px;line-height:1.55;\">{app_doc['use_case']}</p>"
+                + f"<p style=\"font-family:monospace;font-size:12px;color:#6b7280;\">Application ID: {app_id} · Submitted: {now}</p>"
+            )
+            await send_founder_notification(
+                to_email=founder_inbox,
+                subject=subject,
+                body_html=body_html,
+            )
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Founder application email failed (non-blocking): {e}")
+
+    # Applicant confirmation
+    try:
+        ack_html = (
+            "<div style=\"font-family:ui-sans-serif,system-ui;background:#0b1221;color:#e5e7eb;padding:32px;border-radius:8px;\">"
+            f"<h2 style=\"color:#22d3ee;margin:0 0 12px;\">Application received · under review</h2>"
+            f"<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">Hi {app_doc['full_name'].split()[0] if app_doc['full_name'] else 'there'},</p>"
+            "<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">Thank you for submitting a high-stakes engagement application. Our team will review your request within 24 hours.</p>"
+            "<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">If your engagement is qualified, we will send a private scheduling link so we can align on scope, timeline, and outcomes on a brief strategy call.</p>"
+            "<p style=\"font-size:14px;line-height:1.6;margin:0 0 12px;\">This process exists because every engagement we take carries real decision weight — and we only accept work we're confident we can move the needle on.</p>"
+            "<p style=\"font-size:12px;color:#64748b;margin:24px 0 0;font-family:monospace;\">"
+            f"Application reference: {app_id}<br/>"
+            f"Submitted: {now}"
+            "</p>"
+            "</div>"
+        )
+        await send_founder_notification(
+            to_email=app_doc["email"],
+            subject="Your high-stakes engagement application — under review",
+            body_html=ack_html,
+        )
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Applicant ack email failed (non-blocking): {e}")
+
+    return {
+        "ok": True,
+        "application_id": app_id,
+        "priority": priority,
+        "message": "Application received. If qualified, you will receive a private scheduling link within 24 hours.",
+    }
+
+
 @api_router.get("/checkout/status/{session_id}", response_model=CheckoutStatusOut)
 async def get_checkout_status(session_id: str, http_request: Request):
     txn = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
@@ -1673,6 +2030,14 @@ async def stripe_webhook(request: Request):
 
     if event_type == "checkout.session.completed" and event.session_id:
         await _handle_checkout_completed(event)
+
+    elif event_type == "payment_intent.succeeded":
+        # One-time products fire both checkout.session.completed AND this event.
+        # Access is already granted via checkout.session.completed — this is a
+        # redundant confirmation we acknowledge + audit so Stripe stops retrying.
+        logging.getLogger(__name__).info(
+            f"payment_intent.succeeded acknowledged · session={event.session_id} · metadata={metadata}"
+        )
 
     elif event_type == "customer.subscription.created":
         await _upsert_subscription_record(event, status_override="active")

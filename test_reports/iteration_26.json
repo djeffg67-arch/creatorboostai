@@ -1,0 +1,29 @@
+{
+  "summary": "Iter 35 (revenue activation) end-to-end testing complete. Backend: 18/18 pytest tests passed covering POST /api/create-checkout-session (5 valid live Price IDs → 502 as expected with test-mode key, Strategy → 403, bogus → 400, missing → 422), POST /api/submit-application (4 priority buckets, 3 validation cases), Mongo persistence to enterprise_applications + ops_leads with source='high_stakes_apply', status='new', notes[0].body, source_demo/source_industry passthrough verified directly via Motor query, and webhook signature 400. Frontend: /apply renders all 7 testid'd fields + 'Request Engagement Review' submit, full submit flow → 200 → confirmation view with priority badge URGENT, 'Application received', 'private scheduling link', '24 hours' copy, and CTAs to / and /pricing. Homepage: hero-cta-request-access → /apply, home-cta-apply → /apply, GetLeadsSection report card → 'Request Engagement' → /apply, zero links to /services/report. Pricing: Get Starter sends correct priceId (price_1TShrkFyohsNSVMek8hffreQ) + successUrl + cancelUrl + plan_type='subscription' → 502 + toast 'Unable to create checkout session'. All 14 regression routes return 200 (/, /pricing, /contact, /portal, /portal/ops, /demo/airport, /demo/noldus, /demo/supermarket, /demo/realtor, /apply, /apply/strategy, /apply/foundations, /apply/applied, /apply/full). /apply/strategy correctly renders the legacy ApplyPage ('Apply for Signal Accelerator', $7,000 · upon close), not the new EngagementApplyPage.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/pricing", "issues": ["Toast text on checkout failure reads 'Unable to create checkout session' (passed through from backend HTTPException detail) instead of the spec's suggested 'Could not open checkout'. Both convey failure clearly, but if main agent wants exact spec wording, intercept the 502 in PricingPage.subscribe() and show a friendlier user-facing message."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter35_revenue_activation.py",
+    "/app/test_reports/pytest/iter35_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "LIVE_PRODUCT_CATALOG built at module load — values pulled from os.environ at import time. If the .env STRIPE_PRICE_LIVE_* values change, backend must be restarted. Acceptable, but worth a comment in server.py.",
+    "Naming collision: data-testid='apply-page' is used by BOTH the new EngagementApplyPage and the legacy ApplyPage. Not a bug, but consider renaming the legacy testid to 'apply-program-page' to disambiguate in future tests.",
+    "Backend webhook /api/webhook/stripe correctly branches on payment_intent.succeeded (line 2034) and logs the event (line 2039) — confirmed via grep. No DB mutation on this branch (good, since checkout.session.completed is the canonical fulfillment trigger)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter35_revenue_activation.py"],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% (all critical flows)"},
+  "test_credentials": "n/a — /apply and /api/submit-application are public endpoints",
+  "seed_data_creation": "Created 4 TEST_-prefixed records in enterprise_applications + ops_leads via the API for persistence verification. Safe to leave or filter out by 'TEST_' prefix.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "When Jeffrey rotates STRIPE_API_KEY from sk_test_* to sk_live_*, re-run /app/backend/tests/test_iter35_revenue_activation.py — the 5 'expect 502' tests for valid Price IDs WILL flip to 200 (real checkout URL returned). Update those test assertions to expect 200 + r.json()['url'] starts with 'https://checkout.stripe.com'. Strategy 403, bogus 400, missing 422 stay the same.",
+  "rca of the issue": "n/a — no issues found"
+}
