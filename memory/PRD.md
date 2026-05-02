@@ -1,6 +1,55 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-02 (Iter 34 — Airport Demo Full Enterprise Rebuild · 9 FULL scenes · ~9.5 min)
+**Last update:** 2026-05-02 (Iter 35 — Live Stripe Activation · 6 Price IDs wired · /apply High-Stakes Intake)
+
+---
+
+## 🆕 ITER 35 — Revenue Activation · Live Stripe + /apply High-Stakes Intake
+
+Jeffrey shipped all 6 LIVE Stripe products and paged us to flip from build → revenue.
+
+**Live products wired (Stripe live Price IDs)**
+| Tier | Price | Price ID | Route |
+|---|---|---|---|
+| CreatorBoostAI Starter | $97/mo | `price_1TShrkFyohsNSVMek8hffreQ` | `/pricing` Monthly toggle · "Get Starter" |
+| CreatorBoostAI Growth | $297/mo | `price_1TShwTFyohsNSVMeTIFsimmm` | `/pricing` Monthly toggle · "Get Growth" |
+| CreatorBoostAI Pro | $997/mo | `price_1TSi0RFyohsNSVMej0P2vrf2` | `/pricing` Monthly toggle · "Get Pro" |
+| BodyIQ Foundations | $400 (one-time) | `price_1TSi5GFyohsNSVMeRRjJ5mvF` | direct checkout (slot ready) |
+| BodyIQ Applied | $1,500 (one-time) | `price_1TSiDgFyohsNSVMebsShtJhe` | direct checkout (slot ready) |
+| BodyIQ Strategy | $7,000 (one-time) | `price_1TSi1JFyohsNSVMe6BwoxjNz` | **403-blocked** at checkout · routes to `/apply` |
+
+**New backend endpoints**
+- `POST /api/create-checkout-session` — validates `priceId` against an allow-list (`LIVE_PRODUCT_CATALOG`); builds Checkout Session with full metadata (priceId, product_name, plan_tier, source_demo, source_industry, plan_type, lead_id, company, customer_email_hint); writes `payment_transactions` row; returns `{url, session_id}`. Strategy Price ID returns 403 "requires application". Unknown Price IDs return 400. Missing header → builds absolute URLs from provided successUrl/cancelUrl.
+- `POST /api/submit-application` — High-Stakes Engagement intake. Writes `enterprise_applications` doc (source="high_stakes_apply", status="new", auto-priority from deal_size or monthly_revenue) AND mirrors into `ops_leads` so it surfaces immediately in `/portal/ops` Leads tab. Sends founder notification to `APPLICATIONS_INBOX=infocreatorboostai@bodyiq-ai.com` + applicant confirmation email. Priority bucket: `standard | medium | high | urgent`.
+- Webhook `/api/webhook/stripe` now acknowledges `payment_intent.succeeded` (Jeffrey's spec) in addition to the existing `checkout.session.completed`, `customer.subscription.*`, `invoice.paid`.
+
+**New frontend surface**
+- `/apply` — `EngagementApplyPage.jsx` · 7 fields (full_name, email, company, role, monthly_revenue, use_case textarea, optional upload_url), submit button "Request Engagement Review", post-submit confirmation screen "Application received. If qualified, you will receive a private scheduling link." with priority badge + reference ID. Existing `/apply/:program` route for training programs preserved.
+- `/pricing` — `subscribe()` rewired: Monthly → `createLiveCheckoutSession({priceId, successUrl, cancelUrl, plan_type:'subscription'})` with the 3 live CB Price IDs; Annual → legacy `plan_key` flow (fallback).
+- Homepage `/` — 3 links repointed to `/apply`:
+  - `signal-intelligence report` card ($10K–$35K+ tier): label "Request a Report" → **"Request Engagement"**, href `/services/report` → **`/apply`**
+  - `hero-cta-request-access` button: `/apply/strategy` → `/apply`
+  - `home-cta-apply` button: `/apply/strategy` → `/apply`
+
+**Env additions (`/app/backend/.env`)**
+`STRIPE_PRICE_LIVE_STARTER`, `STRIPE_PRICE_LIVE_GROWTH`, `STRIPE_PRICE_LIVE_PRO`, `STRIPE_PRICE_LIVE_FOUNDATIONS`, `STRIPE_PRICE_LIVE_APPLIED`, `STRIPE_PRICE_LIVE_STRATEGY`, `APPLICATIONS_INBOX=infocreatorboostai@bodyiq-ai.com`.
+
+**⚠️ Single remaining blocker for live payments**
+- `STRIPE_API_KEY` in `/app/backend/.env` is currently **test-mode** (`sk_test_...`). Jeffrey's live Price IDs only resolve against a live-mode secret key. When Jeffrey rotates in `sk_live_...`, all checkout flows go live with no further code changes. Code verified working via Stripe error `resource_missing: No such price` — expected in test mode, resolves automatically when key rotates.
+
+**New test IDs**
+`apply-page`, `apply-form`, `apply-field-name`, `apply-field-email`, `apply-field-company`, `apply-field-role`, `apply-field-revenue`, `apply-field-usecase`, `apply-field-upload`, `apply-submit-btn`, `apply-confirmation`, `apply-confirm-home`, `apply-confirm-pricing`.
+
+**Verified (iteration_26.json)** — 100% backend (18/18 pytest), 100% frontend flows, clean regression
+- ✅ `/api/create-checkout-session`: Strategy → 403, bogus → 400, missing priceId → 422, valid + test-mode key → 502 (correct; waiting on `sk_live_`)
+- ✅ `/api/submit-application`: 4 priority buckets validated, 3 validation cases pass, persistence to both collections verified
+- ✅ `/apply` renders form with all 7 fields + Request Engagement Review submit + confirmation screen
+- ✅ `/pricing` Monthly toggle shows live $97 / $297 / $997 pricing and routes through new endpoint
+- ✅ Homepage 3 CTAs all route to `/apply`
+- ✅ Regression clean on /, /pricing, /contact, /portal/ops, 6 demos, /apply/:program training pages
+
+**Non-blocking design note**
+Pricing page toast on checkout failure currently bubbles the backend `HTTPException.detail` ("Unable to create checkout session"). Testing agent noted it could be friendlier ("Could not open checkout"). Left as-is — error is informative for debugging and goes away once sk_live_ is rotated in.
 
 ---
 
