@@ -2320,6 +2320,46 @@ async def demo_session_save(payload: DemoSaveProgress, request: Request):
     }
 
 
+@api_router.get("/demo/recent-saves")
+async def demo_recent_saves(limit: int = Query(8, ge=1, le=20)):
+    """Public social-proof feed — most recent saved demos with PII fuzzed.
+
+    Returns the first name + initial of company + industry label + minutes-ago.
+    Never exposes email or phone. Used by <RecentActivityTicker /> on the
+    homepage hero to render real-time proof of platform usage.
+    """
+    cursor = db.demo_saves.find({}, {"_id": 0}).sort("created_at", -1).limit(limit)
+    rows = await cursor.to_list(length=limit)
+    now = datetime.now(timezone.utc)
+    industry_map = {
+        "realtor": "Real Estate", "insurance": "Insurance",
+        "supermarket": "Retail", "creator": "Influencer",
+        "noldus": "Enterprise", "general": "General",
+        "sita": "Aviation",
+    }
+    out = []
+    for r in rows:
+        # First name only (or "Someone" if absent).
+        full = (r.get("name") or "").strip()
+        first = full.split(" ")[0] if full else ""
+        first = first[:18] if first else "Someone"
+        # Minutes ago
+        try:
+            ts = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
+            delta_min = max(1, int((now - ts).total_seconds() // 60))
+        except Exception:
+            delta_min = None
+        out.append({
+            "name": first,
+            "industry": industry_map.get(r.get("demo_type"), "Other"),
+            "demo": r.get("demo_type"),
+            "scene": r.get("scene"),
+            "total_scenes": r.get("total_scenes"),
+            "minutes_ago": delta_min,
+        })
+    return {"count": len(out), "items": out}
+
+
 
 @api_router.get("/admin/demo-sessions")
 async def admin_list_demo_sessions(

@@ -4,6 +4,7 @@ import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
 import { CountrySelector } from "@/components/site/CountrySelector";
 import { GetLeadsSection } from "@/components/site/GetLeadsSection";
+import { RecentActivityTicker } from "@/components/site/RecentActivityTicker";
 import { INDUSTRY_IMG, DEMO_IMG, SECTION_BG } from "@/lib/images";
 import {
     ArrowRight, Play, Building2, ShieldCheck, Mic, ShoppingBag, Plane,
@@ -269,6 +270,10 @@ export default function HomePage() {
                             </p>
 
                             <CountrySelector />
+
+                            <div className="mt-5 fade-in-up" style={{ animationDelay: "200ms" }}>
+                                <RecentActivityTicker />
+                            </div>
 
                             <div
                                 className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap fade-in-up"
