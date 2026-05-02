@@ -1577,14 +1577,24 @@ async def create_subscription_session(payload: SubscriptionCheckoutCreate, http_
 
 
 # =================================================================
-# LIVE CHECKOUT · Iter 35 · revenue activation
+# LIVE CHECKOUT · Iter 35/37 · revenue activation
 # =================================================================
 # The 6 live Stripe products Jeffrey shipped. Each is identified by its
 # live Stripe Price ID — the ONLY values we accept at /api/create-checkout-session.
 # Strategy ($7K) is deliberately NOT included here — it routes to /apply.
+# Env var priority: STRIPE_PRICE_CB_*/BIQ_* (new Iter 37 names) first, then
+# STRIPE_PRICE_LIVE_* (Iter 35 fallback).
+
+def _price(*names: str) -> str:
+    for n in names:
+        v = os.environ.get(n, "").strip()
+        if v:
+            return v
+    return ""
+
 LIVE_PRODUCT_CATALOG: Dict[str, Dict[str, Any]] = {
     # Recurring subscriptions
-    os.environ.get("STRIPE_PRICE_LIVE_STARTER", "").strip(): {
+    _price("STRIPE_PRICE_CB_STARTER", "STRIPE_PRICE_LIVE_STARTER"): {
         "product_name": "CreatorBoostAI Starter",
         "plan_key": "live_starter_monthly",
         "plan_tier": "starter",
@@ -1593,7 +1603,7 @@ LIVE_PRODUCT_CATALOG: Dict[str, Dict[str, Any]] = {
         "amount": 97.00,
         "currency": "usd",
     },
-    os.environ.get("STRIPE_PRICE_LIVE_GROWTH", "").strip(): {
+    _price("STRIPE_PRICE_CB_GROWTH", "STRIPE_PRICE_LIVE_GROWTH"): {
         "product_name": "CreatorBoostAI Growth",
         "plan_key": "live_growth_monthly",
         "plan_tier": "growth",
@@ -1602,7 +1612,7 @@ LIVE_PRODUCT_CATALOG: Dict[str, Dict[str, Any]] = {
         "amount": 297.00,
         "currency": "usd",
     },
-    os.environ.get("STRIPE_PRICE_LIVE_PRO", "").strip(): {
+    _price("STRIPE_PRICE_CB_PRO", "STRIPE_PRICE_LIVE_PRO"): {
         "product_name": "CreatorBoostAI Pro",
         "plan_key": "live_pro_monthly",
         "plan_tier": "pro",
@@ -1612,7 +1622,7 @@ LIVE_PRODUCT_CATALOG: Dict[str, Dict[str, Any]] = {
         "currency": "usd",
     },
     # One-time
-    os.environ.get("STRIPE_PRICE_LIVE_FOUNDATIONS", "").strip(): {
+    _price("STRIPE_PRICE_BIQ_FOUNDATIONS", "STRIPE_PRICE_LIVE_FOUNDATIONS"): {
         "product_name": "BodyIQ-AI Foundations",
         "plan_key": "live_foundations",
         "plan_tier": "foundations",
@@ -1621,7 +1631,7 @@ LIVE_PRODUCT_CATALOG: Dict[str, Dict[str, Any]] = {
         "amount": 400.00,
         "currency": "usd",
     },
-    os.environ.get("STRIPE_PRICE_LIVE_APPLIED", "").strip(): {
+    _price("STRIPE_PRICE_BIQ_APPLIED", "STRIPE_PRICE_LIVE_APPLIED"): {
         "product_name": "BodyIQ-AI Applied",
         "plan_key": "live_applied",
         "plan_tier": "applied",
@@ -1632,7 +1642,7 @@ LIVE_PRODUCT_CATALOG: Dict[str, Dict[str, Any]] = {
     },
     # Strategy IS in the catalog for lookup but blocked at the endpoint so we can
     # surface a clean 403 if anyone tries to hit it directly instead of /apply.
-    os.environ.get("STRIPE_PRICE_LIVE_STRATEGY", "").strip(): {
+    _price("STRIPE_PRICE_BIQ_STRATEGY", "STRIPE_PRICE_LIVE_STRATEGY"): {
         "product_name": "BodyIQ-AI Strategy",
         "plan_key": "live_strategy",
         "plan_tier": "strategy",
