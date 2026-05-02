@@ -22,9 +22,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Hard-coded verified sender identity — DO NOT read from env, DO NOT override.
 # ---------------------------------------------------------------------------
-SENDER_EMAIL = "infocreatorboostai@bodyiq-ai.com"
+# SENDER_EMAIL = "infocreatorboostai@bodyiq-ai.com"
+# SENDER_NAME = "CreatorBoostAI"
+SENDER_EMAIL = "info@creatorboostai.com"
 SENDER_NAME = "CreatorBoostAI"
-REPLY_TO_EMAIL = "infocreatorboostai@bodyiq-ai.com"
+REPLY_TO_EMAIL = "info@creatorboostai.com"
 FROM_HEADER = f"{SENDER_NAME} <{SENDER_EMAIL}>"
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()

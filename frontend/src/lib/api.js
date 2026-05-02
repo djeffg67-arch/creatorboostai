@@ -3,7 +3,66 @@ import axios from "axios";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
-export const api = axios.create({ baseURL: API });
+// One-shot boot sanity check — makes misconfigured prod builds obvious at
+// first page load instead of hiding behind a silent "Network Error" later.
+if (typeof window !== "undefined") {
+    // eslint-disable-next-line no-console
+    console.info(`[CreatorBoostAI] REACT_APP_BACKEND_URL=${BACKEND_URL || "(empty)"}`);
+    if (!BACKEND_URL) {
+        // eslint-disable-next-line no-console
+        console.error(
+            "[CreatorBoostAI] REACT_APP_BACKEND_URL is EMPTY in this build. " +
+            "Set it in your deployment env-var dashboard to the backend host " +
+            "(e.g. https://creatorboostai.com) and redeploy."
+        );
+    }
+}
+
+export const api = axios.create({ baseURL: API, timeout: 30000 });
+
+// Every request failure now carries the exact URL that was attempted, so a
+// generic axios "Network Error" gets enriched into a message the user can act
+// on (tells them whether REACT_APP_BACKEND_URL is wrong, CORS is blocking, or
+// the backend is down).
+api.interceptors.response.use(
+    (r) => r,
+    (err) => {
+        try {
+            const url = `${err?.config?.baseURL || ""}${err?.config?.url || ""}`;
+            const method = (err?.config?.method || "GET").toUpperCase();
+            const status = err?.response?.status;
+            const raw = err?.message || "Network Error";
+            const detail =
+                err?.response?.data?.detail ||
+                err?.response?.data?.reason ||
+                err?.response?.data?.error ||
+                null;
+
+            let hint = "";
+            if (!err?.response) {
+                // No response came back — classic REACT_APP_BACKEND_URL / CORS / DNS failure.
+                hint =
+                    ` (no response from ${url}). Check that REACT_APP_BACKEND_URL ` +
+                    `points to the correct backend host and that CORS on the ` +
+                    `backend allows this origin.`;
+            } else if (status >= 500) {
+                hint = ` (backend ${status}). Check backend logs.`;
+            }
+            const friendly = detail
+                ? `${detail} — ${method} ${url}`
+                : `${raw}${hint}`;
+            // eslint-disable-next-line no-console
+            console.error(`[API ERR] ${method} ${url}`, err);
+            // Mutate message so existing `err.message` handlers show the enriched text.
+            err.message = friendly;
+            err.debugUrl = url;
+            err.debugStatus = status ?? null;
+        } catch {
+            /* never swallow the original error */
+        }
+        return Promise.reject(err);
+    }
+);
 
 export const captureLead = (payload) => api.post("/leads", payload).then((r) => r.data);
 

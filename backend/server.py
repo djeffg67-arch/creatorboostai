@@ -2183,12 +2183,38 @@ class _OpsEmailAdapter:
 app.include_router(make_ops_router(db, email_service=_OpsEmailAdapter), prefix="/api")
 
 
+# ---------- CORS ----------
+# Explicitly allow the production domains + any additional origins injected via
+# CORS_ORIGINS env var. "*" is used as a safety fallback so a misconfigured
+# deployment doesn't silently block traffic — but allow_credentials=True means
+# browsers will actually reject "*" on credentialed requests, so the explicit
+# list below is what takes effect in production.
+_DEFAULT_ALLOWED_ORIGINS = [
+    "https://creatorboostai.com",
+    "https://www.creatorboostai.com",
+    "https://bodyiq-ai.com",
+    "https://www.bodyiq-ai.com",
+]
+_env_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+_allowed_origins = list(dict.fromkeys(_DEFAULT_ALLOWED_ORIGINS + _env_origins))
+# Also allow any *.emergentagent.com / *.preview.emergentagent.com preview host
+# and any *.creatorboostai.com / *.bodyiq-ai.com sub-domain dynamically.
+_origin_regex = (
+    r"https://"
+    r"(.*\.(creatorboostai\.com|bodyiq-ai\.com|emergentagent\.com|emergent\.host))"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=_allowed_origins,
+    allow_origin_regex=_origin_regex,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+)
+logging.getLogger(__name__).warning(
+    f"[CORS] explicit_origins={_allowed_origins} regex={_origin_regex!r}"
 )
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
