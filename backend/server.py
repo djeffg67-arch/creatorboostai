@@ -2164,6 +2164,39 @@ app.include_router(api_router)
 app.include_router(make_lighting_router(db, verify_admin=verify_admin), prefix="/api")
 
 
+# ---------------------------------------------------------------------------
+# Legacy route aliases — stale browser caches from before the `/lighting/*`
+# refactor were calling these prefix-less paths and producing 404 spam in
+# production logs (GET /api/stats, /api/skus, /api/portfolio, /api/warranty-events).
+# Permanent-redirect them to their new homes so any user with a stale bundle
+# keeps working without a hard-refresh. These alias routes are harmless once
+# every browser has rebuilt against the current frontend. We attach them
+# directly to `app` (not `api_router`) because api_router was already
+# included above.
+# ---------------------------------------------------------------------------
+from fastapi.responses import RedirectResponse as _RR
+
+@app.get("/api/stats", include_in_schema=False)
+async def _legacy_stats():
+    return _RR(url="/api/lighting/stats", status_code=308)
+
+@app.get("/api/skus", include_in_schema=False)
+async def _legacy_skus():
+    return _RR(url="/api/lighting/skus", status_code=308)
+
+@app.get("/api/portfolio", include_in_schema=False)
+async def _legacy_portfolio(request: Request):
+    query = ("?" + str(request.url.query)) if request.url.query else ""
+    return _RR(url=f"/api/lighting/portfolio{query}", status_code=308)
+
+@app.get("/api/warranty-events", include_in_schema=False)
+async def _legacy_warranty_events(request: Request):
+    query = ("?" + str(request.url.query)) if request.url.query else ""
+    return _RR(url=f"/api/lighting/warranty-events{query}", status_code=308)
+
+
+
+
 class _OpsEmailAdapter:
     """Thin wrapper so ops_center can send emails via the existing Resend
     service without coupling to its async signature."""
