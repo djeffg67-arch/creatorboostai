@@ -16,6 +16,7 @@ import {
     opsListDemoLinks, opsPerformance, opsAIChat, opsListEmployees, opsInviteEmployee,
     opsLogout, opsAdminUsersList, opsAdminUsersUpsert, opsAdminUsersDeactivate,
     opsAdminUsersResetAccess, opsAdminLoginAttempts, opsAdminDeliveryStatus,
+    opsDemoRevenue,
 } from "@/lib/api";
 
 const STORAGE_KEY = "cb_ops_session";
@@ -143,6 +144,7 @@ const Sidebar = ({ me, active, onNav, onSignOut }) => {
         { id: "ai",          label: "AI Assistant",Icon: Bot },
     ];
     if (me.scopes.can_see_all_employees) items.push({ id: "employees", label: "Employees", Icon: Users });
+    if (me.scopes.can_see_settings)      items.push({ id: "revenue",   label: "Demo Revenue", Icon: DollarSign });
     if (me.scopes.can_see_settings)      items.push({ id: "admin",     label: "Admin",     Icon: UserCog });
     if (me.scopes.can_see_settings)      items.push({ id: "settings",  label: "Settings",  Icon: ShieldCheck });
 
@@ -628,6 +630,227 @@ const EmployeesTab = ({ auth, me }) => {
     );
 };
 
+// ---------- Demo Revenue tab (founder only) ----------
+const RANGE_OPTIONS = [
+    { id: "today", label: "Today" },
+    { id: "7d",    label: "Last 7 days" },
+    { id: "30d",   label: "Last 30 days" },
+    { id: "all",   label: "All time" },
+];
+
+const SORT_OPTIONS = [
+    { id: "subscriptions",       label: "Most subscriptions", key: "subscriptions" },
+    { id: "revenue",             label: "Most revenue",       key: "revenue" },
+    { id: "enterprise_requests", label: "Most enterprise requests", key: "enterprise_requests" },
+    { id: "conversion_rate",     label: "Highest conversion rate",  key: "conversion_rate" },
+];
+
+const kindTone = {
+    demo_viewed:          "border-cyan-500/30 bg-cyan-500/5 text-cyan-300",
+    demo_completed:       "border-emerald-500/30 bg-emerald-500/5 text-emerald-300",
+    demo_saved:           "border-white/10 bg-ink-800 text-slate-300",
+    demo_resumed:         "border-white/10 bg-ink-800 text-slate-300",
+    cta_click:            "border-amber-500/30 bg-amber-500/5 text-amber-300",
+    cta_clicked:          "border-amber-500/30 bg-amber-500/5 text-amber-300",
+    meeting_booked:       "border-cyan-500/40 bg-cyan-500/10 text-cyan-200",
+    enterprise_request:   "border-cyan-500/40 bg-cyan-500/10 text-cyan-200",
+    subscription_started: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+    purchase_completed:   "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+    share_click:          "border-white/10 bg-ink-800 text-slate-300",
+    share_send:           "border-white/10 bg-ink-800 text-slate-300",
+};
+
+const DemoRevenueTab = ({ auth }) => {
+    const [range, setRange] = useState("30d");
+    const [sortBy, setSortBy] = useState("revenue");
+    const [data, setData] = useState(null);
+    const [busy, setBusy] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+        setBusy(true);
+        opsDemoRevenue({ ...auth, range })
+            .then((d) => { if (!cancelled) setData(d); })
+            .catch(() => { if (!cancelled) setData(null); })
+            .finally(() => { if (!cancelled) setBusy(false); });
+        return () => { cancelled = true; };
+    }, [auth, range]);
+
+    const rows = data?.rows || [];
+    const sortKey = SORT_OPTIONS.find((o) => o.id === sortBy)?.key || "revenue";
+    const sortedRows = [...rows].sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
+    const top = data?.top?.[
+        sortBy === "subscriptions"       ? "by_subscriptions"
+      : sortBy === "revenue"             ? "by_revenue"
+      : sortBy === "enterprise_requests" ? "by_enterprise_requests"
+      : "by_conversion_rate"
+    ] || [];
+    const summary = data?.summary || {};
+
+    return (
+        <div data-testid="tab-revenue" className="space-y-6">
+            <SectionHeader sub="Demo-to-Revenue" title="Demo Revenue Performance">
+                <div className="flex flex-wrap items-center gap-2" data-testid="revenue-filters">
+                    {RANGE_OPTIONS.map((o) => (
+                        <button
+                            key={o.id}
+                            data-testid={`revenue-range-${o.id}`}
+                            onClick={() => setRange(o.id)}
+                            className={`rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] transition-all ${range === o.id ? "border border-cyan-500/40 bg-cyan-500/10 text-cyan-300" : "border border-white/10 bg-ink-800 text-slate-300 hover:border-cyan-500/30 hover:text-cyan-200"}`}
+                        >
+                            {o.label}
+                        </button>
+                    ))}
+                </div>
+            </SectionHeader>
+
+            {/* Summary tiles */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7" data-testid="revenue-summary">
+                <SummaryTile label="Views"              value={summary.total_views ?? 0} />
+                <SummaryTile label="Hot leads"          value={summary.total_hot_leads ?? 0} tone="cyan" />
+                <SummaryTile label="Meetings"           value={summary.total_meetings ?? 0} tone="cyan" />
+                <SummaryTile label="Enterprise reqs"    value={summary.total_enterprise_requests ?? 0} tone="cyan" />
+                <SummaryTile label="Subscriptions"      value={summary.total_subscriptions ?? 0} tone="emerald" />
+                <SummaryTile label="Revenue"            value={fmtUSD(summary.total_revenue)} tone="emerald" />
+                <SummaryTile label="MRR"                value={fmtUSD(summary.total_mrr)} tone="emerald" />
+            </div>
+
+            {/* Section 1 — Per-demo table */}
+            <div className="rounded-md border border-white/10 bg-ink-700/40 p-4" data-testid="revenue-table-section">
+                {busy && <p className="text-xs text-slate-400" data-testid="revenue-loading">Loading…</p>}
+                {!busy && rows.length === 0 && (
+                    <p className="py-6 text-center text-sm text-slate-400" data-testid="revenue-empty">
+                        No demo activity in this range yet. Share a demo link to start seeing revenue attribution here.
+                    </p>
+                )}
+                {!busy && rows.length > 0 && (
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[880px] text-sm">
+                            <thead>
+                                <tr className="border-b border-white/10 text-left font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                                    <th className="py-2 pr-3">Demo</th>
+                                    <th className="py-2 pr-3">Industry</th>
+                                    <th className="py-2 pr-3 text-right">Views</th>
+                                    <th className="py-2 pr-3 text-right">Hot leads</th>
+                                    <th className="py-2 pr-3 text-right">Meetings</th>
+                                    <th className="py-2 pr-3 text-right">Subs</th>
+                                    <th className="py-2 pr-3 text-right">Revenue</th>
+                                    <th className="py-2 pr-3 text-right">MRR</th>
+                                    <th className="py-2 pr-3 text-right">Conv %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedRows.map((r) => (
+                                    <tr key={r.demo_key}
+                                        data-testid={`revenue-row-${r.demo_key}`}
+                                        className="border-b border-white/5 text-slate-200 hover:bg-cyan-500/5">
+                                        <td className="py-2.5 pr-3 font-semibold text-white">{r.demo_name}</td>
+                                        <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400">{r.industry}</td>
+                                        <td className="py-2.5 pr-3 text-right">{r.views.toLocaleString()}</td>
+                                        <td className="py-2.5 pr-3 text-right">{r.hot_leads.toLocaleString()}</td>
+                                        <td className="py-2.5 pr-3 text-right">{r.meetings_booked.toLocaleString()}</td>
+                                        <td className="py-2.5 pr-3 text-right font-semibold text-emerald-300">{r.subscriptions.toLocaleString()}</td>
+                                        <td className="py-2.5 pr-3 text-right font-semibold text-emerald-300">{fmtUSD(r.revenue)}</td>
+                                        <td className="py-2.5 pr-3 text-right text-emerald-300">{fmtUSD(r.mrr)}</td>
+                                        <td className="py-2.5 pr-3 text-right font-mono text-[11px] text-cyan-300">{r.conversion_rate}%</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Section 2 — Top revenue demos with sort */}
+            <div className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-4" data-testid="revenue-top-section">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-heading text-lg font-semibold text-white">Top revenue demos</p>
+                    <div className="flex flex-wrap gap-2">
+                        {SORT_OPTIONS.map((o) => (
+                            <button
+                                key={o.id}
+                                data-testid={`revenue-sort-${o.id}`}
+                                onClick={() => setSortBy(o.id)}
+                                className={`rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] transition-all ${sortBy === o.id ? "border border-cyan-500/40 bg-cyan-500/10 text-cyan-300" : "border border-white/10 bg-ink-900 text-slate-300 hover:border-cyan-500/30 hover:text-cyan-200"}`}
+                            >
+                                {o.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <ul className="mt-4 space-y-2">
+                    {top.length === 0 && (
+                        <li className="text-xs text-slate-400" data-testid="revenue-top-empty">No data in this range.</li>
+                    )}
+                    {top.map((r, i) => (
+                        <li key={r.demo_key}
+                            data-testid={`revenue-top-row-${i}`}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-ink-900 px-3 py-2.5">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <span className="font-mono text-[11px] text-cyan-300">#{i + 1}</span>
+                                <span className="font-semibold text-white truncate">{r.demo_name}</span>
+                                <span className="font-mono text-[10px] text-slate-400">{r.industry}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-4 font-mono text-[11px] text-slate-300">
+                                <span>Subs <span className="text-emerald-300">{r.subscriptions}</span></span>
+                                <span>Rev <span className="text-emerald-300">{fmtUSD(r.revenue)}</span></span>
+                                <span>Ent <span className="text-cyan-300">{r.enterprise_requests}</span></span>
+                                <span>Conv <span className="text-cyan-300">{r.conversion_rate}%</span></span>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+
+            {/* Section 3 — Activity feed */}
+            <div className="rounded-md border border-white/10 bg-ink-700/40 p-4" data-testid="revenue-activity-section">
+                <p className="font-heading text-lg font-semibold text-white">Activity feed</p>
+                <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                    Most recent 60 events · {RANGE_OPTIONS.find((o) => o.id === range)?.label}
+                </p>
+                <ul className="mt-4 space-y-1.5 max-h-[480px] overflow-y-auto pr-2 scrollbar-cyan" data-testid="revenue-activity-list">
+                    {(data?.activity || []).length === 0 && (
+                        <li className="text-xs text-slate-400" data-testid="revenue-activity-empty">
+                            No recorded activity in this range.
+                        </li>
+                    )}
+                    {(data?.activity || []).map((ev, i) => (
+                        <li key={i}
+                            data-testid={`revenue-activity-${i}`}
+                            className="flex flex-wrap items-center gap-3 rounded-md border border-white/10 bg-ink-900 px-3 py-2">
+                            <span className={`rounded-sm border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] ${kindTone[ev.kind] || "border-white/10 bg-ink-800 text-slate-300"}`}>
+                                {ev.kind}
+                            </span>
+                            <span className="font-mono text-[11px] text-cyan-300">{ev.demo || "direct"}</span>
+                            <span className="text-sm text-slate-200 truncate">{ev.who || "Anonymous"}</span>
+                            {ev.meta?.amount != null && (
+                                <span className="ml-auto font-mono text-[11px] text-emerald-300">{fmtUSD(ev.meta.amount)}</span>
+                            )}
+                            <span className={`${ev.meta?.amount != null ? "" : "ml-auto"} font-mono text-[10px] text-slate-500`}>
+                                {ev.at ? new Date(ev.at).toLocaleString() : ""}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+    );
+};
+
+const SummaryTile = ({ label, value, tone = "white" }) => {
+    const toneCls = {
+        white:   "border-white/10 bg-ink-700/40",
+        cyan:    "border-cyan-500/30 bg-cyan-500/5",
+        emerald: "border-emerald-500/30 bg-emerald-500/5",
+    };
+    return (
+        <div className={`rounded-md border p-3 ${toneCls[tone] || toneCls.white}`}>
+            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">{label}</p>
+            <p className="font-heading mt-1 text-xl font-semibold text-white sm:text-2xl">{value}</p>
+        </div>
+    );
+};
+
 // ---------- Admin tab (founder only) ----------
 const AdminTab = ({ auth }) => {
     const [users, setUsers] = useState([]);
@@ -973,6 +1196,7 @@ export default function PortalOpsPage() {
             case "demos":       return <DemosTab auth={auth} />;
             case "ai":          return <AITab auth={auth} />;
             case "employees":   return me.scopes.can_see_all_employees ? <EmployeesTab auth={auth} me={me} /> : null;
+            case "revenue":     return me.scopes.can_see_settings ? <DemoRevenueTab auth={auth} /> : null;
             case "admin":       return me.scopes.can_see_settings ? <AdminTab auth={auth} /> : null;
             case "settings":    return me.scopes.can_see_settings ? <SettingsTab auth={auth} me={me} /> : null;
             default:            return null;

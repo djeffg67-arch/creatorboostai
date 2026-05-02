@@ -1,4 +1,5 @@
 import axios from "axios";
+import { demoAttributionPayload } from "./demoOrigin";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -72,7 +73,7 @@ export const analyzeLead = (description) =>
 export const listProducts = () => api.get("/products").then((r) => r.data);
 
 export const createCheckoutSession = (payload) =>
-    api.post("/checkout/session", payload).then((r) => r.data);
+    api.post("/checkout/session", { ...demoAttributionPayload(), ...payload }).then((r) => r.data);
 
 export const getCheckoutStatus = (sessionId) =>
     api.get(`/checkout/status/${sessionId}`).then((r) => r.data);
@@ -92,6 +93,10 @@ export const adminExportUrl = (token) =>
 export const adminPickerStats = (token) =>
     api.get("/admin/picker-stats", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
 
+export const adminDemoRevenue = (token, range = "30d") =>
+    api.get(`/admin/demo-revenue?range=${encodeURIComponent(range)}`,
+        { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data);
+
 export const submitApplication = (payload) =>
     api.post("/applications", payload).then((r) => r.data);
 
@@ -102,7 +107,7 @@ export const listHighTicket = () =>
     api.get("/programs/high-ticket").then((r) => r.data);
 
 export const createSubscriptionSession = (payload) =>
-    api.post("/checkout/subscription", payload).then((r) => r.data);
+    api.post("/checkout/subscription", { ...demoAttributionPayload(), ...payload }).then((r) => r.data);
 
 export const portalLogin = (payload) =>
     api.post("/portal/login", payload).then((r) => r.data);
@@ -232,6 +237,9 @@ export const opsAdminLoginAttempts = (payload) =>
 
 export const opsAdminDeliveryStatus = (auth) =>
     api.post("/ops/admin/delivery-status", auth).then((r) => r.data);
+
+export const opsDemoRevenue = (payload) =>
+    api.post("/ops/demo-revenue", payload).then((r) => r.data);
 
 export const opsAccessLinkRequest = (payload) =>
     api.post("/ops/access-link/request", payload).then((r) => r.data);

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
 import { CountrySelector } from "@/components/site/CountrySelector";
+import { GetLeadsSection } from "@/components/site/GetLeadsSection";
 import { INDUSTRY_IMG, DEMO_IMG, SECTION_BG } from "@/lib/images";
 import {
     ArrowRight, Play, Building2, ShieldCheck, Mic, ShoppingBag, Plane,
@@ -350,6 +351,9 @@ export default function HomePage() {
                     </div>
                 </div>
             </section>
+
+            {/* LEADS / REVENUE ENGINE — mounted directly below hero */}
+            <GetLeadsSection />
 
             {/* INDUSTRIES */}
             <section id="industries" className="relative isolate border-b border-white/5 py-20" data-testid="industries-section">

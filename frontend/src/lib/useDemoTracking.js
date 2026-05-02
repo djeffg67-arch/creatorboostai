@@ -17,6 +17,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import { recordDemoOrigin } from "./demoOrigin";
 
 const HEARTBEAT_INTERVAL_MS = 8_000;
 
@@ -73,6 +74,10 @@ export const useDemoTracking = ({
     // log half-watched sessions on bots / accidental loads).
     useEffect(() => {
         if (!started || sessionId) return;
+        // Demo-to-Revenue attribution — persist `demo_origin` locally the
+        // moment the viewer engages, so any downstream checkout / contact
+        // flow can forward source_demo + source_industry to the backend.
+        recordDemoOrigin(demoType);
         let cancelled = false;
         (async () => {
             const utm = {};

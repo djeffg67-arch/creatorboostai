@@ -107,6 +107,10 @@ class LogoutRequest(OpsAuth):
     everywhere: bool = True  # rotate token (kills all sessions on all devices)
 
 
+class DemoRevenueRequest(OpsAuth):
+    range: str = Field(default="30d", description="today | 7d | 30d | all")
+
+
 class AccessLinkRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: EmailStr
@@ -940,6 +944,164 @@ def make_router(db, email_service=None) -> APIRouter:
                 "provider": "Twilio",
                 "from_number": os.environ.get("TWILIO_FROM_NUMBER", ""),
             },
+        }
+
+    # ------------------------------------------------------------------
+    # Demo-to-Revenue analytics — founder-only dashboard endpoint.
+    # Mirror of /api/admin/demo-revenue but auth'd by ops portal token
+    # so the founder UI doesn't need a separate ADMIN_PASSWORD login.
+    # ------------------------------------------------------------------
+    @router.post("/demo-revenue")
+    async def demo_revenue(payload: DemoRevenueRequest):
+        await _require_founder(payload)
+        from datetime import datetime, timezone, timedelta
+        now = datetime.now(timezone.utc)
+        if payload.range == "today":
+            cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        elif payload.range == "7d":
+            cutoff = (now - timedelta(days=7)).isoformat()
+        elif payload.range == "30d":
+            cutoff = (now - timedelta(days=30)).isoformat()
+        else:
+            cutoff = None
+
+        sess_query: Dict[str, Any] = {}
+        if cutoff:
+            sess_query["started_at"] = {"$gte": cutoff}
+        sessions = [s async for s in db.demo_sessions.find(sess_query, {"_id": 0})]
+
+        rev_query: Dict[str, Any] = {}
+        if cutoff:
+            rev_query["at"] = {"$gte": cutoff}
+        revenue_events = [r async for r in db.demo_revenue_events.find(rev_query, {"_id": 0})]
+
+        DEMO_REGISTRY = {
+            "realtor":     {"label": "Real Estate", "industry": "Real Estate"},
+            "insurance":   {"label": "Insurance",   "industry": "Insurance"},
+            "supermarket": {"label": "Retail",      "industry": "Retail"},
+            "creator":     {"label": "Influencer",  "industry": "Influencer"},
+            "noldus":      {"label": "Enterprise",  "industry": "Enterprise"},
+            "general":     {"label": "General",     "industry": "General"},
+        }
+        demo_keys = set(DEMO_REGISTRY.keys())
+        for s in sessions:
+            if s.get("demo_type"):
+                demo_keys.add(s["demo_type"])
+        for r in revenue_events:
+            if r.get("source_demo"):
+                demo_keys.add(r["source_demo"])
+
+        rows = []
+        for key in sorted(demo_keys):
+            reg = DEMO_REGISTRY.get(key, {"label": key.title(), "industry": "Other"})
+            demo_sessions_list = [s for s in sessions if s.get("demo_type") == key]
+            unique_visitors = len({s.get("ip") for s in demo_sessions_list if s.get("ip")})
+            completion_pcts = [s.get("progress_pct", 0) for s in demo_sessions_list]
+            avg_completion = round(sum(completion_pcts) / len(completion_pcts), 1) if completion_pcts else 0.0
+            hot_leads_set = {
+                s.get("recipient_email") for s in demo_sessions_list
+                if (s.get("half_view_notified") or s.get("completed")) and s.get("recipient_email")
+            }
+
+            def _count_events(evtype, sl=demo_sessions_list):
+                c = 0
+                for s in sl:
+                    for ev in s.get("events", []) or []:
+                        if ev.get("type") == evtype:
+                            c += 1
+                return c
+            cta_clicks       = _count_events("cta_click") + _count_events("cta_clicked")
+            meetings_booked  = _count_events("meeting_booked")
+            enterprise_reqs  = _count_events("enterprise_request")
+            saved_sessions   = _count_events("demo_saved")
+            resumed_sessions = _count_events("demo_resumed")
+
+            rev = [r for r in revenue_events if r.get("source_demo") == key]
+            subs_started = sum(1 for r in rev if r.get("kind") == "subscription_started")
+            revenue      = round(sum(float(r.get("amount") or 0) for r in rev), 2)
+            mrr          = round(sum(float(r.get("mrr_created") or 0) for r in rev), 2)
+            plans_sold   = sorted({r.get("plan_key") for r in rev if r.get("plan_key")})
+            views        = len(demo_sessions_list)
+            conv_rate    = round((subs_started / views) * 100, 2) if views else 0.0
+
+            rows.append({
+                "demo_key": key, "demo_name": reg["label"], "industry": reg["industry"],
+                "views": views, "unique_visitors": unique_visitors,
+                "avg_completion_pct": avg_completion,
+                "saved_sessions": saved_sessions, "resumed_sessions": resumed_sessions,
+                "cta_clicks": cta_clicks, "meetings_booked": meetings_booked,
+                "enterprise_requests": enterprise_reqs, "hot_leads": len(hot_leads_set),
+                "subscriptions": subs_started, "plans_selected": plans_sold,
+                "revenue": revenue, "mrr": mrr, "conversion_rate": conv_rate,
+            })
+
+        def _top(rows_in, key_fn, n=5):
+            return sorted(rows_in, key=key_fn, reverse=True)[:n]
+        top_subs = _top(rows, lambda r: r["subscriptions"])
+        top_rev  = _top(rows, lambda r: r["revenue"])
+        top_ent  = _top(rows, lambda r: r["enterprise_requests"])
+        top_conv = _top([r for r in rows if r["views"] > 0], lambda r: r["conversion_rate"])
+
+        feed = []
+        for s in sessions:
+            feed.append({
+                "at": s.get("started_at"), "kind": "demo_viewed",
+                "demo": s.get("demo_type"),
+                "who": s.get("recipient_email") or s.get("recipient_name"),
+                "meta": {"progress_pct": s.get("progress_pct")},
+            })
+            if s.get("completed"):
+                feed.append({
+                    "at": s.get("completed_at") or s.get("last_heartbeat_at"),
+                    "kind": "demo_completed", "demo": s.get("demo_type"),
+                    "who": s.get("recipient_email") or s.get("recipient_name"),
+                    "meta": {"watch_seconds": s.get("watch_seconds")},
+                })
+            for ev in (s.get("events", []) or []):
+                t = ev.get("type") or ""
+                if t in ("cta_click", "cta_clicked", "meeting_booked",
+                         "enterprise_request", "demo_saved", "demo_resumed",
+                         "share_click", "share_send"):
+                    feed.append({
+                        "at": ev.get("at"), "kind": t, "demo": s.get("demo_type"),
+                        "who": s.get("recipient_email") or s.get("recipient_name"),
+                        "meta": ev.get("metadata") or {},
+                    })
+        for r in revenue_events:
+            feed.append({
+                "at": r.get("at"),
+                "kind": r.get("kind") or "subscription_started",
+                "demo": r.get("source_demo") or "direct",
+                "who": r.get("email") or r.get("company"),
+                "meta": {
+                    "amount": r.get("amount"), "plan_key": r.get("plan_key"),
+                    "mrr": r.get("mrr_created"),
+                },
+            })
+        feed = [f for f in feed if f.get("at")]
+        feed.sort(key=lambda f: f["at"], reverse=True)
+        feed = feed[:60]
+
+        return {
+            "range": payload.range,
+            "range_cutoff_iso": cutoff,
+            "summary": {
+                "total_views":              sum(r["views"] for r in rows),
+                "total_hot_leads":          sum(r["hot_leads"] for r in rows),
+                "total_meetings":           sum(r["meetings_booked"] for r in rows),
+                "total_enterprise_requests": sum(r["enterprise_requests"] for r in rows),
+                "total_subscriptions":      sum(r["subscriptions"] for r in rows),
+                "total_revenue":            round(sum(r["revenue"] for r in rows), 2),
+                "total_mrr":                round(sum(r["mrr"] for r in rows), 2),
+            },
+            "rows": rows,
+            "top": {
+                "by_subscriptions":       top_subs,
+                "by_revenue":             top_rev,
+                "by_enterprise_requests": top_ent,
+                "by_conversion_rate":     top_conv,
+            },
+            "activity": feed,
         }
 
     # ------------------------------------------------------------------

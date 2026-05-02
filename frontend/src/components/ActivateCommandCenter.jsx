@@ -37,6 +37,14 @@ export const ActivateCommandCenter = ({
     if (!open) return null;
     const pricingHref = `/pricing?from=${encodeURIComponent(demoOrigin)}`;
     const contactHref = `/contact?intent=setup-call&from=${encodeURIComponent(demoOrigin)}`;
+    const enterpriseHref = `/contact?intent=enterprise&from=${encodeURIComponent(demoOrigin)}`;
+
+    const track = (kind, metadata = {}) => {
+        try {
+            const t = typeof window !== "undefined" && window.__demoTracking?.trackEvent;
+            if (t) t(kind, { demoOrigin, industry, ...metadata });
+        } catch { /* never block navigation on telemetry */ }
+    };
 
     return (
         <div
@@ -101,6 +109,7 @@ export const ActivateCommandCenter = ({
                         <Link
                             to={pricingHref}
                             data-testid="activate-cta-pricing"
+                            onClick={() => track("cta_clicked", { target: "pricing_primary" })}
                             className="group inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-5 py-3.5 text-sm font-semibold text-ink-900 shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all hover:bg-cyan-400"
                         >
                             <Rocket size={14} />
@@ -110,6 +119,7 @@ export const ActivateCommandCenter = ({
                         <Link
                             to={pricingHref}
                             data-testid="activate-cta-start"
+                            onClick={() => track("cta_clicked", { target: "pricing_start" })}
                             className="group inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-5 py-3.5 text-sm font-semibold text-cyan-200 transition-all hover:bg-cyan-500 hover:text-ink-900"
                         >
                             <Sparkles size={14} />
@@ -118,10 +128,23 @@ export const ActivateCommandCenter = ({
                         <Link
                             to={contactHref}
                             data-testid="activate-cta-setup"
+                            onClick={() => track("meeting_booked", { target: "setup_call" })}
                             className="group inline-flex items-center justify-center gap-2 rounded-md border border-white/10 bg-ink-700/40 px-5 py-3.5 text-sm font-semibold text-slate-200 transition-all hover:border-cyan-500/40 hover:text-cyan-300"
                         >
                             <PhoneCall size={14} />
                             Book Setup Call
+                        </Link>
+                    </div>
+
+                    {/* Enterprise request secondary CTA */}
+                    <div className="mt-3">
+                        <Link
+                            to={enterpriseHref}
+                            data-testid="activate-cta-enterprise"
+                            onClick={() => track("enterprise_request", { target: "enterprise_contact" })}
+                            className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400 transition-colors hover:text-cyan-300"
+                        >
+                            Enterprise team? Request custom walkthrough →
                         </Link>
                     </div>
 

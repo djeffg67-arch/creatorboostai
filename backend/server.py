@@ -246,12 +246,22 @@ class CheckoutSessionCreate(BaseModel):
     product_key: str
     origin_url: str
     email: Optional[EmailStr] = None
+    # --- Demo-to-Revenue attribution (all optional; populated by frontend from
+    # localStorage.demo_origin set when the viewer pressed Start on a demo).
+    source_demo: Optional[str] = None
+    source_industry: Optional[str] = None
+    lead_id: Optional[str] = None
+    company: Optional[str] = None
 
 
 class SubscriptionCheckoutCreate(BaseModel):
     plan_key: str
     origin_url: str
     email: Optional[EmailStr] = None
+    source_demo: Optional[str] = None
+    source_industry: Optional[str] = None
+    lead_id: Optional[str] = None
+    company: Optional[str] = None
 
 
 class HighTicketApplication(BaseModel):
@@ -1424,6 +1434,16 @@ async def create_checkout_session(payload: CheckoutSessionCreate, http_request: 
     }
     if payload.email:
         metadata["customer_email_hint"] = payload.email
+    # Demo-to-Revenue attribution — forwarded to Stripe + persisted on txn so
+    # the founder dashboard can roll up "revenue per demo".
+    if payload.source_demo:
+        metadata["source_demo"] = payload.source_demo
+    if payload.source_industry:
+        metadata["source_industry"] = payload.source_industry
+    if payload.lead_id:
+        metadata["lead_id"] = payload.lead_id
+    if payload.company:
+        metadata["company"] = payload.company
 
     req = CheckoutSessionRequest(
         amount=float(product["amount"]),
@@ -1504,6 +1524,14 @@ async def create_subscription_session(payload: SubscriptionCheckoutCreate, http_
     }
     if payload.email:
         metadata["customer_email_hint"] = payload.email
+    if payload.source_demo:
+        metadata["source_demo"] = payload.source_demo
+    if payload.source_industry:
+        metadata["source_industry"] = payload.source_industry
+    if payload.lead_id:
+        metadata["lead_id"] = payload.lead_id
+    if payload.company:
+        metadata["company"] = payload.company
 
     # Native subscription mode: passing a recurring Price ID makes Stripe
     # auto-create the subscription on checkout and bill on the recurring
@@ -1753,6 +1781,68 @@ async def _handle_checkout_completed(event) -> None:
     # If subscription, also seed/refresh the subscriptions collection
     if txn.get("subscription") or txn.get("product_key") in SUBSCRIPTIONS:
         await _upsert_subscription_record_from_txn(txn)
+    # Demo-to-Revenue attribution — persists a record linking this purchase
+    # back to the demo the customer watched (if any), and flips any matching
+    # lead to "closed_won" so the founder dashboard rolls up accurately.
+    await _record_demo_revenue_event(txn, event)
+
+
+async def _record_demo_revenue_event(txn: Dict[str, Any], event) -> None:
+    """Append a `demo_revenue_events` row for Founder Dashboard aggregation.
+
+    Always fires on a paid checkout, even if no demo was attributed — that
+    way the dashboard can distinguish (demo-driven) vs (direct) revenue.
+    """
+    meta = event.metadata or {}
+    amount = float(txn.get("amount") or 0.0)
+    plan_key = txn.get("product_key") or meta.get("plan_key") or meta.get("product_key")
+    is_sub = bool(txn.get("subscription") or (plan_key in SUBSCRIPTIONS))
+    mrr_created = 0.0
+    if is_sub and plan_key in SUBSCRIPTIONS:
+        plan = SUBSCRIPTIONS[plan_key]
+        if plan.get("interval") == "month":
+            mrr_created = float(plan.get("amount", 0.0))
+        elif plan.get("interval") == "year":
+            mrr_created = round(float(plan.get("amount", 0.0)) / 12.0, 2)
+
+    row = {
+        "id": str(uuid.uuid4()),
+        "kind": "subscription_started" if is_sub else "purchase_completed",
+        "session_id": txn.get("session_id"),
+        "email": txn.get("email") or meta.get("customer_email_hint"),
+        "amount": amount,
+        "currency": txn.get("currency") or "usd",
+        "mrr_created": mrr_created,
+        "plan_key": plan_key,
+        "plan_tier": meta.get("plan_tier") or (SUBSCRIPTIONS.get(plan_key, {}).get("tier") if plan_key else None),
+        "source_demo": meta.get("source_demo") or txn.get("metadata", {}).get("source_demo"),
+        "source_industry": meta.get("source_industry") or txn.get("metadata", {}).get("source_industry"),
+        "lead_id": meta.get("lead_id") or txn.get("metadata", {}).get("lead_id"),
+        "company": meta.get("company") or txn.get("metadata", {}).get("company"),
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        await db.demo_revenue_events.insert_one(dict(row))
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"demo_revenue_events insert failed: {e}")
+
+    # If we have a lead_id, flip its status to closed_won + attach subscription
+    if row["lead_id"]:
+        try:
+            await db.leads.update_one(
+                {"id": row["lead_id"]},
+                {"$set": {
+                    "status": "closed_won",
+                    "closed_at": row["at"],
+                    "closed_amount": amount,
+                    "closed_session_id": row["session_id"],
+                    "closed_plan_key": plan_key,
+                    "closed_source_demo": row["source_demo"],
+                }},
+            )
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"lead close-won update failed: {e}")
+
 
 
 async def _upsert_subscription_record_from_txn(txn: Dict[str, Any]) -> None:
@@ -2158,6 +2248,205 @@ async def admin_list_demo_notifications(
     """Half-view notifications queue — what to follow up on now."""
     cursor = db.demo_notifications.find({}, {"_id": 0}).sort("created_at", -1).limit(limit)
     return [n async for n in cursor]
+
+
+# =============================================================================
+# Demo-to-Revenue analytics — founder-facing aggregation.
+# Returns per-demo rollups (views, leads, meetings, subs, revenue, MRR, conv %)
+# + a sorted "top revenue demos" list + an activity feed, scoped by a time
+# range selector. Backs the new Demo Revenue tab in /portal/ops.
+# =============================================================================
+
+# Canonical demo-type registry for display names + industry labels (matches the
+# 5 live demos + the /demo hub). Keep in sync with VALID_DEMO_TYPES.
+DEMO_REGISTRY: Dict[str, Dict[str, str]] = {
+    "realtor":     {"label": "Real Estate", "industry": "Real Estate"},
+    "insurance":   {"label": "Insurance",   "industry": "Insurance"},
+    "supermarket": {"label": "Retail",      "industry": "Retail"},
+    "creator":     {"label": "Influencer",  "industry": "Influencer"},
+    "noldus":      {"label": "Enterprise",  "industry": "Enterprise"},
+    "general":     {"label": "General",     "industry": "General"},
+}
+
+
+def _range_cutoff_iso(range_key: str) -> Optional[str]:
+    """Convert 'today' | '7d' | '30d' | 'all' to an ISO cutoff (or None)."""
+    now = datetime.now(timezone.utc)
+    if range_key == "today":
+        cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif range_key == "7d":
+        cutoff = now - timedelta(days=7)
+    elif range_key == "30d":
+        cutoff = now - timedelta(days=30)
+    else:
+        return None
+    return cutoff.isoformat()
+
+
+@api_router.get("/admin/demo-revenue")
+async def admin_demo_revenue(
+    _: str = Depends(verify_admin),
+    range: str = Query("30d", regex="^(today|7d|30d|all)$"),
+):
+    """Founder dashboard backing — per-demo rollups + top list + activity feed."""
+    cutoff = _range_cutoff_iso(range)
+
+    # ---- Sessions (views) grouped by demo_type ----
+    sess_query: Dict[str, Any] = {}
+    if cutoff:
+        sess_query["started_at"] = {"$gte": cutoff}
+    sessions = [s async for s in db.demo_sessions.find(sess_query, {"_id": 0})]
+
+    # ---- Revenue events grouped by source_demo (attribution) ----
+    rev_query: Dict[str, Any] = {}
+    if cutoff:
+        rev_query["at"] = {"$gte": cutoff}
+    revenue_events = [r async for r in db.demo_revenue_events.find(rev_query, {"_id": 0})]
+
+    # ---- Leads (hot leads = half-view completes OR completed sessions) ----
+    # We count "hot_leads" by unique recipient_email on sessions that hit >=50%.
+    # ---- Per-demo rollup ----
+    demo_keys = set(DEMO_REGISTRY.keys())
+    for s in sessions:
+        if s.get("demo_type"):
+            demo_keys.add(s["demo_type"])
+    for r in revenue_events:
+        if r.get("source_demo"):
+            demo_keys.add(r["source_demo"])
+
+    rows = []
+    for key in sorted(demo_keys):
+        reg = DEMO_REGISTRY.get(key, {"label": key.title(), "industry": "Other"})
+        demo_sessions_list = [s for s in sessions if s.get("demo_type") == key]
+        unique_visitors = len({s.get("ip") for s in demo_sessions_list if s.get("ip")})
+        completion_pcts = [s.get("progress_pct", 0) for s in demo_sessions_list]
+        avg_completion = round(sum(completion_pcts) / len(completion_pcts), 1) if completion_pcts else 0.0
+        hot_leads_set = {
+            s.get("recipient_email") for s in demo_sessions_list
+            if (s.get("half_view_notified") or s.get("completed")) and s.get("recipient_email")
+        }
+        # Events
+        def _count_events(evtype: str) -> int:
+            c = 0
+            for s in demo_sessions_list:
+                for ev in s.get("events", []) or []:
+                    if ev.get("type") == evtype:
+                        c += 1
+            return c
+        cta_clicks        = _count_events("cta_click") + _count_events("cta_clicked")
+        meetings_booked   = _count_events("meeting_booked")
+        enterprise_reqs   = _count_events("enterprise_request")
+        saved_sessions    = _count_events("demo_saved")
+        resumed_sessions  = _count_events("demo_resumed")
+
+        rev = [r for r in revenue_events if r.get("source_demo") == key]
+        subs_started = sum(1 for r in rev if r.get("kind") == "subscription_started")
+        revenue      = round(sum(float(r.get("amount") or 0) for r in rev), 2)
+        mrr          = round(sum(float(r.get("mrr_created") or 0) for r in rev), 2)
+        plans_sold   = sorted({r.get("plan_key") for r in rev if r.get("plan_key")})
+        views        = len(demo_sessions_list)
+        conv_rate    = round((subs_started / views) * 100, 2) if views else 0.0
+
+        rows.append({
+            "demo_key": key,
+            "demo_name": reg["label"],
+            "industry": reg["industry"],
+            "views": views,
+            "unique_visitors": unique_visitors,
+            "avg_completion_pct": avg_completion,
+            "saved_sessions": saved_sessions,
+            "resumed_sessions": resumed_sessions,
+            "cta_clicks": cta_clicks,
+            "meetings_booked": meetings_booked,
+            "enterprise_requests": enterprise_reqs,
+            "hot_leads": len(hot_leads_set),
+            "subscriptions": subs_started,
+            "plans_selected": plans_sold,
+            "revenue": revenue,
+            "mrr": mrr,
+            "conversion_rate": conv_rate,
+        })
+
+    # ---- Top lists ----
+    def _top(rows_in, key_fn, n=5):
+        return sorted(rows_in, key=key_fn, reverse=True)[:n]
+    top_subs   = _top(rows, lambda r: r["subscriptions"])
+    top_rev    = _top(rows, lambda r: r["revenue"])
+    top_ent    = _top(rows, lambda r: r["enterprise_requests"])
+    top_conv   = _top([r for r in rows if r["views"] > 0], lambda r: r["conversion_rate"])
+
+    # ---- Activity feed (latest 60 across sessions + events + revenue) ----
+    feed = []
+    for s in sessions:
+        feed.append({
+            "at": s.get("started_at"),
+            "kind": "demo_viewed",
+            "demo": s.get("demo_type"),
+            "who": s.get("recipient_email") or s.get("recipient_name"),
+            "meta": {"progress_pct": s.get("progress_pct")},
+        })
+        if s.get("completed"):
+            feed.append({
+                "at": s.get("completed_at") or s.get("last_heartbeat_at"),
+                "kind": "demo_completed",
+                "demo": s.get("demo_type"),
+                "who": s.get("recipient_email") or s.get("recipient_name"),
+                "meta": {"watch_seconds": s.get("watch_seconds")},
+            })
+        for ev in (s.get("events", []) or []):
+            t = ev.get("type") or ""
+            if t in ("cta_click", "cta_clicked", "meeting_booked",
+                     "enterprise_request", "demo_saved", "demo_resumed",
+                     "share_click", "share_send"):
+                feed.append({
+                    "at": ev.get("at"),
+                    "kind": t,
+                    "demo": s.get("demo_type"),
+                    "who": s.get("recipient_email") or s.get("recipient_name"),
+                    "meta": ev.get("metadata") or {},
+                })
+    for r in revenue_events:
+        feed.append({
+            "at": r.get("at"),
+            "kind": r.get("kind") or "subscription_started",
+            "demo": r.get("source_demo") or "direct",
+            "who": r.get("email") or r.get("company"),
+            "meta": {
+                "amount": r.get("amount"),
+                "plan_key": r.get("plan_key"),
+                "mrr": r.get("mrr_created"),
+            },
+        })
+    feed = [f for f in feed if f.get("at")]
+    feed.sort(key=lambda f: f["at"], reverse=True)
+    feed = feed[:60]
+
+    total_revenue = round(sum(r["revenue"] for r in rows), 2)
+    total_mrr     = round(sum(r["mrr"] for r in rows), 2)
+    total_subs    = sum(r["subscriptions"] for r in rows)
+    total_views   = sum(r["views"] for r in rows)
+
+    return {
+        "range": range,
+        "range_cutoff_iso": cutoff,
+        "summary": {
+            "total_views": total_views,
+            "total_hot_leads": sum(r["hot_leads"] for r in rows),
+            "total_meetings": sum(r["meetings_booked"] for r in rows),
+            "total_enterprise_requests": sum(r["enterprise_requests"] for r in rows),
+            "total_subscriptions": total_subs,
+            "total_revenue": total_revenue,
+            "total_mrr": total_mrr,
+        },
+        "rows": rows,
+        "top": {
+            "by_subscriptions":      top_subs,
+            "by_revenue":            top_rev,
+            "by_enterprise_requests": top_ent,
+            "by_conversion_rate":    top_conv,
+        },
+        "activity": feed,
+    }
 
 
 app.include_router(api_router)

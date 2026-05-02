@@ -1,6 +1,50 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-02-XX (Iter 28 — Option A Revenue Flow: Universal Conversion Overlay on All Demos)
+**Last update:** 2026-05-02 (Iter 32 — Homepage Revenue Section + Demo-to-Revenue Tracking + Founder Dashboard)
+
+---
+
+## 🆕 ITER 32 — Homepage "Get Leads" Section + Demo-to-Revenue Stack
+
+**Part 1 — Homepage conversion section (`<GetLeadsSection />`)**
+- New file: `/app/frontend/src/components/site/GetLeadsSection.jsx`
+- Mounted in `HomePage.jsx` directly below the hero `</section>` (line ~356).
+- Test IDs: `leads-section`, `leads-title`, `leads-intro`, `leads-outcome-0..5`, `leads-creatorboost`, `leads-bodyiq`, `leads-closing`, `leads-audience`, `leads-cta-demo`, `leads-cta-pricing`.
+- **Verified**: screenshot + DOM inspection confirms all 6 outcome tiles, both CTAs, title, and primary/supporting panels render on `/`.
+
+**Part 2 — Demo-to-Revenue tracking**
+- New module: `/app/frontend/src/lib/demoOrigin.js` — writes `cb_demo_origin` localStorage on demo-start (30-day TTL) with `{demo, industry, at}`.
+- Hooked into `/app/frontend/src/lib/useDemoTracking.js` — every demo Start triggers `recordDemoOrigin()`.
+- `/app/frontend/src/lib/api.js` — `createCheckoutSession` and `createSubscriptionSession` now auto-spread `demoAttributionPayload()` (`source_demo` + `source_industry`) into every checkout request.
+- `<ActivateCommandCenter />` now tracks `cta_clicked`, `meeting_booked`, `enterprise_request` events on its 4 buttons (via `window.__demoTracking.trackEvent`). New test id: `activate-cta-enterprise`.
+- Backend (`server.py`):
+  - `CheckoutSessionCreate` + `SubscriptionCheckoutCreate` gained optional `source_demo`, `source_industry`, `lead_id`, `company` — all forwarded as Stripe metadata.
+  - New helper `_record_demo_revenue_event()` runs on every successful checkout; persists `demo_revenue_events` row + flips matching lead to `closed_won`.
+  - New MongoDB collection: `demo_revenue_events` (`{id, kind, session_id, email, amount, currency, mrr_created, plan_key, plan_tier, source_demo, source_industry, lead_id, company, at}`).
+  - Canonical `DEMO_REGISTRY` maps: realtor=Real Estate · insurance=Insurance · supermarket=Retail · creator=Influencer · noldus=Enterprise · general=General.
+
+**Part 3 — Founder Dashboard "Demo Revenue" tab**
+- New top-level sidebar tab `Demo Revenue` in `/portal/ops` (founder-only, gated by `can_see_settings`).
+- `DemoRevenueTab` in `PortalOpsPage.jsx` renders:
+  - **Section 1** — Revenue Performance table (9 columns: Demo, Industry, Views, Hot Leads, Meetings, Subs, Revenue, MRR, Conv %) with live aggregation.
+  - **Section 2** — Top Revenue Demos with 4-way sort toggles (subs / revenue / enterprise / conv rate).
+  - **Section 3** — Activity Feed (60 most recent events, tone-colored by kind).
+- 4 range filters: Today / Last 7d / Last 30d / All time. Summary strip has 7 KPI tiles.
+- Test IDs: `tab-revenue`, `revenue-filters`, `revenue-range-{today|7d|30d|all}`, `revenue-summary`, `revenue-table-section`, `revenue-row-<demo>`, `revenue-top-section`, `revenue-sort-{subscriptions|revenue|enterprise_requests|conversion_rate}`, `revenue-top-row-<i>`, `revenue-activity-section`, `revenue-activity-<i>`, `revenue-loading`, `revenue-empty`.
+
+**Part 4 — Stripe metadata + webhook attribution**
+- Checkout flows auto-attach `source_demo` / `source_industry` from localStorage.
+- Webhook on `checkout.session.completed` writes `demo_revenue_events` + closes matching lead.
+- All revenue attribution is visible inside the CreatorBoostAI Founder Dashboard (**NOT** dependent on Stripe dashboard).
+
+**New API endpoints**
+- `GET  /api/admin/demo-revenue?range=<today|7d|30d|all>` — admin-token auth (CLI / scripting).
+- `POST /api/ops/demo-revenue` — ops session auth (founder UI).
+
+**Verified live**
+- `curl /api/ops/demo-revenue` with founder token: returns `{range, summary, rows[7], top{4 sorts}, activity[45]}` from real session data.
+- Frontend: GetLeadsSection renders 6 outcomes + both CTAs on `/`.
+- Lint: all 7 touched files pass ESLint + ruff.
 
 ---
 
