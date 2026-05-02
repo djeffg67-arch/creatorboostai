@@ -111,6 +111,10 @@ class DemoRevenueRequest(OpsAuth):
     range: str = Field(default="30d", description="today | 7d | 30d | all")
 
 
+class DemoSavesGeoRequest(OpsAuth):
+    range: str = Field(default="30d", description="today | 7d | 30d | all")
+
+
 class AccessLinkRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: EmailStr
@@ -950,6 +954,72 @@ def make_router(db, email_service=None) -> APIRouter:
     # Demo-to-Revenue analytics — founder-only dashboard endpoint.
     # Mirror of /api/admin/demo-revenue but auth'd by ops portal token
     # so the founder UI doesn't need a separate ADMIN_PASSWORD login.
+    # ------------------------------------------------------------------
+    @router.post("/demo-saves-geo")
+    async def demo_saves_geo(payload: DemoSavesGeoRequest):
+        """Founder heat-map — aggregate saved demos by city + country.
+
+        Clusters rows that share a lat/lon (±0.5° bucket) so a city with 10
+        saves gets one larger marker instead of 10 stacked pins. Skips saves
+        with no geo (rows from private IPs / failed lookups).
+        """
+        await _require_founder(payload)
+        from datetime import datetime, timezone, timedelta
+
+        now = datetime.now(timezone.utc)
+        if payload.range == "today":
+            cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        elif payload.range == "7d":
+            cutoff = (now - timedelta(days=7)).isoformat()
+        elif payload.range == "30d":
+            cutoff = (now - timedelta(days=30)).isoformat()
+        else:
+            cutoff = None
+
+        query: Dict[str, Any] = {"lat": {"$ne": None}}
+        if cutoff:
+            query["created_at"] = {"$gte": cutoff}
+        rows = [s async for s in db.demo_saves.find(query, {"_id": 0})]
+
+        # Bucket by (round(lat/lon to 1 decimal), city) so nearby saves merge
+        buckets: Dict[tuple, Dict[str, Any]] = {}
+        by_country: Dict[str, int] = {}
+        for r in rows:
+            lat = r.get("lat")
+            lon = r.get("lon")
+            if lat is None or lon is None:
+                continue
+            key = (round(float(lat), 1), round(float(lon), 1), r.get("city") or "")
+            if key not in buckets:
+                buckets[key] = {
+                    "lat": round(float(lat), 4),
+                    "lon": round(float(lon), 4),
+                    "city": r.get("city"),
+                    "region": r.get("region"),
+                    "country_code": r.get("country_code"),
+                    "count": 0,
+                    "demos": {},
+                }
+            buckets[key]["count"] += 1
+            dt = r.get("demo_type") or "other"
+            buckets[key]["demos"][dt] = buckets[key]["demos"].get(dt, 0) + 1
+            cc = r.get("country_code")
+            if cc:
+                by_country[cc] = by_country.get(cc, 0) + 1
+
+        markers = sorted(buckets.values(), key=lambda m: m["count"], reverse=True)
+        top_countries = sorted(
+            [{"country_code": cc, "count": n} for cc, n in by_country.items()],
+            key=lambda x: x["count"], reverse=True,
+        )[:10]
+
+        return {
+            "range": payload.range,
+            "total_with_geo": len(rows),
+            "markers": markers,
+            "top_countries": top_countries,
+        }
+
     # ------------------------------------------------------------------
     @router.post("/demo-revenue")
     async def demo_revenue(payload: DemoRevenueRequest):

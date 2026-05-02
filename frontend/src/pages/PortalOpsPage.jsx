@@ -18,6 +18,7 @@ import {
     opsAdminUsersResetAccess, opsAdminLoginAttempts, opsAdminDeliveryStatus,
     opsDemoRevenue,
 } from "@/lib/api";
+import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 
 const STORAGE_KEY = "cb_ops_session";
 const LEAD_STATUSES = ["new", "contacted", "qualified", "demo_sent", "proposal", "won", "lost"];
@@ -838,6 +839,8 @@ const DemoRevenueTab = ({ auth }) => {
             </div>
 
             {/* Section 3 — Activity feed */}
+            <DemoSavesMap auth={auth} range={range} />
+
             <div className="rounded-md border border-white/10 bg-ink-700/40 p-4" data-testid="revenue-activity-section">
                 <p className="font-heading text-lg font-semibold text-white">Activity feed</p>
                 <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">

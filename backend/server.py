@@ -2283,21 +2283,23 @@ async def _lookup_city_from_ip(ip: Optional[str]) -> Dict[str, Optional[str]]:
         async with httpx.AsyncClient(timeout=3.0) as client:
             r = await client.get(
                 f"http://ip-api.com/json/{ip}",
-                params={"fields": "status,country,countryCode,region,regionName,city"},
+                params={"fields": "status,country,countryCode,region,regionName,city,lat,lon"},
             )
             if r.status_code != 200:
-                return {"city": None, "region": None, "country_code": None}
+                return {"city": None, "region": None, "country_code": None, "lat": None, "lon": None}
             j = r.json()
             if j.get("status") != "success":
-                return {"city": None, "region": None, "country_code": None}
+                return {"city": None, "region": None, "country_code": None, "lat": None, "lon": None}
             return {
                 "city": (j.get("city") or None),
                 "region": (j.get("region") or j.get("regionName") or None),
                 "country_code": (j.get("countryCode") or None),
+                "lat": j.get("lat"),
+                "lon": j.get("lon"),
             }
     except Exception as e:
         logging.getLogger(__name__).info(f"geoip lookup skipped: {e}")
-        return {"city": None, "region": None, "country_code": None}
+        return {"city": None, "region": None, "country_code": None, "lat": None, "lon": None}
 
 
 
@@ -2331,6 +2333,8 @@ async def demo_session_save(payload: DemoSaveProgress, request: Request):
         "city": geo["city"],
         "region": geo["region"],
         "country_code": geo["country_code"],
+        "lat": geo.get("lat"),
+        "lon": geo.get("lon"),
     }
     await db.demo_saves.insert_one(dict(saved_row))
 
