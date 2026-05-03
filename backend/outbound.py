@@ -115,8 +115,8 @@ SEND_WINDOW_HOURS = 14                 # spread sends across 14-hour workday
 MIN_SEND_SPACING_SEC = 60              # hard floor between two sends
 BOUNCE_RATE_PAUSE_THRESHOLD = 0.05     # auto-pause if ≥5 % over last 7 days
 COMPLAINT_RATE_PAUSE_THRESHOLD = 0.003  # auto-pause if ≥0.3 % over last 7 days
-FOLLOWUP_OFFSETS_DAYS = [2, 5, 10]      # cadence · FU1(d2) / FU2(d5) / FU3(d10)
-MAX_EMAILS_BEFORE_COLD = 4              # initial + 3 follow-ups → then cold
+FOLLOWUP_OFFSETS_DAYS = [1, 4]          # cadence · FU1(d1) / FU2(d4)  ·  matches Jeffrey's demo-first 3-email sequence
+MAX_EMAILS_BEFORE_COLD = 3              # initial + 2 follow-ups → then cold
 DEMO_VIEWER_DELAY_MIN_HRS = 12          # warm demo viewer delay lower bound
 DEMO_VIEWER_DELAY_MAX_HRS = 24          # warm demo viewer delay upper bound
 DEMO_VIEWER_BASELINE_SCORE = 82         # pre-scored warm lead baseline
@@ -377,6 +377,105 @@ def make_outbound_router(
             }
 
     async def _draft_email(p: Dict[str, Any], include_teaser: bool) -> Dict[str, str]:
+        """Phase A · DEMO-FIRST initial email per Jeffrey's exact spec.
+        Always includes the demo link. AI lightly personalizes the opener
+        but the structure is locked to Jeffrey's template.
+        """
+        seg = p.get("target_segment") or "sales_team_agency"
+        demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
+        demo_url = f"{_public_base()}{demo['route']}"
+        company = p.get("business_name") or "your team"
+        first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
+        calendly = os.environ.get("CALENDLY_URL", "").strip()
+
+        system = (
+            "You are Jeffrey from CreatorBoostAI writing a DIRECT, demo-first cold email. "
+            "Your job: lightly tailor the opener to the prospect's industry · keep the rest of the structure verbatim. "
+            "Style: short, plain text, zero hype, zero ALL CAPS, zero exclamation marks. "
+            "Output STRICT JSON: {\"subject\": \"reducing operating costs at <COMPANY>\", \"body\": \"<full body>\"} "
+            f"Body MUST follow this template exactly with light tailoring of the second paragraph only:\n\n"
+            f"Hi {first_name},\n\n"
+            f"I'll keep this direct.\n\n"
+            f"<ONE personalized sentence here referencing their segment ({SEGMENT_DISPLAY.get(seg, seg)}) — e.g., the specific pain point ops directors at {company} face>\n\n"
+            f"We built a system that identifies hidden cost savings and revenue opportunities inside operations like yours — and then executes on them automatically.\n\n"
+            f"I recorded a short demo showing exactly how it works for companies like {company}:\n\n"
+            f"{demo_url}\n\n"
+            f"If it's relevant, I can walk you through what it would look like specifically for your locations.\n\n"
+            f"— Jeffrey"
+        )
+        user = (
+            f"Prospect first name: {first_name}\n"
+            f"Company: {company}\n"
+            f"Segment: {SEGMENT_DISPLAY.get(seg, seg)}\n"
+            f"Specific pain point hint: {p.get('estimated_pain') or 'operating cost inefficiency'}\n"
+            f"Output the email now."
+        )
+        raw = await _claude(system, user, session_id=f"email-{p['id']}")
+        import json as _json
+        m = re.search(r"\{.*\}", raw, flags=re.S)
+        if m:
+            try:
+                obj = _json.loads(m.group(0))
+                return {"subject": _strip_spammy(obj.get("subject", ""))[:120],
+                        "body": _strip_spammy(obj.get("body", ""))[:1500]}
+            except Exception:
+                pass
+        # Hard fallback — Jeffrey's exact template, no AI
+        body = (
+            f"Hi {first_name},\n\n"
+            f"I'll keep this direct.\n\n"
+            f"We built a system that identifies hidden cost savings and revenue opportunities inside operations like yours — and then executes on them automatically.\n\n"
+            f"I recorded a short demo showing exactly how it works for companies like {company}:\n\n"
+            f"{demo_url}\n\n"
+            f"If it's relevant, I can walk you through what it would look like specifically for your locations.\n\n"
+            f"— Jeffrey"
+        )
+        if calendly:
+            body += f"\n\nP.S. If easier, grab a 15-min slot here: {calendly}"
+        return {"subject": f"reducing operating costs at {company}", "body": body}
+
+    async def _last_sent_subjects(prospect_id: str, limit: int = 3) -> List[str]:
+        cursor = db.outbound_events.find(
+            {"prospect_id": prospect_id, "type": "sent"},
+            {"_id": 0, "subject": 1, "created_at": 1},
+        ).sort("created_at", -1).limit(limit)
+        out: List[str] = []
+        async for r in cursor:
+            if r.get("subject"):
+                out.append(r["subject"])
+        return out
+
+    async def _draft_followup(p: Dict[str, Any], which: int) -> Dict[str, str]:
+        """Demo-first follow-ups per Jeffrey's spec.
+        FU1 (Day 1): "quick follow up" + demo link
+        FU2 (Day 4): "should I close this out?" — soft breakup with demo link
+        """
+        seg = p.get("target_segment") or "sales_team_agency"
+        demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
+        demo_url = f"{_public_base()}{demo['route']}"
+        company = p.get("business_name") or "your team"
+        first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
+
+        if which == 1:
+            subject = "quick follow up"
+            body = (
+                f"Hi {first_name},\n\n"
+                f"Wanted to make sure you saw this — the demo shows how we identify savings across "
+                f"lighting, maintenance, and operational spend.\n\n"
+                f"{demo_url}\n\n"
+                f"Worth a quick look.\n\n"
+                f"— Jeffrey"
+            )
+        else:
+            subject = "should I close this out?"
+            body = (
+                f"Hi {first_name},\n\n"
+                f"If this isn't relevant right now, no problem.\n\n"
+                f"Otherwise, here's the demo again:\n{demo_url}\n\n"
+                f"Happy to break down numbers for your locations if useful.\n\n"
+                f"— Jeffrey"
+            )
+        return {"subject": subject, "body": body}
         seg = p.get("target_segment") or "sales_team_agency"
         demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
         source_demo = p.get("source_demo")
