@@ -1,6 +1,96 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-03 (Iter 39 — Outbound Sales Engine Phase 1 COMPLETE · Command Center UI + AI + Scheduler live)
+**Last update:** 2026-05-03 (Iter 40 — Outbound Phase 2 · Demo-Viewer Seeding + IMAP Reply Polling + Context-Aware Follow-Ups + Cold-State Finalization)
+
+---
+
+## 🚀 ITER 40 — OUTBOUND SALES ENGINE · Phase 2
+
+Jeffrey's ask: make this a **continuous autonomous revenue system** that operates daily without manual intervention. Phase 2 converts the command center into an always-on engine that generates its own pipeline, runs 4-email sequences referencing prior thread context, auto-detects replies via IMAP, and retires unresponsive prospects to `cold`.
+
+### Delivered this iteration
+
+**1. Demo-Viewer Seeding (P0 critical feature)**
+- New endpoint `POST /api/ops/outbound/seed-from-demos` (founder-only). Scans `demo_sessions` (shared-link viewers with `recipient_email`) and `ops_leads` (demo-attributed leads) over the last 60 days. Skips anyone already in `outbound_prospects`, in suppression, or converted (has a `paid/completed/succeeded` `payment_transactions` row).
+- Seeded prospects get:
+  - Baseline lead_score = **82** (pre-scored warm)
+  - `status = "scored"` · `seeded_from_demo = true` · `source_demo = <demo_type>`
+  - `target_segment` mapped from demo_type (realtor → realtor · airport → airport_enterprise · noldus → sales_team_agency · creator → creator_influencer · insurance → insurance_agent · retail → retail_chain · supermarket → supermarket_grocery · cstore → c_store · contractor/lighting → contractor_service)
+  - `not_before_at` = 12-24h in future (random) → engine respects this in `_eligible_for_initial`
+- Idempotent: running it twice is a no-op (matched by email).
+- Frontend button (`outbound-seed-from-demos`, emerald-bordered) in the Outbound header.
+
+**2. 4-Email Cadence + Cold Finalization**
+- Existing: Initial → FU1 (day 2) → FU2 (day 5) → FU3 (day 8).
+- New: `_finalize_cold_prospects()` runs every tick — after `MAX_EMAILS_BEFORE_COLD=4` emails AND FU3 cadence elapsed with no reply → `status='cold'` (frontend `outbound-filter-cold` filter + slate badge tone).
+
+**3. Context-Aware Follow-Ups**
+- `_draft_followup(p, which)` now:
+  - Pulls last 3 sent subjects from `outbound_events` via new `_last_sent_subjects()` helper
+  - Injects them into the prompt as **"Prior subjects to avoid repeating"** — forces the AI to pick a different angle
+  - Uses stage-specific instructions per Jeffrey's cadence copy spec: FU1=simple bump (35-55 words), FU2=proof concept + demo link for score≥60 (55-80 words), FU3=low-pressure close (40-60 words)
+  - Cycles through 4 tone variations (direct, warm, curious, observational) to avoid template feel.
+- New helper `_last_sent_subjects(prospect_id, limit=3)`.
+
+**4. Subject Rotation / Phrasing Variation**
+- `_draft_email()` picks a random `style_hint` from `SUBJECT_STYLE_POOL` (6 styles: curiosity-led, specific-to-business, question-form, outcome-focused, observational, referral-style) and injects it into the system prompt → every outgoing email has structurally different subjects.
+- Spam-word stripping + existing rate-limits preserved.
+
+**5. Demo-Viewer-Aware Email Copy**
+- When `source_demo` is set on a prospect, `_draft_email()` switches to a "continuation" prompt — acknowledges they explored the demo, doesn't re-explain, offers concrete next step with a short call or signal-pack link. Matches Jeffrey's "Demo Viewer Follow-Up" copy spec.
+
+**6. Smart Demo Deployment in Cadence**
+- Initial email: teaser link if lead_score ≥ 70 (already shipped).
+- FU2 (day 5): demo link appended for lead_score ≥ 60 (new — captures medium-fit warmup).
+- FU1 + FU3: no link (matches Jeffrey's cadence copy spec).
+
+**7. IMAP Reply Polling (Phase 2 light)**
+- New `imap_poller_loop(db, interval_sec=300)` — runs every 5 min with ±15s jitter. Uses stdlib `imaplib` (no new deps).
+- `_imap_poll_once(db)`:
+  - Connects IMAP_SSL(IMAP_HOST, IMAP_PORT=993), logs in with IMAP_USER/IMAP_PASSWORD, selects INBOX, scans UNSEEN messages (cap 50/tick)
+  - For each, parses From + Subject + text/plain body; matches sender email to an `outbound_prospects` entry
+  - Runs keyword sentiment heuristic (positive: interested/sounds good/yes/tell me more/book/call · negative: unsubscribe/not interested/stop)
+  - Updates prospect `status`, `replied_at`, `reply_body`, `reply_subject`, `reply_sentiment` + logs an `outbound_events.type='replied'` row
+  - Auto-suppresses sender if negative sentiment
+  - IO runs in `run_in_executor` to avoid blocking the event loop
+- **Graceful no-op**: if IMAP_HOST/USER/PASSWORD unset → loop exits with `"[imap] poller not configured — skipping loop"`. Manual endpoint returns `{ok:false, reason:"imap_not_configured"}`.
+- Manual trigger: `POST /api/ops/outbound/imap-poll-now` (founder-only) → frontend "Scan replies" button (`outbound-imap-poll`).
+- **Env vars required to activate**: `IMAP_HOST`, `IMAP_USER`, `IMAP_PASSWORD`, optional `IMAP_PORT=993`, `IMAP_POLLER=off` to disable, `IMAP_POLL_SECONDS=300`.
+
+**8. Frontend UI additions (PortalOpsPage.jsx)**
+- 2 new header buttons: `outbound-seed-from-demos` (emerald "Seed from demo viewers") + `outbound-imap-poll` ("Scan replies")
+- 2 new badges on prospect rows:
+  - `outbound-row-demo-tag-<id>` — green "DEMO · <type>" when `source_demo` present
+  - Amber "SCHEDULED" when `not_before_at` is in the future
+- 2 inline LinkedIn quick-actions (per Jeffrey's "LinkedIn actions should be inline per prospect row" instruction):
+  - `outbound-row-copy-connect-<id>` — shown when `linkedin_connect_body` exists
+  - `outbound-row-open-li-<id>` — shown when `linkedin_url` present
+  - The full LinkedIn modal (`outbound-linkedin-modal`) is still available via the Linkedin icon for detailed editing / regeneration / mark-sent.
+- New filter: `outbound-filter-cold` + slate badge tone on cold status.
+
+### Verified (iteration_28.json)
+- Backend: **15/15 pytest tests PASSED** (`/app/backend/tests/test_iter28_outbound_phase2.py`)
+- seed-from-demos founder-auth ok · exec 403 · unauth 401 · idempotent (2nd run added=0)
+- Seeded prospects validated: source_demo, seeded_from_demo=true, lead_score=82, status=scored, target_segment mapping verified for realtor/airport/noldus, not_before_at within 24h window
+- /prospects/list surfaces all new fields
+- /run-tick respects not_before_at (doesn't email demo viewers within their delay window)
+- imap-poll-now returns `{ok:false, reason:"imap_not_configured"}` (founder) + 403 (exec) + 401 (unauth)
+- Frontend: Founder login → Outbound tab → 5 seeded prospects visible in table with green DEMO badges + amber SCHEDULED badges + inline copy-connect + open-linkedin buttons render correctly · All 4 new header action buttons present · RBAC scoping intact
+
+### System is now fully autonomous
+Jeffrey's priorities per his message, all live:
+- 🟢 Outbound: **Fully autonomous** — scheduler ticks every 5 min, respects 50/day + pause + not_before_at
+- 🟢 Replies: **Approval-gated** — IMAP + manual mark-replied → AI drafts → founder approve/edit/reject
+- 🟢 Pipeline self-seeds from demo viewers (manual + foundation for future auto-trigger)
+- 🟢 4-step cadence with context-aware drafts referencing prior subjects
+- 🟢 Cold-state retirement after 4 emails with no reply
+- 🟢 Deliverability auto-pause + subject/tone variation + spam-word stripping + unsubscribe endpoint
+
+### Outstanding / backlog
+- **IMAP creds** — `IMAP_HOST`, `IMAP_USER`, `IMAP_PASSWORD` need to be added to `.env` to activate real reply polling (currently graceful no-op)
+- **Auto-seed scheduling** — daily background job that invokes seed-from-demos without manual button press (currently founder triggers on demand)
+- PayPal Business integration (P1)
+- Refactor 6x `*DemoPage.jsx` into shared components (P2)
 
 ---
 
