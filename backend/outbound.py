@@ -89,7 +89,30 @@ SEND_WINDOW_HOURS = 14                 # spread sends across 14-hour workday
 MIN_SEND_SPACING_SEC = 60              # hard floor between two sends
 BOUNCE_RATE_PAUSE_THRESHOLD = 0.05     # auto-pause if ≥5 % over last 7 days
 COMPLAINT_RATE_PAUSE_THRESHOLD = 0.003  # auto-pause if ≥0.3 % over last 7 days
-FOLLOWUP_OFFSETS_DAYS = [2, 5, 8]       # cadence
+FOLLOWUP_OFFSETS_DAYS = [2, 5, 8]       # cadence · FU1 / FU2 / FU3
+MAX_EMAILS_BEFORE_COLD = 4              # initial + 3 follow-ups → then cold
+DEMO_VIEWER_DELAY_MIN_HRS = 12          # warm demo viewer delay lower bound
+DEMO_VIEWER_DELAY_MAX_HRS = 24          # warm demo viewer delay upper bound
+DEMO_VIEWER_BASELINE_SCORE = 82         # pre-scored warm lead baseline
+
+# Subject-line rotation seeds — picked per prospect for variety without
+# repeating across the cadence. The AI sees one of these as a style hint.
+SUBJECT_STYLE_POOL = (
+    "curiosity-led, <=6 words",
+    "specific-to-business, <=7 words",
+    "question-form, <=8 words",
+    "outcome-focused, <=6 words",
+    "observational, <=7 words",
+    "referral-style, <=7 words",
+)
+
+# Tone variation cycled through follow-ups to avoid template-feel.
+TONE_VARIATIONS = (
+    "direct and respectful",
+    "warm and brief",
+    "curious and soft",
+    "observational and specific",
+)
 
 # Dumb spam-word filter applied to AI-generated emails.
 SPAM_WORDS = (
@@ -328,20 +351,33 @@ def make_outbound_router(
     async def _draft_email(p: Dict[str, Any], include_teaser: bool) -> Dict[str, str]:
         seg = p.get("target_segment") or "sales_team_agency"
         demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
+        source_demo = p.get("source_demo")
+        is_demo_viewer = bool(source_demo)
         teaser_line = (
             f"If useful, I put together a 90-second teaser: {_public_base()}{demo['route']}"
             if include_teaser else
             ""
         )
-        system = (
-            "You are writing a cold-outreach email on behalf of the CreatorBoostAI team. "
-            "Style: short, human, specific, zero fluff, no hype, no spam tokens. "
-            "CONSTRAINTS: total email body <= 110 words. Zero !!! zero ALL CAPS. "
-            "Include at most one link. Plain text, no markdown. "
-            "Structure: 1-line opener specific to their business · 1-line pain point · "
-            "1-line how CreatorBoostAI helps · soft CTA (one short question). "
-            "Output STRICT JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
-        )
+        style_hint = random.choice(SUBJECT_STYLE_POOL)
+        if is_demo_viewer:
+            system = (
+                "You are writing a first follow-up email to someone who just viewed a CreatorBoostAI demo "
+                "but did NOT book or purchase. They already know the product visually — do NOT re-explain it. "
+                "Acknowledge they explored the demo. Offer a concrete next step (short call, or a specific signal-pack). "
+                f"Style: 80-110 words, plain text, no hype, no !!!, no ALL CAPS. Subject style: {style_hint}. "
+                "Output STRICT JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
+            )
+        else:
+            system = (
+                "You are writing a cold-outreach email on behalf of the CreatorBoostAI team. "
+                "Style: short, human, specific, zero fluff, no hype, no spam tokens. "
+                "CONSTRAINTS: total email body <= 110 words. Zero !!! zero ALL CAPS. "
+                "Include at most one link. Plain text, no markdown. "
+                "Structure: 1-line opener specific to their business · 1-line pain point · "
+                "1-line how CreatorBoostAI helps · soft CTA (one short question). "
+                f"Subject style guidance: {style_hint}. "
+                "Output STRICT JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
+            )
         user = (
             f"Prospect: {p.get('contact_name') or p.get('business_name')}\n"
             f"Business: {p.get('business_name')}\n"
@@ -349,7 +385,8 @@ def make_outbound_router(
             f"Estimated pain: {p.get('estimated_pain') or '—'}\n"
             f"Suggested angle: {p.get('suggested_pitch_angle') or '—'}\n"
             f"Recommended offer: {p.get('recommended_offer') or '—'}\n"
-            f"Teaser demo (optional, include only if helpful): {teaser_line or '(none — do not add any link)'}\n"
+            + (f"They viewed the {source_demo} demo at {_public_base()}{demo['route']}\n" if is_demo_viewer else "")
+            + f"Teaser demo (optional, include only if helpful): {teaser_line or '(none — do not add any link)'}\n"
         )
         raw = await _claude(system, user, session_id=f"email-{p['id']}")
         import json as _json
@@ -365,14 +402,65 @@ def make_outbound_router(
         except Exception:
             return {"subject": "Quick idea", "body": _strip_spammy(raw)[:600]}
 
+    async def _last_sent_subjects(prospect_id: str, limit: int = 3) -> List[str]:
+        cursor = db.outbound_events.find(
+            {"prospect_id": prospect_id, "type": "sent"},
+            {"_id": 0, "subject": 1, "created_at": 1},
+        ).sort("created_at", -1).limit(limit)
+        out: List[str] = []
+        async for r in cursor:
+            if r.get("subject"):
+                out.append(r["subject"])
+        return out
+
     async def _draft_followup(p: Dict[str, Any], which: int) -> Dict[str, str]:
+        """Context-aware follow-up draft. FU1=bump, FU2=proof/demo-link,
+        FU3=low-pressure final. Injects prior subjects so the AI avoids
+        template repetition and actually references the prior thread."""
+        tone = TONE_VARIATIONS[(which - 1) % len(TONE_VARIATIONS)]
+        prior_subjects = await _last_sent_subjects(p["id"], limit=3)
+        prior = "\n".join([f"  · \"{s}\"" for s in prior_subjects]) or "  (no prior subjects recorded)"
+
+        seg = p.get("target_segment") or "sales_team_agency"
+        demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
+        demo_url = f"{_public_base()}{demo['route']}"
+        lead_score = int(p.get("lead_score") or 0)
+
+        # Stage-specific instructions per Jeffrey's cadence spec
+        if which == 1:
+            stage = (
+                "FOLLOW-UP 1 (Day 2) — Simple bump. Acknowledge they may be busy. "
+                "Reinforce the outcome. 35-55 words max. Do NOT add a link."
+            )
+        elif which == 2:
+            include_demo = lead_score >= 60  # hi + medium fit get demo in FU2
+            stage = (
+                "FOLLOW-UP 2 (Day 5) — Introduce a proof concept. Reference how CreatorBoostAI replaces "
+                "manual effort with a concrete outcome. 55-80 words. "
+                + (f"Include exactly ONE link: {demo_url}" if include_demo else "Do NOT add any link.")
+            )
+        else:
+            stage = (
+                "FOLLOW-UP 3 (Day 8) — Final message. Low-pressure close. Ask if the timing is wrong. "
+                "40-60 words. Do NOT add a link. One sentence, one soft question."
+            )
+
         system = (
-            "You are writing a short polite follow-up to a prior cold email that has not received a reply. "
-            "Style: 40-70 words, no hype, no ALL CAPS, no spam tokens. No new link. "
-            "Reference the prior note lightly. End with one soft question. "
+            f"You are writing a short, {tone} follow-up on behalf of CreatorBoostAI. "
+            f"{stage} "
+            "No hype, no ALL CAPS, no spam tokens, plain text, no markdown. "
+            "IMPORTANT: Do NOT reuse any subject line from the prior-subjects list below — pick a different angle. "
+            "Reference the prior thread lightly (e.g., 'following up on my note about …'). "
             "Output STRICT JSON: {\"subject\": \"...\", \"body\": \"...\"}"
         )
-        user = f"Prospect: {p.get('contact_name') or p.get('business_name')}\nBusiness: {p.get('business_name')}\nFollow-up #{which} of {len(FOLLOWUP_OFFSETS_DAYS)}"
+        user = (
+            f"Prospect: {p.get('contact_name') or p.get('business_name')}\n"
+            f"Business: {p.get('business_name')}\n"
+            f"Segment: {SEGMENT_DISPLAY.get(seg, seg)}\n"
+            f"Lead score: {lead_score}\n"
+            f"Follow-up #{which} of {len(FOLLOWUP_OFFSETS_DAYS)}\n"
+            f"Prior subjects to avoid repeating:\n{prior}\n"
+        )
         raw = await _claude(system, user, session_id=f"fu{which}-{p['id']}")
         import json as _json
         m = re.search(r"\{.*\}", raw, flags=re.S)
@@ -516,6 +604,7 @@ def make_outbound_router(
         return ok
 
     async def _eligible_for_initial() -> List[Dict[str, Any]]:
+        now_s = now_iso()
         return await db.outbound_prospects.find(
             {
                 "status": {"$in": ["new", "scored"]},
@@ -523,9 +612,29 @@ def make_outbound_router(
                 "suppressed": {"$ne": True},
                 "emails_sent": {"$lte": 0},
                 "lead_score": {"$gte": 40},
+                "$or": [
+                    {"not_before_at": {"$exists": False}},
+                    {"not_before_at": None},
+                    {"not_before_at": {"$lte": now_s}},
+                ],
             },
             {"_id": 0},
         ).sort("lead_score", -1).to_list(500)
+
+    async def _finalize_cold_prospects() -> int:
+        """After MAX_EMAILS_BEFORE_COLD emails + FU3 cadence elapsed, mark
+        unresponsive prospects as 'cold' so they stop receiving outreach."""
+        cutoff = (now_dt() - timedelta(days=FOLLOWUP_OFFSETS_DAYS[-1])).isoformat()
+        r = await db.outbound_prospects.update_many(
+            {
+                "status": "contacted",
+                "replied_at": None,
+                "emails_sent": {"$gte": MAX_EMAILS_BEFORE_COLD},
+                "last_email_at": {"$lte": cutoff},
+            },
+            {"$set": {"status": "cold", "updated_at": now_iso()}},
+        )
+        return r.modified_count
 
     async def _due_followups() -> List[Dict[str, Any]]:
         cutoffs = [
@@ -593,6 +702,7 @@ def make_outbound_router(
                 continue
 
         await _maybe_auto_pause()
+        await _finalize_cold_prospects()
         return sent_count
 
     # Expose the tick helper for the background scheduler.
@@ -875,6 +985,151 @@ def make_outbound_router(
             raise HTTPException(status_code=404, detail="Draft not found or not pending")
         return {"ok": True}
 
+    async def _seed_demo_viewers(max_per_run: int = 100) -> Dict[str, Any]:
+        """Scan demo_sessions + ops_leads for demo viewers who:
+          · submitted an email
+          · have NOT converted (no subscription / no purchase)
+          · are not already in outbound_prospects or suppression
+        Insert them as warm 'Warm – Demo Viewer' prospects scored 82+,
+        tagged with source_demo, with not_before_at = 12-24h in the future."""
+        added = 0
+        skipped = 0
+        seen_emails: set = set()
+
+        async def _insert_one(*, email: str, name: Optional[str], company: Optional[str],
+                              demo_type: Optional[str], source: str) -> bool:
+            nonlocal added, skipped
+            email_n = (email or "").strip().lower()
+            if not email_n or "@" not in email_n or email_n in seen_emails:
+                return False
+            seen_emails.add(email_n)
+            if await db.outbound_prospects.find_one({"email": email_n}, {"_id": 0, "id": 1}):
+                skipped += 1
+                return False
+            if await db.outbound_suppression.find_one({"email": email_n}, {"_id": 0}):
+                skipped += 1
+                return False
+            # Skip if they already converted (have a successful payment txn)
+            converted = await db.payment_transactions.find_one(
+                {"customer_email": email_n, "payment_status": {"$in": ["paid", "completed", "succeeded"]}},
+                {"_id": 0, "id": 1},
+            )
+            if converted:
+                skipped += 1
+                return False
+
+            seg = _segment_for_demo(demo_type)
+            delay_hours = random.uniform(DEMO_VIEWER_DELAY_MIN_HRS, DEMO_VIEWER_DELAY_MAX_HRS)
+            not_before = (now_dt() + timedelta(hours=delay_hours)).isoformat()
+
+            doc = {
+                "id": str(uuid.uuid4()),
+                "business_name": (company or name or email_n.split("@")[0]).strip()[:240],
+                "contact_name": (name or "").strip() or None,
+                "email": email_n,
+                "industry": SEGMENT_DISPLAY.get(seg, "—"),
+                "website": None, "location": None, "linkedin_url": None,
+                "notes": f"Auto-seeded from {source} · demo={demo_type or 'general'}",
+                "source_demo": demo_type,
+                "source": source,
+                "status": "scored",
+                "lead_score": DEMO_VIEWER_BASELINE_SCORE,
+                "target_segment": seg,
+                "recommended_offer": "Continuation of the demo they already explored",
+                "ai_reasoning": f"Viewed {demo_type or 'a'} demo without converting — high intent warm lead",
+                "estimated_pain": "Needs the outcome the demo showed",
+                "suggested_pitch_angle": "Pick up where the demo left off",
+                "emails_sent": 0, "email_status": None,
+                "last_email_at": None, "replied_at": None, "reply_body": None,
+                "reply_sentiment": None,
+                "linkedin_connect_body": None, "linkedin_followup_body": None,
+                "linkedin_connect_sent_at": None, "linkedin_followup_sent_at": None,
+                "linkedin_accepted": False,
+                "unsubscribed": False, "suppressed": False,
+                "not_before_at": not_before,
+                "seeded_from_demo": True,
+                "created_at": now_iso(), "updated_at": now_iso(),
+            }
+            try:
+                await db.outbound_prospects.insert_one(doc)
+                added += 1
+                return True
+            except Exception as e:
+                log.error(f"demo-seed insert failed: {e}")
+                return False
+
+        # Source 1 — demo_sessions with recipient_email (shared-link viewers)
+        cutoff = (now_dt() - timedelta(days=60)).isoformat()
+        async for s in db.demo_sessions.find(
+            {
+                "recipient_email": {"$nin": [None, ""]},
+                "started_at": {"$gte": cutoff},
+            },
+            {"_id": 0, "recipient_email": 1, "recipient_name": 1, "recipient_company": 1, "demo_type": 1},
+        ):
+            if added >= max_per_run:
+                break
+            await _insert_one(
+                email=s.get("recipient_email") or "",
+                name=s.get("recipient_name"),
+                company=s.get("recipient_company"),
+                demo_type=(s.get("demo_type") or "").lower() or None,
+                source="demo_session",
+            )
+
+        # Source 2 — ops_leads with source_demo populated (demo-attributed leads
+        # that haven't closed_won).
+        if added < max_per_run:
+            async for lead in db.ops_leads.find(
+                {
+                    "contact_email": {"$nin": [None, ""]},
+                    "source_demo": {"$nin": [None, ""]},
+                    "status": {"$nin": ["won", "closed_won"]},
+                    "created_at": {"$gte": cutoff},
+                },
+                {"_id": 0, "contact_email": 1, "contact_name": 1, "company": 1, "source_demo": 1},
+            ):
+                if added >= max_per_run:
+                    break
+                await _insert_one(
+                    email=lead.get("contact_email") or "",
+                    name=lead.get("contact_name"),
+                    company=lead.get("company"),
+                    demo_type=(lead.get("source_demo") or "").lower() or None,
+                    source="ops_lead",
+                )
+
+        return {"added": added, "skipped": skipped}
+
+    def _segment_for_demo(demo_type: Optional[str]) -> str:
+        """Map a demo_type string back to a target_segment key."""
+        if not demo_type:
+            return "sales_team_agency"
+        d = demo_type.lower()
+        mapping = {
+            "realtor": "realtor",
+            "insurance": "insurance_agent",
+            "creator": "creator_influencer",
+            "influencer": "creator_influencer",
+            "noldus": "sales_team_agency",
+            "enterprise": "sales_team_agency",
+            "supermarket": "supermarket_grocery",
+            "grocery": "supermarket_grocery",
+            "retail": "retail_chain",
+            "cstore": "c_store",
+            "c_store": "c_store",
+            "airport": "airport_enterprise",
+            "contractor": "contractor_service",
+            "lighting": "contractor_service",
+        }
+        return mapping.get(d, "sales_team_agency")
+
+    @router.post("/seed-from-demos")
+    async def seed_from_demos(payload: OpsAuth):
+        await require_founder(payload)
+        r = await _seed_demo_viewers(max_per_run=100)
+        return {"ok": True, **r}
+
     @router.post("/run-tick")
     async def run_tick(payload: OpsAuth):
         """Manual kick of the scheduler. Background loop also runs every 5 min."""
@@ -989,4 +1244,142 @@ async def background_scheduler_loop(
         await asyncio.sleep(interval_sec + random.randint(-15, 15))
 
 
-__all__ = ["make_outbound_router", "background_scheduler_loop"]
+# ════════════════════════════════════════════════════════════════════
+# IMAP REPLY POLLER — Phase 2 light implementation
+# ════════════════════════════════════════════════════════════════════
+async def _imap_poll_once(db) -> Dict[str, Any]:
+    """Connect to IMAP, scan UNSEEN messages in INBOX, match sender email to
+    a known prospect, and record a reply + enqueue a draft. Best-effort: any
+    misconfig or error returns `{ok: False, reason: '...'}` instead of raising."""
+    host = os.environ.get("IMAP_HOST", "").strip()
+    user = os.environ.get("IMAP_USER", "").strip()
+    password = os.environ.get("IMAP_PASSWORD", "").strip()
+    if not (host and user and password):
+        return {"ok": False, "reason": "imap_not_configured"}
+
+    import imaplib
+    import email as stdlib_email
+    from email.header import decode_header
+
+    def _decode(s):
+        if not s:
+            return ""
+        parts = decode_header(s)
+        out = ""
+        for p, enc in parts:
+            if isinstance(p, bytes):
+                try:
+                    out += p.decode(enc or "utf-8", errors="ignore")
+                except Exception:
+                    out += p.decode("utf-8", errors="ignore")
+            else:
+                out += p
+        return out
+
+    def _blocking_scan() -> List[Dict[str, str]]:
+        results: List[Dict[str, str]] = []
+        try:
+            M = imaplib.IMAP4_SSL(host, int(os.environ.get("IMAP_PORT", "993")))
+            M.login(user, password)
+            M.select("INBOX")
+            typ, data = M.search(None, "UNSEEN")
+            if typ != "OK":
+                M.logout()
+                return []
+            ids = data[0].split()
+            for uid in ids[-50:]:  # cap per tick
+                typ, msg_data = M.fetch(uid, "(RFC822)")
+                if typ != "OK" or not msg_data or not msg_data[0]:
+                    continue
+                raw = msg_data[0][1]
+                msg = stdlib_email.message_from_bytes(raw)
+                from_addr = stdlib_email.utils.parseaddr(msg.get("From", ""))[1].lower()
+                subject = _decode(msg.get("Subject", ""))[:240]
+                body = ""
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        if part.get_content_type() == "text/plain":
+                            try:
+                                body = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8", errors="ignore")
+                                break
+                            except Exception:
+                                continue
+                else:
+                    try:
+                        body = msg.get_payload(decode=True).decode(msg.get_content_charset() or "utf-8", errors="ignore")
+                    except Exception:
+                        body = ""
+                results.append({"from": from_addr, "subject": subject, "body": body[:4000], "uid": uid.decode()})
+            M.logout()
+        except Exception as e:
+            log.error(f"[imap] scan failed: {e}")
+            return []
+        return results
+
+    loop = asyncio.get_event_loop()
+    messages = await loop.run_in_executor(None, _blocking_scan)
+
+    matched = 0
+    for m in messages:
+        prospect = await db.outbound_prospects.find_one({"email": m["from"]}, {"_id": 0})
+        if not prospect:
+            continue
+        if prospect.get("replied_at"):
+            continue  # already recorded
+        # Rudimentary sentiment heuristic: look for keywords
+        b = m["body"].lower()
+        positive = any(k in b for k in ("interested", "sounds good", "yes", "tell me more", "let's", "book", "call"))
+        negative = any(k in b for k in ("unsubscribe", "remove me", "not interested", "stop", "no thanks"))
+        sentiment = "positive" if positive and not negative else ("negative" if negative else "neutral")
+        status = "replied_positive" if sentiment == "positive" else ("not_interested" if sentiment == "negative" else "replied")
+        await db.outbound_prospects.update_one(
+            {"id": prospect["id"]},
+            {"$set": {
+                "status": status,
+                "replied_at": datetime.now(timezone.utc).isoformat(),
+                "reply_body": m["body"][:4000],
+                "reply_subject": m["subject"],
+                "reply_sentiment": sentiment,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+        await db.outbound_events.insert_one({
+            "id": str(uuid.uuid4()),
+            "prospect_id": prospect["id"],
+            "type": "replied",
+            "day_key": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "sentiment": sentiment,
+            "source": "imap",
+        })
+        if negative:
+            await db.outbound_suppression.update_one(
+                {"email": m["from"]},
+                {"$set": {"reason": "imap_opted_out", "updated_at": datetime.now(timezone.utc).isoformat()}},
+                upsert=True,
+            )
+            await db.outbound_prospects.update_one({"id": prospect["id"]}, {"$set": {"suppressed": True}})
+        matched += 1
+    return {"ok": True, "scanned": len(messages), "matched": matched}
+
+
+async def imap_poller_loop(db, interval_sec: int = 300) -> None:
+    """Best-effort IMAP poller. Disabled gracefully if IMAP_* env vars are
+    unset or the server is unreachable."""
+    if os.environ.get("IMAP_POLLER", "on").lower() == "off":
+        log.info("[imap] poller disabled by env")
+        return
+    # First check required env — if missing, exit the loop silently
+    if not all(os.environ.get(k, "").strip() for k in ("IMAP_HOST", "IMAP_USER", "IMAP_PASSWORD")):
+        log.info("[imap] poller not configured — skipping loop")
+        return
+    log.info("[imap] poller loop starting")
+    while True:
+        try:
+            await _imap_poll_once(db)
+        except Exception as e:
+            log.error(f"[imap] tick error: {e}")
+        await asyncio.sleep(interval_sec + random.randint(-15, 15))
+
+
+__all__ = ["make_outbound_router", "background_scheduler_loop", "imap_poller_loop", "_imap_poll_once"]

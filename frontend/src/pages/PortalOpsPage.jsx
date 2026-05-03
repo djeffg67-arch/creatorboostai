@@ -720,6 +720,7 @@ const OUTBOUND_STATUS_TONE = {
     replied_positive: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
     not_interested:   "border-rose-500/30 bg-rose-500/5 text-rose-300",
     unsubscribed:     "border-rose-500/30 bg-rose-500/5 text-rose-300",
+    cold:             "border-slate-500/30 bg-slate-500/5 text-slate-400",
 };
 
 const RISK_TONE = {
@@ -1143,7 +1144,26 @@ const ProspectRow = ({ p, auth, onChange, onLinkedin }) => {
         <tr className="border-t border-white/5 hover:bg-white/5" data-testid={`outbound-prospect-row-${p.id}`}>
             <td className="px-3 py-2">
                 <p className="text-sm font-semibold text-white">{p.business_name}</p>
-                <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400">{p.contact_name || "—"}</p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                    <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400">{p.contact_name || "—"}</p>
+                    {p.source_demo && (
+                        <span
+                            className="rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.22em] text-emerald-300"
+                            data-testid={`outbound-row-demo-tag-${p.id}`}
+                            title="Seeded from demo viewer"
+                        >
+                            demo · {p.source_demo}
+                        </span>
+                    )}
+                    {p.not_before_at && new Date(p.not_before_at) > new Date() && (
+                        <span
+                            className="rounded-sm border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.22em] text-amber-300"
+                            title={`Outreach delayed until ${p.not_before_at}`}
+                        >
+                            scheduled
+                        </span>
+                    )}
+                </div>
             </td>
             <td className="px-3 py-2 text-xs text-slate-300">{p.email}</td>
             <td className="px-3 py-2">
@@ -1175,9 +1195,35 @@ const ProspectRow = ({ p, auth, onChange, onLinkedin }) => {
                     >
                         <Sparkles size={12} />
                     </button>
+                    {/* Inline LinkedIn quick-actions — shown only when messages have been generated */}
+                    {p.linkedin_connect_body && (
+                        <button
+                            onClick={async () => {
+                                try { await navigator.clipboard.writeText(p.linkedin_connect_body); toast.success("Connect copied"); }
+                                catch { toast.error("Copy failed"); }
+                            }}
+                            title="Copy connect message"
+                            data-testid={`outbound-row-copy-connect-${p.id}`}
+                            className="rounded-md border border-white/10 p-1.5 text-cyan-300 hover:border-cyan-500/40 hover:bg-cyan-500/10"
+                        >
+                            <Copy size={12} />
+                        </button>
+                    )}
+                    {p.linkedin_url && (
+                        <a
+                            href={p.linkedin_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Open LinkedIn profile"
+                            data-testid={`outbound-row-open-li-${p.id}`}
+                            className="rounded-md border border-white/10 p-1.5 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"
+                        >
+                            <ExternalLink size={12} />
+                        </a>
+                    )}
                     <button
                         onClick={() => onLinkedin?.(p)}
-                        title="LinkedIn Assist"
+                        title="LinkedIn Assist (generate / edit / mark sent)"
                         data-testid={`outbound-row-linkedin-${p.id}`}
                         className="rounded-md border border-white/10 p-1.5 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"
                     >
@@ -1332,6 +1378,31 @@ const OutboundTab = ({ auth }) => {
         } finally { setBusy(false); }
     };
 
+    const seedFromDemos = async () => {
+        setBusy(true);
+        try {
+            const r = await opsOutboundSeedFromDemos(auth);
+            toast.success(`Seeded ${r.added} demo viewers · skipped ${r.skipped}`);
+            refresh();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Seed failed");
+        } finally { setBusy(false); }
+    };
+
+    const imapPoll = async () => {
+        setBusy(true);
+        try {
+            const r = await opsOutboundImapPollNow(auth);
+            if (r.ok) toast.success(`IMAP scan · ${r.scanned} new · ${r.matched} matched`);
+            else toast.message(`IMAP ${r.reason || "not configured"}`);
+            if (r.matched) refresh();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "IMAP poll failed");
+        } finally { setBusy(false); }
+    };
+
     const runTick = async () => {
         setBusy(true);
         try {
@@ -1366,12 +1437,30 @@ const OutboundTab = ({ auth }) => {
             <SectionHeader sub="Autonomous Outbound Sales Engine" title="Outbound command center">
                 <div className="flex flex-wrap items-center gap-2">
                     <button
+                        onClick={seedFromDemos}
+                        disabled={busy}
+                        data-testid="outbound-seed-from-demos"
+                        className="inline-flex items-center gap-2 rounded-md border border-emerald-500/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-60"
+                        title="Auto-import demo viewers who submitted email but didn't convert"
+                    >
+                        <Users size={11} /> Seed from demo viewers
+                    </button>
+                    <button
                         onClick={scoreAll}
                         disabled={busy}
                         data-testid="outbound-score-all"
                         className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-60"
                     >
                         <Sparkles size={11} /> Score unscored
+                    </button>
+                    <button
+                        onClick={imapPoll}
+                        disabled={busy}
+                        data-testid="outbound-imap-poll"
+                        className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-60"
+                        title="Manually scan IMAP inbox for replies"
+                    >
+                        <Inbox size={11} /> Scan replies
                     </button>
                     <button
                         onClick={runTick}

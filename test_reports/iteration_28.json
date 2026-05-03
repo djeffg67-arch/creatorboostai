@@ -1,0 +1,45 @@
+{
+  "summary": "Iter 28 — Outbound Phase 2 (demo-viewer seeding, IMAP poll, cold-state finalization, context-aware follow-ups, UI additions). Backend: 15/15 pytest tests PASSED on /app/backend/tests/test_iter28_outbound_phase2.py — seed-from-demos founder-auth + exec 403 + unauth 401, idempotency (2nd run added=0), seeded prospect fields validated (source_demo, seeded_from_demo=True, lead_score=82, status=scored, target_segment mapping realtor/airport/noldus confirmed, not_before_at within 24h window), /prospects/list exposes new fields, /run-tick does not email prospects with not_before_at in future, imap-poll-now returns {ok:false, reason:imap_not_configured} (founder) + 403 (exec) + 401 (unauth), _finalize_cold_prospects code path present + fresh prospects not marked cold. Frontend: Founder login → Outbound tab → 3 new header buttons present (seed-from-demos, imap-poll, run-tick). Seeded 5 prospects visible in table with green 'DEMO · airport/realtor/noldus' badges (data-testid outbound-row-demo-tag-<id>) and amber SCHEDULED badges. 2 open-linkedin buttons + 1 copy-connect button render on applicable rows (data-testid outbound-row-open-li-<id> / outbound-row-copy-connect-<id>). RBAC scoping intact (exec master key → 403 on both new endpoints).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "OutboundTab filter bar", "issue": "Missing 'Cold' filter button — spec requires data-testid=outbound-filter-cold. filterBtns array at PortalOpsPage.jsx:1425-1433 only has [all, unscored, scored, high, contacted, replied_positive, not_interested]. Cold-filter entry must be added so founders can review cold prospects separately.", "selector": "[data-testid=outbound-filter-cold]", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Scan replies button (IMAP poll)", "issue": "On first observed run, clicking 'Scan replies' produced a red error toast 'IMAP poll failed' instead of the expected neutral 'IMAP imap_not_configured' toast. On the second clean run the toast did not appear at all (no toast text captured). The imapPoll() handler (PortalOpsPage.jsx:1393-1404) correctly branches on r.ok but the red toast suggests the axios call intermittently threw before returning — possibly because it was fired while busy=true from a preceding click. Recommend (a) disabling the button when busy, (b) logging the actual axios error in the catch block to diagnose, and (c) re-verifying in isolation.", "affected_selectors": ["[data-testid=outbound-imap-poll]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter28_outbound_phase2.py",
+    "/app/test_reports/pytest/iter28_results.xml"
+  ],
+  "action_items": [
+    "Add 'cold' entry to filterBtns array in PortalOpsPage.jsx OutboundTab (line ~1425): [\"cold\", \"Cold\"]. Ensure data-testid=outbound-filter-cold renders and the filtered useMemo handles status=='cold'.",
+    "Investigate the intermittent 'IMAP poll failed' error toast — likely a double-click / busy-state race. Consider disabling buttons when busy=true and surfacing the real axios error message in the catch block."
+  ],
+  "critical_code_review_comments": [
+    "outbound.py /seed-from-demos (line 1127-1131): no `max_per_run` override from payload. Hard-coded to 100. Fine for MVP; consider exposing a query-param cap for controlled back-fills of very large demo_sessions collections.",
+    "outbound.py _seed_demo_viewers (line 988-1102) reads demo_sessions with a 60-day cutoff AND ops_leads with the same 60-day cutoff. Any demo viewer older than 60 days will never be eligible for re-seeding even if they haven't converted. Document or expose this as a tunable constant DEMO_SEED_LOOKBACK_DAYS.",
+    "outbound.py _finalize_cold_prospects (line 624-637) uses FOLLOWUP_OFFSETS_DAYS[-1] (=8 days) as the cold-cutoff. That means a prospect who got all 4 emails and the 4th was sent less than 8 days ago is still 'contacted' not 'cold'. The spec says '4 emails + FU3 cadence (8 days) elapsed'. The implementation is correct but the constant coupling is subtle — extract MAX_COLD_GRACE_DAYS = FOLLOWUP_OFFSETS_DAYS[-1] for readability.",
+    "PortalOpsPage.jsx is now 2158 lines (>700 line guideline, up from 2068 last iteration). Same recommendation as last iter — split OutboundTab + sub-components into /pages/portal/outbound/*.jsx.",
+    "server.py imap-poll-now endpoint (line 3381-3388) constructs an ad-hoc class _A with email/token to pass to _require_outbound_founder. Every other outbound endpoint uses the OpsAuth Pydantic model via the router. Inconsistent auth pattern — consider moving this endpoint into the outbound router for uniformity or using a shared dependency.",
+    "frontend/src/lib/api.js helpers opsOutboundSeedFromDemos + opsOutboundImapPollNow (line 365-369) don't coerce non-ok HTTP responses uniformly. A 500 from backend currently throws; a 200 with ok:false is returned as data. Consumers must branch on both. Document in api.js or add a helper."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter28_outbound_phase2.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 passed)",
+    "frontend": "83% (5/6 critical checks — cold filter missing; seed button + imap button + demo-tag badges + scheduled badges + open-li buttons + copy-connect button all render correctly)"
+  },
+  "test_credentials": "Founder master key: jeffrey-2026-bodyiq-founder-master · Executive master key: erin-flanigan-2026-executive-president-master — both authenticate via POST /api/ops/{founder|executive}-access with body {key:<master_key>}",
+  "seed_data_creation": "seed-from-demos run during test produced 5 seeded prospects (source_demo: airport×2, realtor×2, noldus×1) scored 82, status=scored, not_before_at 12-24h in future. Pre-existing TEST_ prospects from iter 27 still present (4 rows). No new prospects added via UI this iteration.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression suite: pytest /app/backend/tests/test_iter28_outbound_phase2.py -v (needs REACT_APP_BACKEND_URL env var set). iter27 tests also still valid. The test_idempotent_second_run_skips assertion is strict (added==0) — if fresh demo_sessions appear between runs it could fail benignly; treat as flaky if it occurs. Mark-cold test is code-inspection-based because directly mutating emails_sent=4 and last_email_at=15d-ago is not possible via public API. To integration-test mark-cold, the next agent should use the mongo shell or a temporary internal endpoint.",
+  "rca of the issue": "Cold-filter-button missing: filterBtns array in PortalOpsPage.jsx:1425-1433 was updated for this iteration but the 'cold' tuple was omitted. Single-line fix: add ['cold', 'Cold'] to the array. The 'cold' status tone is already defined at line 723 so styling will work immediately. IMAP-poll toast anomaly: likely a double-click/busy race — the handler sets busy=true synchronously but the button is not disabled on the busy prop, so a rapid second click re-enters the handler and the axios call may race with the first one's response, causing an unhandled promise rejection that triggers the catch block's generic error toast. Mitigation: gate the onClick with `disabled={busy}` on the button."
+}

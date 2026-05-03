@@ -361,3 +361,9 @@ export const opsOutboundDraftReject = (payload) =>
 
 export const opsOutboundRunTick = (auth) =>
     api.post("/ops/outbound/run-tick", auth).then((r) => r.data);
+
+export const opsOutboundSeedFromDemos = (auth) =>
+    api.post("/ops/outbound/seed-from-demos", auth).then((r) => r.data);
+
+export const opsOutboundImapPollNow = (auth) =>
+    api.post("/ops/outbound/imap-poll-now", auth).then((r) => r.data);

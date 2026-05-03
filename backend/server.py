@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query, Request, Body
 from fastapi.responses import Response, RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -3272,7 +3272,7 @@ app.include_router(make_ops_router(db, email_service=_OpsEmailAdapter), prefix="
 
 
 # ---------- Outbound Prospecting Engine (Iter 39 Phase 1) ----------
-from outbound import make_outbound_router, background_scheduler_loop  # noqa: E402
+from outbound import make_outbound_router, background_scheduler_loop, imap_poller_loop, _imap_poll_once  # noqa: E402
 
 
 async def _require_outbound_founder(payload) -> Dict[str, Any]:
@@ -3371,7 +3371,21 @@ async def _start_outbound_scheduler():
         send_founder_notification=send_founder_notification,
         interval_sec=int(os.environ.get("OUTBOUND_TICK_SECONDS", "300")),
     ))
-    logging.getLogger(__name__).info("[outbound] background scheduler dispatched")
+    _asyncio.create_task(imap_poller_loop(
+        db,
+        interval_sec=int(os.environ.get("IMAP_POLL_SECONDS", "300")),
+    ))
+    logging.getLogger(__name__).info("[outbound] background scheduler + imap poller dispatched")
+
+
+@app.post("/api/ops/outbound/imap-poll-now")
+async def outbound_imap_poll_now(payload: Dict[str, Any] = Body(...)):  # noqa: B008
+    """Manual IMAP poll trigger — founder-only. Returns the scan result."""
+    class _A:
+        email = (payload.get("email") or "").strip()
+        token = (payload.get("token") or "").strip()
+    await _require_outbound_founder(_A())
+    return await _imap_poll_once(db)
 
 
 @app.on_event("shutdown")
