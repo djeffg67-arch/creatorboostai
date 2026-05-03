@@ -1,6 +1,75 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-03 (Iter 38 — LIVE STRIPE FULLY ACTIVATED · 8/8 products returning real cs_live_ checkout URLs)
+**Last update:** 2026-05-03 (Iter 39 — Outbound Sales Engine Phase 1 COMPLETE · Command Center UI + AI + Scheduler live)
+
+---
+
+## 🚀 ITER 39 — AUTONOMOUS OUTBOUND SALES ENGINE · Phase 1 COMPLETE
+
+**Delivered a full founder-controlled outbound command center that runs autonomously while giving Jeffrey oversight at the key approval moments.** Backend (from Iter 38.5) + full Frontend UI shipped this iteration.
+
+### What Jeffrey requested (verbatim priorities)
+- Keep everything — KPI dashboard, Deliverability panel, Prospects table with full actions, CSV upload, AI drafts queue, LinkedIn assist MODAL, Run Tick Now button
+- Modal for LinkedIn (cleaner UI + scalable for future sequencing)
+- Highly visible deliverability with risk levels (Low/Medium/High) + color warning when risk rises + auto-pause toggle
+- Run Tick Now must be prominent + pause/resume control + visibility into what goes out before it sends
+- Reflect: 50/day sending limit, smart demo deployment (only when appropriate), follow-up automation, reply approval gating, daily autonomous operation
+- Command center, not a simple tool. Founder control layer = fast decisions + visibility without slowing automation
+
+### Backend (already shipped in Iter 38.5 — `/app/backend/outbound.py`)
+- 17 endpoints under `/api/ops/outbound/*` — all founder-gated
+- 9 target segments mapped to 6 cinematic demos via `DEMO_MAP`
+- AI scoring + email drafts + LinkedIn drafts + follow-up cadence (2d/5d/8d) + positive-reply drafts via Claude Sonnet 4.5 through Emergent LLM Key
+- Deliverability guardrails: auto-pause if bounce ≥5% OR complaint ≥0.3% over last 7 days (≥50 sends)
+- Daily limit = 50 with natural 60s min spacing + 14h send-window distribution
+- Public unsubscribe endpoint `GET /api/ops/outbound/unsubscribe/{token}?e=<email>` with deterministic hash token
+- Spam-word stripping on every AI draft
+- Background scheduler: `background_scheduler_loop` running every 5 min (±15s jitter), dispatched at server startup; disable with `OUTBOUND_SCHEDULER=off`
+- New MongoDB collections: `outbound_prospects`, `outbound_events`, `outbound_suppression`, `outbound_drafts`, `outbound_campaign_state`
+
+### Frontend (Iter 39 — `/app/frontend/src/pages/PortalOpsPage.jsx`)
+- New sidebar tab `nav-outbound` (founder-only, gated by `me.scopes.can_see_settings`)
+- **KPI Strip** (`outbound-kpi-strip`) — 8 tiles: Total prospects, Scored, Contacted, Replied, Positive, Unsubs, Reply rate, Sent today (with daily-limit progress %)
+- **Deliverability Panel** (`outbound-deliverability-panel`) — Risk pill (low/medium/high with rose animate-pulse on high), auto-pause toggle (`outbound-pause-toggle`), Sent / Bounced / Complained / bounce rate / complaint rate tiles, rose alert band shown on high risk
+- **Top bar actions** — `outbound-score-all` (score all unscored), `outbound-run-tick` (prominent cyan "Run tick now" button), `outbound-refresh`
+- **Add Prospect form** (`outbound-add-form`) — 7 fields + notes textarea
+- **CSV Upload** (`outbound-csv-upload`) — dropzone supporting business_name / contact_name / email / industry / website / location / linkedin_url / notes columns
+- **View switcher** — Prospects / Reply Drafts with counts
+- **Filters** — all / unscored / scored / high (70+) / contacted / positive / not_interested
+- **Prospects table** — Business · Email · Segment (cyan pill per segment) · Score (emerald≥80 · cyan≥60 · amber≥40 · rose<40) · Status · Emails sent · Actions (Score, LinkedIn, Positive reply, Negative reply)
+- **LinkedIn Modal** (`outbound-linkedin-modal`) — AI-generates connect (≤300) + followup (≤600) messages, Copy-to-clipboard buttons, Mark-as-sent buttons, Open LinkedIn Profile link, Regenerate with AI
+- **Drafts view** — AI-drafted positive-reply responses with Edit / Approve & Send / Reject controls; pre-filled subject + body preview
+
+### Frontend API helpers added (`/app/frontend/src/lib/api.js`)
+14 new helpers: `opsOutboundState`, `opsOutboundDashboard`, `opsOutboundPause`, `opsOutboundListProspects`, `opsOutboundAddProspect`, `opsOutboundUploadProspects` (multipart + query auth), `opsOutboundScore`, `opsOutboundScoreAll`, `opsOutboundLinkedinGenerate`, `opsOutboundLinkedinMarkSent`, `opsOutboundMarkReplied`, `opsOutboundDraftsList`, `opsOutboundDraftApprove`, `opsOutboundDraftReject`, `opsOutboundRunTick`.
+
+### Verified (iteration_27.json) — 21/21 backend + 14/14 frontend
+- ✅ Auth enforcement: executive → 403 on every outbound endpoint · no-auth → 401 · founder → 200
+- ✅ Dashboard shape (kpi+state+deliverability+segments+warm_leads+sent_today)
+- ✅ Pause/resume toggle, prospect add/list/duplicate-409
+- ✅ CSV upload (added=2, skipped=1 for bad row)
+- ✅ AI score + LinkedIn-generate (EMERGENT_LLM_KEY configured → 200 with real Claude responses)
+- ✅ LinkedIn mark-sent (connect+followup), mark-replied (neutral/positive/negative paths), drafts list, run-tick, public unsubscribe 403 on bad token
+- ✅ Founder login → `nav-outbound` visible → `tab-outbound` renders with all panels
+- ✅ Add Prospect form → created new prospect, list refreshed (5 rows)
+- ✅ LinkedIn modal opens on row click, closes via close button
+- ✅ View switcher toggles Prospects ↔ Reply Drafts
+- ✅ Pause toggle flipped "Pause engine" → "Resume engine"
+- ✅ Executive login (erin master key) does NOT see `nav-outbound` — RBAC scoping correct
+
+### System behavior now aligned with Jeffrey's spec
+- 🟢 50/day sending limit — enforced via `DAILY_LIMIT_DEFAULT=50` in campaign state, visible in KPI tile
+- 🟢 Smart demo deployment — teaser link added only for lead_score ≥70
+- 🟢 Follow-up automation — 2d/5d/8d cadence via `_due_followups()`
+- 🟢 Reply approval gating — positive replies auto-drafted into approval queue (never sent without founder click)
+- 🟢 Daily autonomous operation — background scheduler ticks every 5 min respecting pause + daily limit
+- 🟢 Founder control layer — single Outbound tab with 1-click pause, run-tick, score-all
+
+### Outstanding / not in scope
+- LinkedIn scraping/auto-posting: DELIBERATELY NOT BUILT (per Jeffrey's "Keep LinkedIn human-assisted" rule). UI surfaces AI drafts + Copy + Open Profile only.
+- IMAP/webhook reply detection: DELIBERATELY NOT BUILT for Phase 1. Manual "Mark Replied" button + per-prospect sentiment capture.
+- PayPal Business integration (P1, awaiting Client ID + Secret from user)
+- Refactor `*DemoPage.jsx` shared components (P2 backlog)
 
 ---
 
