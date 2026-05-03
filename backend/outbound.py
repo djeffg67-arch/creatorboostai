@@ -387,11 +387,17 @@ def make_outbound_router(
             ""
         )
         style_hint = random.choice(SUBJECT_STYLE_POOL)
+        calendly = os.environ.get("CALENDLY_URL", "").strip()
+        calendly_line = (
+            f"Open to a 15-min call to see if this fits? Book any slot here: {calendly}"
+            if calendly else "Open to a quick call to see if this fits?"
+        )
         if is_demo_viewer:
             system = (
                 "You are writing a first follow-up email to someone who just viewed a CreatorBoostAI demo "
                 "but did NOT book or purchase. They already know the product visually — do NOT re-explain it. "
                 "Acknowledge they explored the demo. Offer a concrete next step (short call, or a specific signal-pack). "
+                f"CTA requirement: end with a booking offer using this exact line verbatim on its own line: '{calendly_line}' "
                 f"Style: 80-110 words, plain text, no hype, no !!!, no ALL CAPS. Subject style: {style_hint}. "
                 "Output STRICT JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
             )
@@ -399,10 +405,11 @@ def make_outbound_router(
             system = (
                 "You are writing a cold-outreach email on behalf of the CreatorBoostAI team. "
                 "Style: short, human, specific, zero fluff, no hype, no spam tokens. "
-                "CONSTRAINTS: total email body <= 110 words. Zero !!! zero ALL CAPS. "
-                "Include at most one link. Plain text, no markdown. "
+                "CONSTRAINTS: total email body <= 120 words. Zero !!! zero ALL CAPS. "
+                "Plain text, no markdown. "
                 "Structure: 1-line opener specific to their business · 1-line pain point · "
-                "1-line how CreatorBoostAI helps · soft CTA (one short question). "
+                "1-line how CreatorBoostAI helps · booking CTA. "
+                f"CTA requirement: end with this exact line verbatim on its own line: '{calendly_line}' "
                 f"Subject style guidance: {style_hint}. "
                 "Output STRICT JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
             )
@@ -523,17 +530,24 @@ def make_outbound_router(
         seg = p.get("target_segment") or "sales_team_agency"
         demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
         full_demo = f"{_public_base()}{demo['route']}"
+        calendly = os.environ.get("CALENDLY_URL", "").strip()
+        booking_instruction = (
+            f"Include this Calendly booking URL as a direct call-to-action line: {calendly}"
+            if calendly else
+            "End with a question like 'does Tuesday or Wednesday work for a 15-min call?'"
+        )
         system = (
             "You are drafting a reply to a warm prospect who showed interest. "
-            "Style: warm, short, offer a concrete next step (demo, brief call, or link). "
-            "Include exactly one link: the best-fit demo URL provided. "
+            "Style: warm, short (80-120 words), offer a concrete next step to book a meeting. "
+            f"{booking_instruction} "
+            "Also reference the best-fit demo URL if appropriate. "
             "Output STRICT JSON: {\"subject\": \"...\", \"body\": \"...\"}"
         )
         user = (
             f"Prospect: {p.get('contact_name') or p.get('business_name')}\n"
             f"They replied: {reply_body[:1200]}\n"
-            f"Best-fit demo URL to include: {full_demo}\n"
-            f"Offer: {p.get('recommended_offer') or 'book a 20-min call'}"
+            f"Best-fit demo URL: {full_demo}\n"
+            f"Offer: {p.get('recommended_offer') or 'book a 20-min discovery call'}"
         )
         raw = await _claude(system, user, session_id=f"reply-{p['id']}")
         import json as _json
@@ -1670,6 +1684,92 @@ def make_outbound_router(
             ],
         }
 
+    @router.post("/admin/self-test-e2e")
+    async def admin_self_test_e2e(payload: Dict[str, Any] = Body(...)):
+        """End-to-end validation of the demo → capture → score → send pipeline.
+        Body: {email, token, test_email, demo? defaults to 'education', send_real_email? bool}.
+        Returns step-by-step trace so Jeffrey can verify each phase from one URL.
+        When send_real_email=true AND RESEND_API_KEY is set, fires a real email
+        to test_email via the outbound sender."""
+        class _A:
+            email = (payload.get("email") or "").strip()
+            token = (payload.get("token") or "").strip()
+        await require_founder(_A())
+        test_email = (payload.get("test_email") or "").strip().lower()
+        if "@" not in test_email:
+            raise HTTPException(400, "test_email required")
+        demo_key = (payload.get("demo") or "education").strip().lower()
+        send_real = bool(payload.get("send_real_email"))
+
+        trace: Dict[str, Any] = {"test_email": test_email, "demo": demo_key}
+
+        # Step 1 · simulate a page view
+        await db.demo_page_views.insert_one({
+            "id": str(uuid.uuid4()), "demo": demo_key, "scene": 0,
+            "referrer": "self-test", "ip": None, "ua": "self-test",
+            "created_at": now_iso(),
+        })
+        trace["step1_view_logged"] = True
+
+        # Step 2 · simulate a capture
+        segment = _segment_for_demo(demo_key)
+        existing = await db.outbound_prospects.find_one({"email": test_email}, {"_id": 0, "id": 1})
+        if existing:
+            # Clean slate for this test — remove the existing record so we can trace end-to-end
+            await db.outbound_prospects.delete_one({"email": test_email})
+        prospect_id = str(uuid.uuid4())
+        demo_info = DEMO_MAP.get(segment) or DEMO_MAP["sales_team_agency"]
+        doc = {
+            "id": prospect_id,
+            "business_name": f"Self-Test · {test_email.split('@')[1]}",
+            "contact_name": "Self Test",
+            "email": test_email,
+            "industry": demo_key,
+            "source": "demo_capture",
+            "source_demo": demo_key,
+            "captured_from_demo": True,
+            "intent": "high",
+            "status": "scored",
+            "lead_score": 85,
+            "target_segment": segment,
+            "recommended_offer": f"Continuation of the {demo_key} demo",
+            "ai_reasoning": "self-test",
+            "estimated_pain": "needs the outcome the demo illustrated",
+            "suggested_pitch_angle": "pick up where the demo left off",
+            "emails_sent": 0, "email_status": None,
+            "last_email_at": None, "replied_at": None,
+            "unsubscribed": False, "suppressed": False,
+            "not_before_at": now_iso(),  # eligible immediately for the self-test
+            "created_at": now_iso(), "updated_at": now_iso(),
+        }
+        await db.outbound_prospects.insert_one(doc)
+        trace["step2_prospect_id"] = prospect_id
+        trace["step2_segment"] = segment
+        trace["step2_demo_route"] = demo_info["route"]
+
+        # Step 3 · draft the outreach email
+        draft = await _draft_email(doc, include_teaser=True)
+        trace["step3_drafted_subject"] = draft.get("subject")
+        trace["step3_body_preview"] = (draft.get("body") or "")[:400]
+        trace["step3_calendly_included"] = bool(os.environ.get("CALENDLY_URL", "").strip()) and (
+            os.environ.get("CALENDLY_URL", "").strip() in (draft.get("body") or "")
+        )
+
+        # Step 4 · optionally fire a REAL email (Phase 10 validation)
+        trace["step4_send_requested"] = send_real
+        trace["step4_resend_configured"] = bool(os.environ.get("RESEND_API_KEY", "").strip())
+        if send_real and trace["step4_resend_configured"]:
+            ok = await _send_one(doc, draft["subject"], draft["body"], kind="initial")
+            trace["step4_sent"] = bool(ok)
+        elif send_real:
+            trace["step4_sent"] = False
+            trace["step4_error"] = "RESEND_API_KEY not configured in this environment"
+        else:
+            trace["step4_sent"] = False
+            trace["step4_note"] = "skipped (send_real_email=false)"
+
+        return {"ok": True, "trace": trace}
+
     # ── Clay inbound webhook ── public, secret-gated. Clay → POST → outbound.
     @router.post("/clay-webhook")
     async def clay_webhook(body: Dict[str, Any]):
@@ -1933,6 +2033,8 @@ async def _imap_poll_once(db) -> Dict[str, Any]:
         b = m["body"].lower()
         positive = any(k in b for k in ("interested", "sounds good", "yes", "tell me more", "let's", "book", "call"))
         negative = any(k in b for k in ("unsubscribe", "remove me", "not interested", "stop", "no thanks"))
+        # "Reply YES" / "YES" shortcut — auto-respond with Calendly link
+        is_yes_shortcut = bool(re.match(r"^\s*(yes|yeah|yep|sure|ok|sounds good|let'?s do it)[\s\.\!\?]*$", b.strip().split("\n")[0][:60]))
         sentiment = "positive" if positive and not negative else ("negative" if negative else "neutral")
         status = "replied_positive" if sentiment == "positive" else ("not_interested" if sentiment == "negative" else "replied")
         await db.outbound_prospects.update_one(
@@ -1943,6 +2045,7 @@ async def _imap_poll_once(db) -> Dict[str, Any]:
                 "reply_body": m["body"][:4000],
                 "reply_subject": m["subject"],
                 "reply_sentiment": sentiment,
+                "reply_category": "yes_shortcut" if is_yes_shortcut else None,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }},
         )
@@ -1954,6 +2057,7 @@ async def _imap_poll_once(db) -> Dict[str, Any]:
             "created_at": datetime.now(timezone.utc).isoformat(),
             "sentiment": sentiment,
             "source": "imap",
+            "yes_shortcut": is_yes_shortcut,
         })
         if negative:
             await db.outbound_suppression.update_one(
@@ -1962,6 +2066,29 @@ async def _imap_poll_once(db) -> Dict[str, Any]:
                 upsert=True,
             )
             await db.outbound_prospects.update_one({"id": prospect["id"]}, {"$set": {"suppressed": True}})
+        # YES shortcut → auto-send Calendly booking link (no founder approval needed)
+        if is_yes_shortcut:
+            calendly = os.environ.get("CALENDLY_URL", "").strip()
+            if calendly:
+                try:
+                    from email_service import send_raw
+                    body_html = (
+                        f"<p>Great — let's get a time on the calendar.</p>"
+                        f"<p>Pick any slot that works for you here:<br/><a href='{calendly}'>{calendly}</a></p>"
+                        f"<p>Looking forward to it.<br/>Jeffrey · CreatorBoostAI</p>"
+                    )
+                    await send_raw(m["from"], f"Re: {m['subject']}", body_html)
+                    await db.outbound_events.insert_one({
+                        "id": str(uuid.uuid4()),
+                        "prospect_id": prospect["id"],
+                        "type": "calendly_sent",
+                        "day_key": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "calendly_url": calendly,
+                    })
+                    log.info(f"[imap] YES shortcut → Calendly auto-sent to {m['from']}")
+                except Exception as e:
+                    log.error(f"[imap] YES auto-response failed: {e}")
         matched += 1
     return {"ok": True, "scanned": len(messages), "matched": matched}
 
