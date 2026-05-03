@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "@/components/site/Layout";
+import axios from "axios";
+import { toast } from "sonner";
 import {
     GraduationCap, Activity, Zap, Wallet, Wrench, Zap as ZapIcon,
     Lightbulb, TrendingDown, Building2, Network, AlertTriangle,
-    CheckCircle2, Play, Pause, RotateCcw, ChevronRight,
+    CheckCircle2, Play, Pause, RotateCcw, ChevronRight, Lock, Mail, X,
 } from "lucide-react";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // ══════════════════════════════════════════════════════════════════
 // SCHOOL DISTRICT INTELLIGENCE SYSTEM · 7-SCENE CINEMATIC DEMO
@@ -275,6 +279,131 @@ const SCENE_COMPONENTS = {
 };
 
 // ══════════════════════════════════════════════════════════════════
+// Soft-gate email capture modal — shown at Scene 3 (once per session)
+// ══════════════════════════════════════════════════════════════════
+const DEMO_KEY = "education";
+const GATE_STORAGE_KEY = `cb_demo_gate_${DEMO_KEY}`;
+
+const SoftGateModal = ({ open, onClose, onSuccess }) => {
+    const [form, setForm] = useState({ email: "", name: "", company: "", role: "" });
+    const [busy, setBusy] = useState(false);
+
+    const submit = async (e) => {
+        e?.preventDefault?.();
+        if (!form.email.includes("@")) { toast.error("Work email required"); return; }
+        setBusy(true);
+        try {
+            const { data } = await axios.post(`${API}/demo/capture`, {
+                email: form.email.trim().toLowerCase(),
+                demo: DEMO_KEY,
+                name: form.name.trim() || null,
+                company: form.company.trim() || null,
+                role: form.role.trim() || null,
+            });
+            // Persist so we never re-prompt this browser
+            try { sessionStorage.setItem(GATE_STORAGE_KEY, "1"); } catch { /* noop */ }
+            toast.success(`Unlocked · tailored follow-up in ${data.scheduled_outreach_hours}h`);
+            onSuccess?.(data);
+        } catch (err) {
+            const detail = err?.response?.data?.detail;
+            toast.error(typeof detail === "string" ? detail : "Could not save email");
+        } finally { setBusy(false); }
+    };
+
+    if (!open) return null;
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/85 p-4 backdrop-blur-sm"
+            data-testid="school-demo-gate-modal"
+        >
+            <form
+                onSubmit={submit}
+                className="w-full max-w-md rounded-lg border border-cyan-500/30 bg-ink-900 p-6 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/40 bg-cyan-500/10 px-3 py-1">
+                            <Lock size={11} className="text-cyan-300" />
+                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Unlock full insights</span>
+                        </div>
+                        <h3 className="font-heading mt-3 text-xl font-semibold text-white">
+                            Enter your work email to unlock full system insights
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                            You'll see the rest of the demo now and get a tailored follow-up referencing what you viewed.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        data-testid="school-demo-gate-close"
+                        className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-white"
+                        title="Keep watching without sharing"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
+
+                <div className="mt-5 space-y-2">
+                    <div className="relative">
+                        <Mail size={13} className="pointer-events-none absolute left-3 top-3 text-slate-500" />
+                        <input
+                            required
+                            type="email"
+                            placeholder="work email *"
+                            value={form.email}
+                            onChange={(e) => setForm({ ...form, email: e.target.value })}
+                            data-testid="school-demo-gate-email"
+                            className="w-full rounded-md border border-white/10 bg-ink-800 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+                            autoFocus
+                        />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="name (optional)"
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        data-testid="school-demo-gate-name"
+                        className="w-full rounded-md border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                        <input
+                            type="text"
+                            placeholder="district / company"
+                            value={form.company}
+                            onChange={(e) => setForm({ ...form, company: e.target.value })}
+                            data-testid="school-demo-gate-company"
+                            className="w-full rounded-md border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+                        />
+                        <input
+                            type="text"
+                            placeholder="role"
+                            value={form.role}
+                            onChange={(e) => setForm({ ...form, role: e.target.value })}
+                            data-testid="school-demo-gate-role"
+                            className="w-full rounded-md border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+                        />
+                    </div>
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={busy}
+                    data-testid="school-demo-gate-submit"
+                    className="mt-5 w-full rounded-md bg-cyan-500 py-2.5 font-mono text-[11px] uppercase tracking-[0.22em] text-ink-900 hover:bg-cyan-400 disabled:opacity-60"
+                >
+                    {busy ? "Unlocking…" : "Unlock full demo insights"}
+                </button>
+                <p className="mt-2 text-center font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
+                    No spam · unsubscribe anywhere
+                </p>
+            </form>
+        </div>
+    );
+};
+
+// ══════════════════════════════════════════════════════════════════
 // Main page · scene player
 // ══════════════════════════════════════════════════════════════════
 
@@ -283,6 +412,27 @@ export default function SchoolDistrictDemoPage() {
     const [playing, setPlaying] = useState(true);
     const [elapsed, setElapsed] = useState(0);
     const startRef = useRef(Date.now());
+    const [gateOpen, setGateOpen] = useState(false);
+    const [gatePassed, setGatePassed] = useState(() => {
+        try { return sessionStorage.getItem(GATE_STORAGE_KEY) === "1"; } catch { return false; }
+    });
+
+    // Log a demo view on mount (fires once per page-load)
+    useEffect(() => {
+        axios.post(`${API}/demo/view`, {
+            demo: DEMO_KEY,
+            referrer: document.referrer || null,
+            scene: 0,
+        }).catch(() => {});
+    }, []);
+
+    // Open soft gate when viewer reaches Scene 3 (idx 2), once per session
+    useEffect(() => {
+        if (!gatePassed && idx >= 2 && !gateOpen) {
+            setGateOpen(true);
+            setPlaying(false);
+        }
+    }, [idx, gatePassed, gateOpen]);
 
     useEffect(() => {
         if (!playing) return;
@@ -390,6 +540,13 @@ export default function SchoolDistrictDemoPage() {
                     </div>
                 </div>
             </section>
+
+            {/* Soft-gate email capture modal */}
+            <SoftGateModal
+                open={gateOpen}
+                onClose={() => { setGateOpen(false); /* soft gate — keep watching */ setPlaying(true); }}
+                onSuccess={() => { setGatePassed(true); setGateOpen(false); setPlaying(true); }}
+            />
         </Layout>
     );
 }

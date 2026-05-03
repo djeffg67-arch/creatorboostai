@@ -1,6 +1,69 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-03 (Iter 46 — Education vertical LIVE · Demo delivery tracking fixed · School District Intelligence System 7-scene demo shipped)
+**Last update:** 2026-05-03 (Iter 47 — Demo View → Outbound Pipeline Auto-Injection · Soft-gate email capture · Inbound demo leads KPI)
+
+---
+
+## 🎯 ITER 47 — DEMO → PIPELINE AUTO-INJECTION
+
+Jeffrey's spec: convert demo traffic into qualified leads automatically via soft-gate email capture at Scene 3, auto-seed as warm (80+) prospect, delayed 12-24h outreach, dashboard KPIs for conversion tracking.
+
+### Shipped
+
+**1. 3 new public API endpoints**
+- `POST /api/demo/view` — logs page visit to `demo_page_views` (demo, scene, referrer, ip, ua). Fires on every `/demo/<vertical>` mount.
+- `POST /api/demo/capture` — accepts `{email, demo, name?, company?, role?}`. Creates warm `outbound_prospects` row with `source="demo_capture"`, `intent="high"`, `lead_score=85`, `target_segment` mapped from demo, `not_before_at = now + (12-24h random)`. Idempotent by email (returns `is_new_prospect: false` on re-capture). Fires founder email notification via Resend.
+- Existing `/api/demo/session/start` preserved (used by other share-link demos).
+
+**2. New MongoDB collections**
+- `demo_page_views` — every visit to a demo page
+- `demo_captures` — every soft-gate submission (even if prospect already existed)
+
+**3. Frontend soft gate on `/demo/education`**
+- New `<SoftGateModal>` component: modal with cyan "UNLOCK FULL INSIGHTS" badge, Jeffrey's exact headline "Enter your work email to unlock full system insights", 4 inputs (work email required + name + district/company + role), cyan "UNLOCK FULL DEMO INSIGHTS" CTA, soft-close (X) so viewers can keep watching without submitting.
+- Triggered automatically when the scene index reaches 2 (Scene 3 · The Gap) — respects Jeffrey's spec "At Scene 3 or 4, prompt".
+- Once-per-session via `sessionStorage.cb_demo_gate_education`.
+- Page mount auto-logs a `/demo/view` event.
+- On submit → toast "Unlocked · tailored follow-up in Xh", sets gatePassed=true, resumes scene player.
+
+**4. New dashboard KPI tiles (founder-only)**
+- **Inbound demo leads** (count of `source="demo_capture"` prospects) — emerald tone
+- **Demo conversion** (captures / views × 100, clamped to 100%) — cyan tone
+- Added to `/api/ops/performance` response: `inbound_demo_leads`, `demo_views_total`, `demo_captures_total`, `demo_conversion_rate`
+
+### Live verification
+```
+POST /api/demo/view       → {ok:true}
+POST /api/demo/capture    → {
+  ok:true, prospect_id:"2eb508ad-…", scheduled_outreach_hours:17,
+  is_new_prospect:true, segment:"education_school"
+}
+POST /api/demo/capture (same email) → is_new=False (idempotent ✓)
+GET  /api/ops/performance →
+  inbound_demo_leads: 1
+  demo_views_total: 1
+  demo_captures_total: 2
+  demo_conversion_rate: 100.0%
+```
+
+### Lifecycle of a captured lead
+1. Visitor lands on `/demo/education` → `/api/demo/view` logged
+2. Scene auto-advances → reaches Scene 3 (The Gap) → soft-gate modal opens
+3. Viewer submits email → `/api/demo/capture` creates prospect score=85 · `not_before_at = now + 17h`
+4. Viewer continues demo + reads Scenes 4-7 + sees CTA to `/apply`
+5. 17h later → autopilot loop sees them eligible (past `not_before_at`, score ≥70 threshold ✓) → Claude drafts demo-viewer-specific outreach email ("continuation of the education demo you explored")
+6. Email sent via Resend (when key is configured) or simulated for `.example.com` — counter increments
+7. Reply detected via IMAP or manual mark-replied → AI drafts reply → founder approves/rejects
+
+### Outstanding / backlog
+- **P0** — Redeploy preview → production
+- **P0** — `RESEND_API_KEY` in prod .env
+- **P0** — SPF/DKIM/DMARC on creatorboostai.com
+- **P1** — Apply soft-gate to the 6 other cinematic demos (Realtor / Insurance / Creator / Airport / Noldus / Supermarket / Lighting) — same `<SoftGateModal>` component, different `demo` key
+- **P1** — Apollo/Outscraper/Clay/Instantly/Smartlead keys
+- **P1** — IMAP creds
+- **P1** — PayPal Business
+- **P2** — Refactor `*DemoPage.jsx` shared components (now that `SchoolDistrictDemoPage` demonstrates the pattern cleanly)
 
 ---
 

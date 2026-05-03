@@ -1431,6 +1431,10 @@ def make_router(db, email_service=None) -> APIRouter:
         # --- Outbound engine activity (founders + president see it; EMs see 0) ---
         ob_total = ob_new = ob_contacted = ob_qualified = ob_demo_sent = 0
         ob_sent_today = 0
+        ob_captured = 0
+        demo_views_total = 0
+        demo_captures_total = 0
+        demo_conversion_rate = 0.0
         if user["role"] in ELEVATED_ROLES:
             ob_total      = await db.outbound_prospects.count_documents({"source": {"$ne": "internal_archived"}})
             ob_new        = await db.outbound_prospects.count_documents({"status": {"$in": ["new", "scored"]}, "source": {"$ne": "internal_archived"}})
@@ -1439,6 +1443,13 @@ def make_router(db, email_service=None) -> APIRouter:
             # demos sent by the engine = prospects with demo_sent_at populated
             # (FU2 demo-link injection + initial teaser for score≥70 prospects).
             ob_demo_sent  = await db.outbound_prospects.count_documents({"demo_sent_at": {"$ne": None}, "source": {"$ne": "internal_archived"}})
+            # Demo conversion analytics (Inbound demo lead capture)
+            ob_captured = await db.outbound_prospects.count_documents({"source": "demo_capture"})
+            demo_views_total = await db.demo_page_views.count_documents({})
+            demo_captures_total = await db.demo_captures.count_documents({})
+            demo_conversion_rate = (
+                round(min(100.0, (demo_captures_total / demo_views_total) * 100), 2) if demo_views_total else 0.0
+            )
             # today's outbound sends
             from datetime import datetime as _dt, timezone as _tz
             today_key = _dt.now(_tz.utc).strftime("%Y-%m-%d")
@@ -1506,6 +1517,11 @@ def make_router(db, email_service=None) -> APIRouter:
             # Breakdown — lets the UI distinguish manual CRM from engine-generated
             "crm_leads_total": crm_total,
             "outbound_prospects_total": ob_total,
+            # Inbound demo capture metrics (Jeffrey's soft-gate spec)
+            "inbound_demo_leads": ob_captured,
+            "demo_views_total": demo_views_total,
+            "demo_captures_total": demo_captures_total,
+            "demo_conversion_rate": demo_conversion_rate,
             # Automation status panel
             "automation": {
                 "engine_paused": bool((ob_state or {}).get("paused")),

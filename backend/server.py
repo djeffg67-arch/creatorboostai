@@ -2638,6 +2638,165 @@ async def demo_session_start(payload: DemoSessionStart, http_request: Request):
     return DemoSessionStartOut(session_id=sid, started_at=now.isoformat())
 
 
+# ══════════════════════════════════════════════════════════════════
+# Soft-gate demo capture → Outbound pipeline auto-injection
+# ══════════════════════════════════════════════════════════════════
+class DemoCaptureIn(BaseModel):
+    email: str = Field(..., min_length=4, max_length=240)
+    demo: str = Field(..., min_length=1, max_length=60)
+    name: Optional[str] = Field(default=None, max_length=160)
+    company: Optional[str] = Field(default=None, max_length=240)
+    role: Optional[str] = Field(default=None, max_length=160)
+
+
+_SEGMENT_FROM_DEMO = {
+    "realtor": "realtor", "insurance": "insurance_agent",
+    "creator": "creator_influencer", "influencer": "creator_influencer",
+    "noldus": "sales_team_agency", "enterprise": "sales_team_agency",
+    "supermarket": "supermarket_grocery", "grocery": "supermarket_grocery",
+    "retail": "retail_chain", "cstore": "c_store", "c_store": "c_store",
+    "airport": "airport_enterprise", "contractor": "contractor_service",
+    "lighting": "contractor_service", "education": "education_school",
+    "school": "education_school", "k12": "education_school",
+    "university": "education_school",
+}
+
+
+@api_router.post("/demo/view", status_code=201)
+async def demo_view(payload: Dict[str, Any] = Body(...), http_request: Request = None):  # noqa: B008
+    """Log a demo page view for conversion analytics. Fires on every visit
+    to `/demo/<vertical>`. No PII required."""
+    demo = (payload.get("demo") or "").strip().lower()[:60]
+    if not demo:
+        raise HTTPException(400, "demo required")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "demo": demo,
+        "scene": int(payload.get("scene") or 0),
+        "referrer": (payload.get("referrer") or "")[:500] or None,
+        "ip": http_request.client.host if http_request and http_request.client else None,
+        "ua": (http_request.headers.get("user-agent", "") if http_request else "")[:240],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.demo_page_views.insert_one(doc)
+    return {"ok": True}
+
+
+@api_router.post("/demo/capture", status_code=201)
+async def demo_capture(payload: DemoCaptureIn, http_request: Request):
+    """Soft-gate capture: when a demo viewer submits their work email,
+    auto-seed them as a warm prospect in the outbound pipeline with a
+    12-24h delayed first outreach.
+
+    Idempotent by email — submitting twice just updates the `last_capture_at`
+    on the existing prospect and doesn't send duplicate emails.
+    """
+    email = payload.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(400, "Invalid email")
+    demo_key = payload.demo.strip().lower()
+    segment = _SEGMENT_FROM_DEMO.get(demo_key, "sales_team_agency")
+    display_company = (payload.company or payload.name or email.split("@")[0]).strip()[:240]
+
+    existing = await db.outbound_prospects.find_one({"email": email}, {"_id": 0, "id": 1, "source": 1})
+    delay_hours = 12 + secrets.randbelow(13)  # 12-24h (inclusive lower bound)
+    not_before = (datetime.now(timezone.utc) + timedelta(hours=delay_hours)).isoformat()
+
+    if existing:
+        # Bump existing — boost score, attach demo reference, reset delay
+        await db.outbound_prospects.update_one(
+            {"id": existing["id"]},
+            {"$set": {
+                "source_demo": demo_key,
+                "last_capture_at": datetime.now(timezone.utc).isoformat(),
+                "captured_from_demo": True,
+                "intent": "high",
+                "not_before_at": not_before,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+        result_id = existing["id"]
+        is_new = False
+    else:
+        doc = {
+            "id": str(uuid.uuid4()),
+            "business_name": display_company,
+            "contact_name": (payload.name or "").strip()[:160] or None,
+            "email": email,
+            "industry": demo_key,
+            "website": None,
+            "location": None,
+            "linkedin_url": None,
+            "notes": f"Captured from /demo/{demo_key} soft-gate",
+            "source": "demo_capture",
+            "source_demo": demo_key,
+            "captured_from_demo": True,
+            "intent": "high",
+            "role": (payload.role or "").strip()[:160] or None,
+            "status": "scored",
+            "lead_score": 85,  # pre-scored warm per Jeffrey spec (80+)
+            "target_segment": segment,
+            "recommended_offer": f"Continuation of the {demo_key} demo they just explored",
+            "ai_reasoning": f"Self-identified intent — viewed {demo_key} demo and shared work email",
+            "estimated_pain": f"Needs the outcome the {demo_key} demo illustrated",
+            "suggested_pitch_angle": "Pick up where the demo left off",
+            "emails_sent": 0, "email_status": None,
+            "last_email_at": None, "replied_at": None, "reply_body": None,
+            "reply_sentiment": None, "reply_category": None,
+            "linkedin_connect_body": None, "linkedin_followup_body": None,
+            "linkedin_connect_sent_at": None, "linkedin_followup_sent_at": None,
+            "linkedin_accepted": False,
+            "unsubscribed": False, "suppressed": False,
+            "not_before_at": not_before,
+            "seeded_from_demo": True,
+            "demos_delivered": 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.outbound_prospects.insert_one(doc)
+        result_id = doc["id"]
+        is_new = True
+
+    # Log capture for conversion analytics
+    await db.demo_captures.insert_one({
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "demo": demo_key,
+        "name": payload.name,
+        "company": payload.company,
+        "role": payload.role,
+        "prospect_id": result_id,
+        "is_new_prospect": is_new,
+        "ip": http_request.client.host if http_request.client else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    # Fire-and-forget founder notification so Jeffrey knows a hot demo lead just landed
+    try:
+        await send_founder_notification(
+            to_email=os.environ.get("FOUNDER_EMAIL", "").strip() or os.environ.get("APPLICATIONS_INBOX", "").strip(),
+            subject=f"[CreatorBoostAI] Hot demo lead · {display_company} · {demo_key}",
+            body_html=(
+                f"<p>A new <strong>{demo_key}</strong> demo viewer just captured their email:</p>"
+                f"<ul><li>Email: <code>{email}</code></li>"
+                f"<li>Name: {payload.name or '—'}</li>"
+                f"<li>Company: {payload.company or '—'}</li>"
+                f"<li>Role: {payload.role or '—'}</li></ul>"
+                f"<p>Outreach will fire automatically in {delay_hours}h. Pre-scored 85 · segment <code>{segment}</code>.</p>"
+            ),
+        )
+    except Exception as _e:
+        pass
+
+    return {
+        "ok": True,
+        "prospect_id": result_id,
+        "scheduled_outreach_hours": delay_hours,
+        "is_new_prospect": is_new,
+        "segment": segment,
+    }
+
+
 async def _maybe_queue_half_view_notification(session: Dict[str, Any]) -> None:
     """When progress crosses 50% for the first time, persist a founder
     notification record. Email delivery (via Resend) is best-effort and only

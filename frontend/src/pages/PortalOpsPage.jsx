@@ -238,6 +238,8 @@ const PerformanceTab = ({ auth, me }) => {
         { Icon: DollarSign, label: "Won value",       value: fmtUSD(data.won_value_usd), tone: "emerald" },
         { Icon: Send,       label: "Outreach sent",   value: data.outreach_sent, tone: "cyan" },
         { Icon: Lightbulb,  label: "Demos sent",      value: data.demos_sent, tone: "cyan" },
+        { Icon: UserPlus,   label: "Inbound demo leads", value: data.inbound_demo_leads ?? 0, tone: "emerald" },
+        { Icon: Activity,   label: "Demo conversion",    value: `${data.demo_conversion_rate ?? 0}%`, tone: "cyan" },
     ];
     const toneCls = { white: "border-white/10 bg-ink-700/40", cyan: "border-cyan-500/30 bg-cyan-500/5", emerald: "border-emerald-500/30 bg-emerald-500/5" };
 
