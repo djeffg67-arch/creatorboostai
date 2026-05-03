@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 29 (Outbound Phase 3 · Autopilot + Lead Sources + 8-cat reply taxonomy) tested. Backend 100% pass (13/13 pytest). Frontend renders all new elements correctly (sources row, 5 source pills gray, Last cycle timestamp, 'Run autopilot now' button). BUT integration bug: clicking 'Run autopilot now' shows toast 'Autopilot cycle failed' because the axios client has a global timeout: 30000ms while the backend cycle takes 20-60s (Claude scoring). Backend actually completes successfully — verified via curl & pytest — but the UI reports failure due to premature client-side timeout.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Outbound · Run autopilot now",
+        "issue": "axios client global timeout is 30000ms (see /app/frontend/src/lib/api.js line 22). The /autopilot-now endpoint legitimately takes 20-60s because it calls Claude for scoring up to 50 prospects. When the client-side 30s timeout fires first, the handler catches the axios error and shows toast.error('Autopilot cycle failed') — even though the backend cycle completes successfully on the server. User sees false failure; subsequent refresh of last_autopilot_run does NOT happen because refresh() is in the try block. Fix: in opsOutboundAutopilotNow, pass { timeout: 180000 } as 3rd arg to api.post, OR increase the global axios timeout. Repro: go to /portal/ops → Outbound → click 'Run autopilot now' → wait 30s → red 'Autopilot cycle failed' toast appears (backend log shows cycle completes anyway).",
+        "affected_selectors": ["[data-testid=\"outbound-run-tick\"]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter29_outbound_phase3.py",
+    "/app/test_reports/pytest/iter29_phase3.xml"
+  ],
+  "action_items": [
+    "Fix axios timeout for opsOutboundAutopilotNow in /app/frontend/src/lib/api.js — change to: api.post('/ops/outbound/autopilot-now', auth, { timeout: 180000 }).then(r => r.data). Verify the 'Run autopilot now' button then shows the success toast 'Autopilot complete · seeded N · scored M · sent X' after ~40s and the 'Last cycle' label refreshes."
+  ],
+  "critical_code_review_comments": [
+    "outbound.py is ~1674 lines — getting large; consider splitting autopilot logic (cycle + daily loop) into outbound_autopilot.py in a future iteration.",
+    "/api/ops/outbound/autopilot-now endpoint blocks the HTTP request for up to 60s synchronously while Claude scores prospects. Fine for founder-only manual trigger, but if ever exposed to multiple concurrent callers this will exhaust worker threads. Consider running scoring concurrently (asyncio.gather with a semaphore of ~5) or returning a job_id immediately and streaming progress via /autopilot-history.",
+    "clay-webhook accepts rows list but silently caps at 200 without reporting truncation in the response; consider returning {added, skipped, truncated:true} when len(rows)>200."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter29_outbound_phase3.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13)",
+    "frontend": "86% (6/7 — all elements render + respond, but Run autopilot integration shows false failure toast due to axios timeout)"
+  },
+  "test_credentials": "Founder master key: jeffrey-2026-bodyiq-founder-master (via POST /api/ops/founder-access); Executive master key: erin-flanigan-2026-executive-president-master (via /api/ops/executive-access). Both return {email, token} which are the portal credentials used in OpsAuth payloads.",
+  "seed_data_creation": "test_iter29_*@example.com prospects created by mark-replied tests (3 prospects — unsubscribe/needs_demo/not_interested). Safe to leave; they are email-prefixed for filtering.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Autopilot response schema has all 11 required keys (ok, started_at, seeded{added,skipped}, external_added, sources_configured, scored, sent_this_cycle, imap, cold_finalized, finished_at, sent_today) — confirmed. RBAC enforced correctly (founder 200, executive 403, bad creds 401). The 8-category mark-replied correctly sets unsubscribed=true+suppressed=true for 'unsubscribe', status=replied_positive for 'needs_demo', status=not_interested+suppressed=true for 'not_interested'. Clay webhook returns 503 as expected since CLAY_WEBHOOK_SECRET is unset. Only remaining issue after fix: verify Run autopilot now button success toast + refreshed Last cycle label.",
+  "rca of the issue": "Bug: frontend shows 'Autopilot cycle failed' toast after clicking 'Run autopilot now' button. Root cause: /app/frontend/src/lib/api.js line 22 creates axios instance with timeout: 30000ms. The /api/ops/outbound/autopilot-now endpoint legitimately takes 20-60s because _autopilot_cycle → _score_batch calls Claude sequentially for up to 50 unscored prospects. When client times out at 30s, axios rejects, PortalOpsPage runTick catch fires, toast.error('Autopilot cycle failed') appears. Backend continues and completes the cycle normally — confirmed via curl --max-time 120 returning full payload AND via pytest test_autopilot_now_founder_full_cycle passing. Mitigation: pass per-request timeout override in opsOutboundAutopilotNow: api.post('/ops/outbound/autopilot-now', auth, { timeout: 180000 })."
+}

@@ -1329,6 +1329,60 @@ const DraftCard = ({ draft, auth, onChange }) => {
     );
 };
 
+const SourcesStatusRow = ({ dash }) => {
+    if (!dash) return null;
+    const sources = dash.sources_configured || {};
+    const last = dash.last_autopilot_run;
+    const items = [
+        { id: "apollo",     label: "Apollo.io",     desc: "B2B sourcing" },
+        { id: "outscraper", label: "Outscraper",    desc: "Google Maps" },
+        { id: "clay",       label: "Clay",          desc: "Enrichment / orchestration" },
+        { id: "instantly",  label: "Instantly.ai",  desc: "Sender (Phase B)" },
+        { id: "smartlead",  label: "Smartlead",     desc: "Sender (Phase B)" },
+    ];
+    const lastRunAt = last?.started_at;
+    let lastRunRel = "never";
+    if (lastRunAt) {
+        const elapsedMs = Date.now() - new Date(lastRunAt).getTime();
+        const mins = Math.round(elapsedMs / 60000);
+        lastRunRel = mins < 60 ? `${mins}m ago` : mins < 1440 ? `${Math.round(mins / 60)}h ago` : `${Math.round(mins / 1440)}d ago`;
+    }
+    return (
+        <div
+            className="rounded-md border border-white/10 bg-ink-700/30 p-4"
+            data-testid="outbound-sources-row"
+        >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Lead sources · daily autopilot</p>
+                    <p className="mt-1 font-mono text-[10px] text-slate-400">
+                        Last cycle: <span className="text-slate-200" data-testid="outbound-last-autopilot">{lastRunRel}</span>
+                        {last && (
+                            <> · seeded {last.seeded?.added || 0} · scored {last.scored || 0} · sent {last.sent_this_cycle || 0}</>
+                        )}
+                    </p>
+                </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+                {items.map((it) => {
+                    const ok = !!sources[it.id];
+                    return (
+                        <span
+                            key={it.id}
+                            data-testid={`outbound-source-${it.id}`}
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[9px] uppercase tracking-[0.22em] ${ok ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-ink-900 text-slate-500"}`}
+                            title={it.desc}
+                        >
+                            {ok ? <CheckCircle2 size={9} /> : <XCircle size={9} />}
+                            {it.label}
+                        </span>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 const OutboundTab = ({ auth }) => {
     const [dash, setDash] = useState(null);
     const [prospects, setProspects] = useState([]);
@@ -1406,12 +1460,15 @@ const OutboundTab = ({ auth }) => {
     const runTick = async () => {
         setBusy(true);
         try {
-            const r = await opsOutboundRunTick(auth);
-            toast.success(`Tick complete · ${r.sent_this_tick} sent · ${r.sent_today} today`);
+            const r = await opsOutboundAutopilotNow(auth);
+            const seeded = r.seeded?.added || 0;
+            const scored = r.scored || 0;
+            const sent = r.sent_this_cycle || 0;
+            toast.success(`Autopilot complete · seeded ${seeded} · scored ${scored} · sent ${sent}`);
             refresh();
         } catch (e) {
             const d = e?.response?.data?.detail;
-            toast.error(typeof d === "string" ? d : "Tick failed");
+            toast.error(typeof d === "string" ? d : "Autopilot cycle failed");
         } finally { setBusy(false); }
     };
 
@@ -1467,8 +1524,9 @@ const OutboundTab = ({ auth }) => {
                         disabled={busy}
                         data-testid="outbound-run-tick"
                         className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-900 hover:bg-cyan-400 disabled:opacity-60"
+                        title="Run full autopilot cycle: seed → score → send → poll replies → finalize cold"
                     >
-                        <Zap size={11} /> Run tick now
+                        <Zap size={11} /> Run autopilot now
                     </button>
                     <button
                         onClick={refresh}
@@ -1488,6 +1546,7 @@ const OutboundTab = ({ auth }) => {
                 <>
                     <OutboundKPIStrip dash={dash} />
                     <DeliverabilityPanel dash={dash} onTogglePause={togglePause} busy={busy} />
+                    <SourcesStatusRow dash={dash} />
 
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                         <AddProspectForm auth={auth} onAdded={refresh} />

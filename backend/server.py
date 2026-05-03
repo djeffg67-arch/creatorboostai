@@ -3272,7 +3272,7 @@ app.include_router(make_ops_router(db, email_service=_OpsEmailAdapter), prefix="
 
 
 # ---------- Outbound Prospecting Engine (Iter 39 Phase 1) ----------
-from outbound import make_outbound_router, background_scheduler_loop, imap_poller_loop, _imap_poll_once  # noqa: E402
+from outbound import make_outbound_router, background_scheduler_loop, imap_poller_loop, _imap_poll_once, daily_autopilot_loop  # noqa: E402
 
 
 async def _require_outbound_founder(payload) -> Dict[str, Any]:
@@ -3375,7 +3375,13 @@ async def _start_outbound_scheduler():
         db,
         interval_sec=int(os.environ.get("IMAP_POLL_SECONDS", "300")),
     ))
-    logging.getLogger(__name__).info("[outbound] background scheduler + imap poller dispatched")
+    _asyncio.create_task(daily_autopilot_loop(
+        db,
+        send_outbound_email=_send_outbound_email,
+        send_founder_notification=send_founder_notification,
+        interval_sec=int(os.environ.get("AUTOPILOT_INTERVAL_SECONDS", "86400")),
+    ))
+    logging.getLogger(__name__).info("[outbound] background scheduler + imap poller + daily autopilot dispatched")
 
 
 @app.post("/api/ops/outbound/imap-poll-now")

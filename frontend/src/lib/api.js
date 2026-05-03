@@ -362,6 +362,15 @@ export const opsOutboundDraftReject = (payload) =>
 export const opsOutboundRunTick = (auth) =>
     api.post("/ops/outbound/run-tick", auth).then((r) => r.data);
 
+export const opsOutboundAutopilotNow = (auth) =>
+    api.post("/ops/outbound/autopilot-now", auth).then((r) => r.data);
+
+export const opsOutboundAutopilotHistory = (auth) =>
+    api.post("/ops/outbound/autopilot-history", auth).then((r) => r.data);
+
+export const opsOutboundSourcesStatus = (auth) =>
+    api.post("/ops/outbound/sources-status", auth).then((r) => r.data);
+
 export const opsOutboundSeedFromDemos = (auth) =>
     api.post("/ops/outbound/seed-from-demos", auth).then((r) => r.data);
 

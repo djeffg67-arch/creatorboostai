@@ -58,6 +58,29 @@ TARGET_SEGMENTS = [
     "supermarket_grocery",
 ]
 
+# Phase 6 · 8-category reply taxonomy
+REPLY_CATEGORIES = (
+    "interested",          # warm — wants info or to talk
+    "asked_question",      # has a specific question
+    "needs_demo",          # explicitly requests a demo / link
+    "not_interested",      # polite no
+    "unsubscribe",         # opt-out / remove me
+    "wrong_person",        # bounced internally / wrong contact
+    "positive",            # generic warm but uncategorized
+    "needs_founder_response",  # sensitive / pricing / legal — escalate
+)
+
+REPLY_CATEGORY_TO_STATUS = {
+    "interested":             "replied_positive",
+    "asked_question":         "replied_positive",
+    "needs_demo":             "replied_positive",
+    "positive":               "replied_positive",
+    "needs_founder_response": "replied_positive",
+    "wrong_person":           "replied",
+    "not_interested":         "not_interested",
+    "unsubscribe":            "unsubscribed",
+}
+
 SEGMENT_DISPLAY = {
     "realtor":             "Realtors / Brokerages",
     "insurance_agent":     "Insurance Agents",
@@ -89,7 +112,7 @@ SEND_WINDOW_HOURS = 14                 # spread sends across 14-hour workday
 MIN_SEND_SPACING_SEC = 60              # hard floor between two sends
 BOUNCE_RATE_PAUSE_THRESHOLD = 0.05     # auto-pause if ≥5 % over last 7 days
 COMPLAINT_RATE_PAUSE_THRESHOLD = 0.003  # auto-pause if ≥0.3 % over last 7 days
-FOLLOWUP_OFFSETS_DAYS = [2, 5, 8]       # cadence · FU1 / FU2 / FU3
+FOLLOWUP_OFFSETS_DAYS = [2, 5, 10]      # cadence · FU1(d2) / FU2(d5) / FU3(d10)
 MAX_EMAILS_BEFORE_COLD = 4              # initial + 3 follow-ups → then cold
 DEMO_VIEWER_DELAY_MIN_HRS = 12          # warm demo viewer delay lower bound
 DEMO_VIEWER_DELAY_MAX_HRS = 24          # warm demo viewer delay upper bound
@@ -163,6 +186,7 @@ class ProspectReplyIn(OpsAuth):
     prospect_id: str
     reply_body: Optional[str] = Field(default=None, max_length=6000)
     positive: Optional[bool] = None
+    category: Optional[str] = Field(default=None, max_length=40)  # 8-category reply taxonomy
 
 
 class DraftApproveIn(OpsAuth):
@@ -896,24 +920,47 @@ def make_outbound_router(
         p = await db.outbound_prospects.find_one({"id": payload.prospect_id}, {"_id": 0})
         if not p:
             raise HTTPException(status_code=404, detail="Prospect not found")
-        positive = payload.positive
-        status = "replied_positive" if positive else ("not_interested" if positive is False else "replied")
+
+        # Normalize category — explicit category wins; otherwise infer from positive flag
+        category = (payload.category or "").strip().lower() if payload.category else None
+        if category and category not in REPLY_CATEGORIES:
+            category = None
+        if not category:
+            if payload.positive is True:
+                category = "positive"
+            elif payload.positive is False:
+                category = "not_interested"
+            else:
+                category = None
+
+        status = REPLY_CATEGORY_TO_STATUS.get(category or "", "replied")
+        sentiment = (
+            "positive" if status == "replied_positive"
+            else "negative" if status in ("not_interested", "unsubscribed")
+            else "neutral"
+        )
+
         await db.outbound_prospects.update_one(
             {"id": p["id"]},
             {"$set": {
                 "status": status,
                 "replied_at": now_iso(),
                 "reply_body": payload.reply_body,
-                "reply_sentiment": (
-                    "positive" if positive is True else "negative" if positive is False else "neutral"
-                ),
+                "reply_sentiment": sentiment,
+                "reply_category": category,
                 "updated_at": now_iso(),
+                **({"unsubscribed": True} if category == "unsubscribe" else {}),
+                **({"suppressed": True} if category in ("unsubscribe", "not_interested") else {}),
             }},
         )
-        await _log_event(p["id"], "replied", sentiment=status)
+        await _log_event(p["id"], "replied", sentiment=status, category=category)
 
-        # If positive → draft an AI reply into the approval queue.
-        if positive is True:
+        # Auto-suppress hard exits
+        if category in ("unsubscribe", "not_interested"):
+            await _suppress(p["email"], reason=f"reply_{category}")
+
+        # Positive → AI draft + founder notification (email + SMS if configured)
+        if status == "replied_positive":
             try:
                 draft = await _draft_positive_reply(p, payload.reply_body or "")
                 await db.outbound_drafts.insert_one({
@@ -924,30 +971,41 @@ def make_outbound_router(
                     "subject": draft["subject"],
                     "body": draft["body"],
                     "status": "pending",
+                    "category": category,
                     "created_at": now_iso(),
                 })
             except Exception as e:
                 log.error(f"positive reply draft failed: {e}")
 
-            # Notify founder
+            # Founder email
             try:
                 await send_founder_notification(
                     to_email=os.environ.get("FOUNDER_EMAIL", "").strip() or os.environ.get("APPLICATIONS_INBOX", "").strip(),
-                    subject=f"[CreatorBoostAI] Positive reply · {p['business_name']}",
+                    subject=f"[CreatorBoostAI] {category.replace('_', ' ').title()} reply · {p['business_name']}",
                     body_html=(
-                        f"<p><strong>{p['business_name']}</strong> ({p['email']}) replied positively.</p>"
-                        f"<p><em>{(payload.reply_body or '')[:800]}</em></p>"
+                        f"<p><strong>{p['business_name']}</strong> ({p['email']}) replied — category <code>{category}</code>.</p>"
+                        f"<blockquote style='border-left:3px solid #06b6d4;padding-left:12px;color:#475569;'>{(payload.reply_body or '')[:800]}</blockquote>"
                         f"<p>AI draft queued in /portal/ops → Outbound → Drafts.</p>"
                     ),
                 )
             except Exception:
                 pass
 
-        # If negative → suppress.
-        if positive is False:
-            await _suppress(p["email"], reason="marked_not_interested")
-            await db.outbound_prospects.update_one({"id": p["id"]}, {"$set": {"suppressed": True}})
-        return {"ok": True, "status": status}
+            # Founder SMS via existing Twilio integration — fire-and-forget
+            try:
+                from sms_service import _send_sync as _sms_sync, sms_configured, normalize_phone
+                phone = normalize_phone(os.environ.get("FOUNDER_PHONE", "").strip())
+                if phone and sms_configured():
+                    excerpt = (payload.reply_body or "")[:120].replace("\n", " ")
+                    body = (
+                        f"CreatorBoostAI · {category} reply from {p['business_name']}: "
+                        f"\"{excerpt}\" · Approve in /portal/ops Outbound → Drafts"
+                    )
+                    await asyncio.to_thread(_sms_sync, phone, body)
+            except Exception as e:
+                log.error(f"founder SMS failed: {e}")
+
+        return {"ok": True, "status": status, "category": category}
 
     @router.post("/drafts/list")
     async def drafts_list(payload: OpsAuth):
@@ -1130,9 +1188,199 @@ def make_outbound_router(
         r = await _seed_demo_viewers(max_per_run=100)
         return {"ok": True, **r}
 
+    async def _autopilot_cycle() -> Dict[str, Any]:
+        """One complete autonomous pass: seed → score-unscored → run send queue
+        → finalize cold → IMAP poll. Each step is independent and failures are
+        logged but never raise — the loop continues so the engine keeps moving
+        every day even when one external dep is down."""
+        result: Dict[str, Any] = {"started_at": now_iso()}
+
+        # Step 1 · seed warm leads from demo viewers
+        try:
+            r = await _seed_demo_viewers(max_per_run=50)
+            result["seeded"] = r
+        except Exception as e:
+            log.error(f"[autopilot] seed failed: {e}")
+            result["seeded"] = {"error": str(e)[:240]}
+
+        # Step 2 · external lead-source pulls (Apollo / Outscraper) — currently
+        # safe no-ops until keys land. Each adapter returns [] when not configured.
+        try:
+            from lead_sources import LEAD_SOURCES, configured_status
+            ext_added = 0
+            for adapter in LEAD_SOURCES:
+                if not adapter.is_configured():
+                    continue
+                rows = await adapter.pull(limit=25, segments=TARGET_SEGMENTS)
+                for row in rows:
+                    email_n = (row.get("email") or "").strip().lower()
+                    if not email_n or "@" not in email_n:
+                        continue
+                    if await db.outbound_prospects.find_one({"email": email_n}, {"_id": 0, "id": 1}):
+                        continue
+                    if await db.outbound_suppression.find_one({"email": email_n}, {"_id": 0}):
+                        continue
+                    doc = {
+                        "id": str(uuid.uuid4()),
+                        "business_name": (row.get("business_name") or "")[:240],
+                        "contact_name": row.get("contact_name"),
+                        "email": email_n,
+                        "industry": row.get("industry"),
+                        "website": row.get("website"),
+                        "location": row.get("location"),
+                        "linkedin_url": row.get("linkedin_url"),
+                        "notes": row.get("notes"),
+                        "source": adapter.name,
+                        "status": "new", "lead_score": None, "target_segment": None,
+                        "recommended_offer": None, "ai_reasoning": None,
+                        "estimated_pain": None, "suggested_pitch_angle": None,
+                        "emails_sent": 0, "email_status": None,
+                        "last_email_at": None, "replied_at": None, "reply_body": None,
+                        "reply_sentiment": None, "reply_category": None,
+                        "linkedin_connect_body": None, "linkedin_followup_body": None,
+                        "linkedin_connect_sent_at": None, "linkedin_followup_sent_at": None,
+                        "linkedin_accepted": False,
+                        "unsubscribed": False, "suppressed": False,
+                        "created_at": now_iso(), "updated_at": now_iso(),
+                    }
+                    try:
+                        await db.outbound_prospects.insert_one(doc)
+                        ext_added += 1
+                    except Exception as e:
+                        log.error(f"[autopilot] external insert failed: {e}")
+            result["external_added"] = ext_added
+            result["sources_configured"] = configured_status()
+        except Exception as e:
+            log.error(f"[autopilot] external sources failed: {e}")
+            result["external_added"] = 0
+
+        # Step 3 · score everything unscored
+        try:
+            cursor = db.outbound_prospects.find({"lead_score": None}, {"_id": 0})
+            scored_n = 0
+            async for p in cursor:
+                try:
+                    scored = await _score_prospect(p)
+                    await db.outbound_prospects.update_one(
+                        {"id": p["id"]},
+                        {"$set": {**scored, "status": "scored", "updated_at": now_iso()}},
+                    )
+                    scored_n += 1
+                    if scored_n >= 50:
+                        break
+                except Exception:
+                    continue
+            result["scored"] = scored_n
+        except Exception as e:
+            log.error(f"[autopilot] score failed: {e}")
+            result["scored"] = 0
+
+        # Step 4 · process send queue
+        try:
+            sent_now = await _process_queue()
+            result["sent_this_cycle"] = sent_now
+        except Exception as e:
+            log.error(f"[autopilot] send queue failed: {e}")
+            result["sent_this_cycle"] = 0
+
+        # Step 5 · IMAP poll for replies (best-effort, graceful when unconfigured)
+        try:
+            from outbound import _imap_poll_once  # late import to avoid recursion
+            imap = await _imap_poll_once(db)
+            result["imap"] = imap
+        except Exception as e:
+            log.error(f"[autopilot] imap poll failed: {e}")
+            result["imap"] = {"ok": False, "reason": "exception"}
+
+        # Step 6 · finalize cold (already runs inside _process_queue but called again here for safety)
+        try:
+            cold_n = await _finalize_cold_prospects()
+            result["cold_finalized"] = cold_n
+        except Exception as e:
+            log.error(f"[autopilot] finalize cold failed: {e}")
+            result["cold_finalized"] = 0
+
+        result["finished_at"] = now_iso()
+        result["sent_today"] = await _today_sent_count()
+        # Persist autopilot run history for the dashboard
+        try:
+            await db.outbound_autopilot_runs.insert_one({**result, "id": str(uuid.uuid4())})
+        except Exception:
+            pass
+        return result
+
+    @router.post("/autopilot-now")
+    async def autopilot_now(payload: OpsAuth):
+        """Run a complete autopilot cycle on demand. The dashboard 'Run tick now'
+        button hits this — single-click full automation pass."""
+        await require_founder(payload)
+        return {"ok": True, **(await _autopilot_cycle())}
+
+    @router.post("/autopilot-history")
+    async def autopilot_history(payload: OpsAuth):
+        await require_founder(payload)
+        runs = await db.outbound_autopilot_runs.find(
+            {}, {"_id": 0}
+        ).sort("started_at", -1).to_list(20)
+        return {"runs": runs}
+
+    @router.post("/sources-status")
+    async def sources_status(payload: OpsAuth):
+        await require_founder(payload)
+        from lead_sources import configured_status
+        return {"sources": configured_status()}
+
+    # ── Clay inbound webhook ── public, secret-gated. Clay → POST → outbound.
+    @router.post("/clay-webhook")
+    async def clay_webhook(body: Dict[str, Any]):
+        from lead_sources import ClayAdapter
+        secret = (body.get("secret") or "").strip()
+        if not ClayAdapter.is_configured():
+            raise HTTPException(503, "Clay webhook not configured (set CLAY_WEBHOOK_SECRET)")
+        if not ClayAdapter.secret_matches(secret):
+            raise HTTPException(403, "Invalid Clay webhook secret")
+        rows = body.get("leads") or body.get("rows") or [body.get("lead") or {}]
+        if not isinstance(rows, list):
+            rows = [rows]
+        added, skipped = 0, 0
+        for row in rows[:200]:  # cap per request
+            norm = ClayAdapter.normalize(row)
+            if not norm:
+                skipped += 1
+                continue
+            if await db.outbound_prospects.find_one({"email": norm["email"]}, {"_id": 0, "id": 1}):
+                skipped += 1
+                continue
+            if await db.outbound_suppression.find_one({"email": norm["email"]}, {"_id": 0}):
+                skipped += 1
+                continue
+            doc = {
+                "id": str(uuid.uuid4()),
+                **norm,
+                "status": "new", "lead_score": None, "target_segment": None,
+                "recommended_offer": None, "ai_reasoning": None,
+                "estimated_pain": None, "suggested_pitch_angle": None,
+                "emails_sent": 0, "email_status": None,
+                "last_email_at": None, "replied_at": None, "reply_body": None,
+                "reply_sentiment": None, "reply_category": None,
+                "linkedin_connect_body": None, "linkedin_followup_body": None,
+                "linkedin_connect_sent_at": None, "linkedin_followup_sent_at": None,
+                "linkedin_accepted": False,
+                "unsubscribed": False, "suppressed": False,
+                "created_at": now_iso(), "updated_at": now_iso(),
+            }
+            try:
+                await db.outbound_prospects.insert_one(doc)
+                added += 1
+            except Exception as e:
+                log.error(f"[clay] insert failed: {e}")
+                skipped += 1
+        return {"ok": True, "added": added, "skipped": skipped}
+
     @router.post("/run-tick")
     async def run_tick(payload: OpsAuth):
-        """Manual kick of the scheduler. Background loop also runs every 5 min."""
+        """Legacy single-step send tick (preserved for backwards compat).
+        Use /autopilot-now for the full daily cycle."""
         await require_founder(payload)
         sent = await _process_queue()
         return {"ok": True, "sent_this_tick": sent, "sent_today": await _today_sent_count()}
@@ -1161,6 +1409,16 @@ def make_outbound_router(
         warm = await db.outbound_prospects.find(
             {"status": {"$in": ["replied_positive", "replied"]}}, {"_id": 0}
         ).sort("replied_at", -1).to_list(50)
+        # Last autopilot run
+        last_run = await db.outbound_autopilot_runs.find_one(
+            {}, {"_id": 0}, sort=[("started_at", -1)]
+        )
+        # Lead-source configuration status
+        try:
+            from lead_sources import configured_status
+            sources_cfg = configured_status()
+        except Exception:
+            sources_cfg = {}
         return {
             "kpi": {
                 "total_prospects": total,
@@ -1178,6 +1436,8 @@ def make_outbound_router(
             "segments": segments,
             "warm_leads": warm,
             "sent_today": await _today_sent_count(),
+            "last_autopilot_run": last_run,
+            "sources_configured": sources_cfg,
         }
 
     # Public unsubscribe — no auth, uses deterministic token.
@@ -1199,6 +1459,9 @@ def make_outbound_router(
             "ok": True,
             "message": "You have been unsubscribed. We will not email you again.",
         }
+
+    # Expose the autopilot helper now that _autopilot_cycle is defined.
+    _AUTOPILOT_HELPERS[id(router)] = _autopilot_cycle
 
     return router
 
@@ -1382,4 +1645,29 @@ async def imap_poller_loop(db, interval_sec: int = 300) -> None:
         await asyncio.sleep(interval_sec + random.randint(-15, 15))
 
 
-__all__ = ["make_outbound_router", "background_scheduler_loop", "imap_poller_loop", "_imap_poll_once"]
+async def daily_autopilot_loop(db, send_outbound_email, send_founder_notification, interval_sec: int = 86400) -> None:
+    """Once per `interval_sec` (default 24h), run a complete autopilot cycle:
+    seed → external pulls → score → send → IMAP → finalize cold. Disabled
+    when AUTOPILOT_LOOP=off."""
+    if os.environ.get("AUTOPILOT_LOOP", "on").lower() == "off":
+        log.info("[autopilot] daily loop disabled by env")
+        return
+    log.info(f"[autopilot] daily loop starting · interval={interval_sec}s")
+    # First run after a short delay so the server can fully boot
+    await asyncio.sleep(60)
+    while True:
+        try:
+            router = make_outbound_router(db, send_outbound_email, send_founder_notification, _NOOP_REQUIRE_FOUNDER)
+            cycle_fn = _AUTOPILOT_HELPERS.get(id(router))
+            if cycle_fn:
+                r = await cycle_fn()
+                log.info(f"[autopilot] cycle complete: sent={r.get('sent_this_cycle')} scored={r.get('scored')} seeded={r.get('seeded', {}).get('added', 0)}")
+        except Exception as e:
+            log.error(f"[autopilot] cycle error: {e}")
+        await asyncio.sleep(interval_sec + random.randint(-60, 60))
+
+
+_AUTOPILOT_HELPERS: Dict[int, Any] = {}
+
+
+__all__ = ["make_outbound_router", "background_scheduler_loop", "imap_poller_loop", "_imap_poll_once", "daily_autopilot_loop"]
