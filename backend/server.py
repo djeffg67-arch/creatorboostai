@@ -24,7 +24,10 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'bodyiq-admin-2026')
-STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', '').strip()
+STRIPE_API_KEY = (
+    os.environ.get('STRIPE_API_KEY', '').strip()
+    or os.environ.get('STRIPE_SECRET_KEY', '').strip()
+)
 FOUNDER_KEY = os.environ.get('FOUNDER_KEY', '').strip()
 
 # ---------- Stripe ----------
@@ -1593,8 +1596,8 @@ def _price(*names: str) -> str:
     return ""
 
 LIVE_PRODUCT_CATALOG: Dict[str, Dict[str, Any]] = {
-    # Recurring subscriptions
-    _price("STRIPE_PRICE_CB_STARTER", "STRIPE_PRICE_LIVE_STARTER"): {
+    # ── Recurring subscriptions (CreatorBoostAI) ────────────────────────
+    _price("STRIPE_PRICE_CB_STARTER"): {
         "product_name": "CreatorBoostAI Starter",
         "plan_key": "live_starter_monthly",
         "plan_tier": "starter",
@@ -1603,7 +1606,7 @@ LIVE_PRODUCT_CATALOG: Dict[str, Dict[str, Any]] = {
         "amount": 97.00,
         "currency": "usd",
     },
-    _price("STRIPE_PRICE_CB_GROWTH", "STRIPE_PRICE_LIVE_GROWTH"): {
+    _price("STRIPE_PRICE_CB_GROWTH"): {
         "product_name": "CreatorBoostAI Growth",
         "plan_key": "live_growth_monthly",
         "plan_tier": "growth",
@@ -1612,45 +1615,61 @@ LIVE_PRODUCT_CATALOG: Dict[str, Dict[str, Any]] = {
         "amount": 297.00,
         "currency": "usd",
     },
-    _price("STRIPE_PRICE_CB_PRO", "STRIPE_PRICE_LIVE_PRO"): {
+    _price("STRIPE_PRICE_CB_PRO"): {
         "product_name": "CreatorBoostAI Pro",
         "plan_key": "live_pro_monthly",
         "plan_tier": "pro",
         "plan_interval": "month",
         "product_type": "subscription",
-        "amount": 997.00,
+        "amount": 597.00,  # Iter 38 · live Stripe value (was previously listed as $997)
         "currency": "usd",
     },
-    # One-time
-    _price("STRIPE_PRICE_BIQ_FOUNDATIONS", "STRIPE_PRICE_LIVE_FOUNDATIONS"): {
-        "product_name": "BodyIQ-AI Foundations",
-        "plan_key": "live_foundations",
-        "plan_tier": "foundations",
+    # ── Recurring add-on ────────────────────────────────────────────────
+    _price("STRIPE_PRICE_CB_AVATAR_VOICE"): {
+        "product_name": "Avatar Voice Add-On",
+        "plan_key": "live_avatar_voice_monthly",
+        "plan_tier": "avatar_voice",
+        "plan_interval": "month",
+        "product_type": "subscription_addon",
+        "amount": 20.00,
+        "currency": "usd",
+    },
+    # ── BodyIQ one-time training products (Iter 38 · all direct checkout) ─
+    _price("STRIPE_PRICE_BIQ_STRATEGY_SESSION"): {
+        "product_name": "BodyIQ Strategy Session",
+        "plan_key": "live_biq_strategy_session",
+        "plan_tier": "biq_strategy_session",
         "plan_interval": "one_time",
         "product_type": "training",
         "amount": 400.00,
         "currency": "usd",
     },
-    _price("STRIPE_PRICE_BIQ_APPLIED", "STRIPE_PRICE_LIVE_APPLIED"): {
-        "product_name": "BodyIQ-AI Applied",
-        "plan_key": "live_applied",
-        "plan_tier": "applied",
+    _price("STRIPE_PRICE_BIQ_APPLIED_SIGNALS"): {
+        "product_name": "BodyIQ Applied Signals",
+        "plan_key": "live_biq_applied_signals",
+        "plan_tier": "biq_applied_signals",
         "plan_interval": "one_time",
         "product_type": "training",
         "amount": 1500.00,
         "currency": "usd",
     },
-    # Strategy IS in the catalog for lookup but blocked at the endpoint so we can
-    # surface a clean 403 if anyone tries to hit it directly instead of /apply.
-    _price("STRIPE_PRICE_BIQ_STRATEGY", "STRIPE_PRICE_LIVE_STRATEGY"): {
-        "product_name": "BodyIQ-AI Strategy",
-        "plan_key": "live_strategy",
-        "plan_tier": "strategy",
+    _price("STRIPE_PRICE_BIQ_STRATEGY_INTENSIVE"): {
+        "product_name": "BodyIQ Strategy Intensive",
+        "plan_key": "live_biq_strategy_intensive",
+        "plan_tier": "biq_strategy_intensive",
         "plan_interval": "one_time",
-        "product_type": "training_application_required",
+        "product_type": "training",
         "amount": 7000.00,
         "currency": "usd",
-        "requires_application": True,
+    },
+    _price("STRIPE_PRICE_BIQ_FULL_TRAINING"): {
+        "product_name": "BodyIQ Full Training Program",
+        "plan_key": "live_biq_full_training",
+        "plan_tier": "biq_full_training",
+        "plan_interval": "one_time",
+        "product_type": "training",
+        "amount": 27000.00,
+        "currency": "usd",
     },
 }
 # Strip empty-key entry (when an env var is missing, the key becomes "" and
@@ -1731,24 +1750,45 @@ async def create_checkout_session_live(payload: LiveCheckoutIn, http_request: Re
     if payload.company:
         metadata["company"] = payload.company
 
-    stripe_checkout = _stripe_client(http_request)
-    req = CheckoutSessionRequest(
-        stripe_price_id=price_id,
-        quantity=1,
-        success_url=success_url,
-        cancel_url=cancel_url,
-        metadata=metadata,
-    )
+    # Iter 38 fix · subscriptions need mode='subscription' (Stripe rejects
+    # mode='payment' with recurring prices). The integration wrapper hardcodes
+    # mode='payment', so for subscriptions we call the Stripe SDK directly.
+    is_subscription = product["plan_interval"] == "month"
     try:
-        session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(req)
+        if is_subscription:
+            import stripe as _stripe_sdk
+            _stripe_sdk.api_key = STRIPE_API_KEY
+            stripe_session = _stripe_sdk.checkout.Session.create(
+                mode="subscription",
+                line_items=[{"price": price_id, "quantity": 1}],
+                success_url=success_url,
+                cancel_url=cancel_url,
+                metadata=metadata,
+                customer_email=str(payload.customerEmail) if payload.customerEmail else None,
+                allow_promotion_codes=True,
+                subscription_data={"metadata": metadata},
+            )
+            session_id_value = stripe_session.id
+            session_url_value = stripe_session.url
+        else:
+            stripe_checkout = _stripe_client(http_request)
+            req = CheckoutSessionRequest(
+                stripe_price_id=price_id,
+                quantity=1,
+                success_url=success_url,
+                cancel_url=cancel_url,
+                metadata=metadata,
+            )
+            session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(req)
+            session_id_value = session.session_id
+            session_url_value = session.url
     except Exception as e:
         logging.getLogger(__name__).error(f"Live Stripe session create failed: {e}")
         raise HTTPException(status_code=502, detail="Unable to create checkout session")
 
-    is_subscription = product["product_type"] == "subscription"
     txn_doc = {
         "id": str(uuid.uuid4()),
-        "session_id": session.session_id,
+        "session_id": session_id_value,
         "product_key": product["plan_key"],
         "product_name": product["product_name"],
         "amount": product["amount"],
@@ -1769,7 +1809,7 @@ async def create_checkout_session_live(payload: LiveCheckoutIn, http_request: Re
     }
     await db.payment_transactions.insert_one(txn_doc)
 
-    return CheckoutSessionOut(url=session.url, session_id=session.session_id)
+    return CheckoutSessionOut(url=session_url_value, session_id=session_id_value)
 
 
 # =================================================================

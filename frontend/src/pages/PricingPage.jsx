@@ -74,11 +74,11 @@ export default function PricingPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    // Live Stripe Price IDs (Iter 35 · monthly subscriptions)
+    // Live Stripe Price IDs (Iter 38 · monthly subscriptions · verified live)
     const LIVE_MONTHLY_PRICE_IDS = {
-        starter: "price_1TShrkFyohsNSVMek8hffreQ",
-        growth:  "price_1TShwTFyohsNSVMeTIFsimmm",
-        pro:     "price_1TSi0RFyohsNSVMej0P2vrf2",
+        starter: "price_1TSprFQgMVyWwTDfAZzOxX5T",
+        growth:  "price_1TSptIQgMVyWwTDfqevpx5cL",
+        pro:     "price_1TSpuQQgMVyWwTDf59EndVq5",
     };
 
     const subscribe = async (tier) => {
@@ -122,7 +122,7 @@ export default function PricingPage() {
         }
     };
 
-    const LIVE_MONTHLY_PRICES = { starter: 97, growth: 297, pro: 997 };
+    const LIVE_MONTHLY_PRICES = { starter: 97, growth: 297, pro: 597 };
     const priceFor = (tier) => {
         if (billing === "month" && LIVE_MONTHLY_PRICES[tier] != null) {
             return { amount: LIVE_MONTHLY_PRICES[tier], interval: "month" };

@@ -1,6 +1,64 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-02 (Iter 36 — Conditional Calendly on /apply · keyword + deal-size priority upgrade · high-value lead mirror)
+**Last update:** 2026-05-03 (Iter 38 — LIVE STRIPE FULLY ACTIVATED · 8/8 products returning real cs_live_ checkout URLs)
+
+---
+
+## 🚀 ITER 38 — LIVE STRIPE PAYMENT SYSTEM ACTIVATED · 8/8 PRODUCTS LIVE
+
+**The whole revenue system is now live.** Real `sk_live_` key + real Price IDs + real `cs_live_...` Stripe Checkout URLs returning from every product.
+
+### What changed in this iteration
+
+**1. Real `sk_live_` Stripe key in `.env`** — Jeffrey provided his 107-char `sk_live_51TQcvs...` secret. Backend now authenticates as Jeffrey's live Stripe account.
+
+**2. Backend env-key fallback** — `STRIPE_API_KEY` now falls back to `STRIPE_SECRET_KEY` (so either name works).
+
+**3. Subscription mode bug fix** — the `emergentintegrations` Checkout wrapper hardcodes `mode='payment'`, which Stripe rejects when the priceId is recurring. New `/api/create-checkout-session` branches: if `plan_interval == 'month'` it calls `stripe.checkout.Session.create(mode='subscription', ...)` directly via the official SDK; one-time products keep using the wrapper. `subscription_data.metadata` is forwarded so attribution survives onto the subscription record itself.
+
+**4. New 8-product LIVE_PRODUCT_CATALOG** — replaces the Iter 35/37 catalog. Stripe-account-verified amounts and intervals:
+
+| Product | Live Price ID | $ | Interval | Endpoint |
+|---|---|---|---|---|
+| CreatorBoostAI Starter | `price_1TSprFQgMVyWwTDfAZzOxX5T` | 97 | month | direct checkout |
+| CreatorBoostAI Growth | `price_1TSptIQgMVyWwTDfqevpx5cL` | 297 | month | direct checkout |
+| CreatorBoostAI Pro | `price_1TSpuQQgMVyWwTDf59EndVq5` | **597** (was advertised as 997) | month | direct checkout |
+| Avatar Voice Add-On | `price_1TSpmdQgMVyWwTDfFCPtUCl9` | 20 | month | direct checkout |
+| BodyIQ Strategy Session | `price_1TQdo8QgMVyWwTDfsBNtyvUT` | 400 | one-time | direct checkout |
+| BodyIQ Applied Signals | `price_1TSpgEQgMVyWwTDfTB7cVj7e` | 1,500 | one-time | direct checkout |
+| BodyIQ Strategy Intensive | `price_1TSphlQgMVyWwTDfJVv4SY3i` | 7,000 | one-time | direct checkout (was /apply-gated; Jeffrey removed gate in Iter 38) |
+| BodyIQ Full Training Program | `price_1TSpiyQgMVyWwTDfCFEtx5Fy` | 27,000 | one-time | direct checkout |
+
+**5. Diagnostic discoveries during Iter 38** (saved Jeffrey from 6+ hours of misdiagnosis)
+- 5 of 7 Iter 35/37 Price IDs Jeffrey sent never existed — they were either typos (`I` vs `T`, capital `I` vs lowercase `l`) or created in test mode.
+- Pro was advertised at $997 but Stripe-priced at $597 — surfaced via `stripe.Price.list()` diagnostic. Frontend display + backend amount both updated to $597.
+
+**6. Frontend `PricingPage.jsx` updates** — Starter/Growth/Pro buttons now use the correct 3 live Price IDs. Pro tier display shows `$597 / month`. All 4 BodyIQ products available for direct checkout (no /apply gate).
+
+**7. Webhook coverage** — `/api/webhook/stripe` already handles all 5 Stripe events Jeffrey listed (checkout.session.completed, payment_intent.succeeded, customer.subscription.created/updated/deleted, invoice.paid). On successful payment the existing `_grant_access_for_txn()` flow auto-creates the user, grants entitlements, sends confirmation email, and writes `demo_revenue_events` for founder-dashboard attribution.
+
+### End-to-end verification (curl-tested · 8/8 returned cs_live_ URLs)
+
+```
+✅ Starter      cs_live_b16kvY5avAYBnmudoC5VMRkqW9s89247N2da5j...
+✅ Growth       cs_live_b1z5aBEVa5wO1wCm0zAVzSi1HGdL9amd1te63Q...
+✅ Pro          cs_live_b1F6zQSdpB9R1xGqUJij4zS2eSjFCOAenDp9Yt...
+✅ Avatar Voice cs_live_b1bfyCKHAfoCzdWZhwQ9CqNWg7yCdHYaZobSpL...
+✅ Strategy Session    cs_live_a1fuf9MYNHwzGNplx8lz3BqfxS7ONiX6fEBDsw...
+✅ Applied Signals     cs_live_a1xZowtTWlTVMpLO4037ZLQs7lW6YYQ93GLtyg...
+✅ Strategy Intensive  cs_live_a1jZ15o0rDcIaWKJHbdLTpap0WF5FI7nOV1nGS...
+✅ Full Training       cs_live_a1O7QvN6xrciVBaJ6B9ZdyAXskkyiYmTgmon06...
+```
+
+### Outstanding (non-blocking)
+
+- **Pricing UI exposure for the 5 new products** beyond Starter/Growth/Pro. Avatar Voice (add-on), Strategy Session, Applied Signals, Strategy Intensive, and Full Training all return live Stripe URLs but aren't yet surfaced anywhere on the marketing site for purchase. Jeffrey may want to wire them onto the BodyIQ training section, as add-on chips on the portal, or via a dedicated `/training` page.
+- **CALENDLY_URL** still empty in `.env` — Calendly widget on `/apply` confirmation will activate the moment Jeffrey populates it.
+
+### What customer flow looks like now (live)
+
+1. Customer clicks `Get Starter` (or Growth / Pro) on `/pricing` → POST `/api/create-checkout-session` returns `cs_live_...` URL → 302 redirect to real Stripe-hosted checkout page → customer pays with real card.
+2. Stripe fires webhook events → backend processes `checkout.session.completed` → grants entitlement → emails customer welcome + magic link → writes `demo_revenue_events` row → closes any matching lead as `closed_won` → /success page polls → user lands in `/portal` (authenticated dashboard).
 
 ---
 
