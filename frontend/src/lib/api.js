@@ -363,7 +363,7 @@ export const opsOutboundRunTick = (auth) =>
     api.post("/ops/outbound/run-tick", auth).then((r) => r.data);
 
 export const opsOutboundAutopilotNow = (auth) =>
-    api.post("/ops/outbound/autopilot-now", auth).then((r) => r.data);
+    api.post("/ops/outbound/autopilot-now", auth, { timeout: 180000 }).then((r) => r.data);
 
 export const opsOutboundAutopilotHistory = (auth) =>
     api.post("/ops/outbound/autopilot-history", auth).then((r) => r.data);
