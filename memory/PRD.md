@@ -1,6 +1,94 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-03 (Iter 40 — Outbound Phase 2 · Demo-Viewer Seeding + IMAP Reply Polling + Context-Aware Follow-Ups + Cold-State Finalization)
+**Last update:** 2026-05-03 (Iter 41 — Outbound Phase 3 · Daily Autopilot Loop + 5-Source Integration Shells + 8-Category Reply Taxonomy + Founder SMS)
+
+---
+
+## 🚀 ITER 41 — OUTBOUND ENGINE PHASE 3 · Fully Autonomous Daily Operation
+
+Jeffrey's directive: **"The avatar must perform outbound work automatically so I am not manually finding leads and emailing all day."** Phase 3 makes the engine continuously self-running with hooks ready for Phase B integration keys (Apollo / Outscraper / Clay / Instantly / Smartlead).
+
+### Delivered this iteration
+
+**1. Daily autopilot loop — fully autonomous 24h cycle**
+- New `daily_autopilot_loop(db, ...)` background task spawned at server startup. Runs once every 86,400 seconds (24h ± 60s jitter).
+- Each cycle executes 6 ordered steps:
+  1. **Seed warm leads** from demo viewers (`_seed_demo_viewers`)
+  2. **External lead pulls** from Apollo / Outscraper adapters (no-op until keys land)
+  3. **Score** unscored prospects via Claude Sonnet 4.5 (cap 50 per cycle)
+  4. **Send queue** (initial + follow-ups, respects 50/day + spacing + pause)
+  5. **IMAP poll** for replies (graceful no-op when unconfigured)
+  6. **Finalize cold** prospects who hit MAX_EMAILS_BEFORE_COLD with no reply
+- Each cycle is persisted to `outbound_autopilot_runs` collection for history + dashboard display.
+- Disable via `AUTOPILOT_LOOP=off`. Tune via `AUTOPILOT_INTERVAL_SECONDS`.
+
+**2. "Run autopilot now" — manual full-cycle trigger**
+- Endpoint: `POST /api/ops/outbound/autopilot-now` (founder-only) — runs the same 6-step cycle on demand.
+- Frontend button repurposed (renamed from "Run tick now" → "Run autopilot now"). Toast shows seeded/scored/sent counts.
+- Axios timeout overridden to 180s (Claude scoring can take 20-60s on cold cache).
+- Legacy `POST /run-tick` preserved for backwards compat (single-step send only).
+
+**3. Lead-source integration shells (`/app/backend/lead_sources.py`)**
+- 5 adapter classes ship today, all returning safe no-ops until keys land:
+  - **ApolloAdapter** — `pull(limit, segments)` for B2B sourcing — needs `APOLLO_API_KEY`
+  - **OutscraperAdapter** — `pull(limit, segments)` for Google Maps scraping — needs `OUTSCRAPER_API_KEY`
+  - **ClayAdapter** — push-only (Clay → us via webhook) — needs `CLAY_WEBHOOK_SECRET`
+  - **InstantlyAdapter** — `send(to, subject, html, plain)` — needs `INSTANTLY_API_KEY`
+  - **SmartleadAdapter** — `send(to, subject, html, plain)` — needs `SMARTLEAD_API_KEY`
+- Each adapter has `is_configured()` check + clear `# TODO live impl` block where the integration playbook will paste real HTTP calls.
+- New endpoint `POST /api/ops/outbound/sources-status` — founder-only — returns `{sources: {apollo, outscraper, clay, instantly, smartlead}}` for the dashboard pills.
+
+**4. Clay inbound webhook**
+- Endpoint: `POST /api/ops/outbound/clay-webhook` (no founder auth — secret-gated via JSON body `secret` field that must match `CLAY_WEBHOOK_SECRET`).
+- Accepts a single lead, an array under `leads` or `rows`, or a single `lead` object.
+- ClayAdapter normalizes each row into the standard prospect shape (handles email, work_email, company, organization_name, full_name, work_email, etc.).
+- Cap: 200 rows per request. Auto-deduplicates against `outbound_prospects` + `outbound_suppression`.
+
+**5. 4-Email Cadence change**
+- `FOLLOWUP_OFFSETS_DAYS = [2, 5, 10]` (was `[2, 5, 8]`) per Jeffrey's spec: Day 0 → Day 2 → Day 5 → Day 10.
+
+**6. 8-category reply taxonomy**
+- New `REPLY_CATEGORIES` tuple: `interested · asked_question · needs_demo · not_interested · unsubscribe · wrong_person · positive · needs_founder_response`
+- `REPLY_CATEGORY_TO_STATUS` mapping routes each category to the correct prospect status (positive replies → `replied_positive`, `unsubscribe` → `unsubscribed`, etc.)
+- `mark-replied` endpoint accepts a new `category` field. Auto-suppresses on `unsubscribe` or `not_interested`.
+
+**7. Founder SMS notification on positive replies**
+- When `mark-replied` produces `status='replied_positive'`, the engine fires a Twilio SMS to `FOUNDER_PHONE` with: prospect name, reply category, 120-char excerpt, and a link to `/portal/ops` Outbound Drafts queue.
+- Uses existing `sms_service._send_sync` wrapped in `asyncio.to_thread`. Fire-and-forget — no exception bubbles back to the API caller.
+- Already-configured Twilio creds (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`) — no new env vars required.
+
+**8. Frontend additions**
+- New `<SourcesStatusRow>` component below Deliverability panel (`outbound-sources-row` testid):
+  - 5 source pills (`outbound-source-apollo` etc.) — emerald CheckCircle when configured, gray XCircle when not
+  - "Last cycle: <relative time>" + seeded/scored/sent summary from the most recent autopilot run
+- "Run autopilot now" replaces "Run tick now" — single button now triggers the full 6-step cycle
+- Dashboard payload extended with `last_autopilot_run` + `sources_configured` so the row updates after each cycle
+
+### Verified (iteration_29.json + iteration_30.json)
+- Backend: **13/13 pytest PASSED** — sources-status, autopilot-now end-to-end, autopilot-history, RBAC (exec 403 / unauth 401), clay-webhook 503 when unconfigured, mark-replied with category=unsubscribe → unsubscribed=true, category=not_interested → suppressed=true, FOLLOWUP_OFFSETS_DAYS verified [2,5,10], 8 reply categories present, lead_sources module exists with all 5 adapters
+- Frontend: SourcesStatusRow renders all 5 pills · "Last cycle: 1m ago" updates · timeout fix verified in code (180000ms passed to axios override)
+- Live curl: `/autopilot-now` runs full 6-step cycle in ~5.5s when no scoring needed, ~30-60s when scoring 50 prospects with Claude. Persisted to `outbound_autopilot_runs`.
+- Server boot logs: `[outbound] background scheduler + imap poller + daily autopilot dispatched`
+
+### What's running 24/7 right now
+- 🟢 **Outbound scheduler** — every 5 min, sends queued emails respecting 50/day + spacing + pause
+- 🟢 **IMAP poller** — every 5 min when configured (no-op when not)
+- 🟢 **Daily autopilot** — every 24h, runs full 6-step seed→score→send→poll→cold cycle
+- 🟢 **Cold-state finalizer** — runs every send tick, retires prospects after FU3 + 10d
+- 🟢 **Auto-pause** — bounce ≥5% or complaint ≥0.3% over 7 days
+
+### Phase B activation (when keys arrive)
+Each integration is a **5-minute swap** because the adapter shells are already in place:
+1. Add env var (e.g. `APOLLO_API_KEY=...`) to `/app/backend/.env`
+2. Replace the `# TODO live impl` block in `lead_sources.py` with the integration playbook code
+3. Restart backend → adapter automatically activates · Sources pill turns emerald · daily autopilot starts pulling
+- For Clay specifically: just set `CLAY_WEBHOOK_SECRET` and configure Clay to POST to `https://creatorboostai.com/api/ops/outbound/clay-webhook` with `{ "secret": "...", "leads": [...] }` — no code changes needed at all.
+
+### Outstanding / backlog
+- IMAP creds (`IMAP_HOST/USER/PASSWORD`) for live reply detection
+- Apollo / Outscraper / Clay / Instantly / Smartlead API keys (Jeffrey to add)
+- PayPal Business integration
+- Refactor 6 `*DemoPage.jsx` files into shared components (P2)
 
 ---
 
