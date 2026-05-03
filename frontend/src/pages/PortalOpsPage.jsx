@@ -22,7 +22,9 @@ import {
     opsOutboundAddProspect, opsOutboundUploadProspects, opsOutboundScore,
     opsOutboundScoreAll, opsOutboundLinkedinGenerate, opsOutboundLinkedinMarkSent,
     opsOutboundMarkReplied, opsOutboundDraftsList, opsOutboundDraftApprove,
-    opsOutboundDraftReject, opsOutboundRunTick,
+    opsOutboundDraftReject, opsOutboundRunTick, opsOutboundSeedFromDemos,
+    opsOutboundImapPollNow, opsOutboundAutopilotNow,
+    opsOutboundArchiveInternal, opsOutboundResetDaily, opsOutboundDiagnostics,
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 
@@ -1329,6 +1331,124 @@ const DraftCard = ({ draft, auth, onChange }) => {
     );
 };
 
+const DiagnosticsPanel = ({ auth, dash, onChange }) => {
+    const [diag, setDiag] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [open, setOpen] = useState(false);
+
+    const refreshDiag = async () => {
+        try {
+            const r = await opsOutboundDiagnostics(auth);
+            setDiag(r);
+        } catch { /* ignore */ }
+    };
+
+    const archiveInternal = async () => {
+        if (!window.confirm("Archive ALL internal seed prospects? They will be moved to source='internal_archived' and added to the suppression list. KPIs reset to real-source-only.")) return;
+        setBusy(true);
+        try {
+            const r = await opsOutboundArchiveInternal(auth);
+            toast.success(`Archived ${r.archived} internal seeds`);
+            await refreshDiag();
+            onChange?.();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Archive failed");
+        } finally { setBusy(false); }
+    };
+
+    const resetDaily = async () => {
+        if (!window.confirm("Reset today's send counter? This deletes today's 'sent' event records so the daily 50/day cap resets — testing only, will skew reply-rate stats.")) return;
+        setBusy(true);
+        try {
+            const r = await opsOutboundResetDaily(auth);
+            toast.success(`Reset · ${r.deleted} sent records cleared`);
+            await refreshDiag();
+            onChange?.();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Reset failed");
+        } finally { setBusy(false); }
+    };
+
+    useEffect(() => { if (open) refreshDiag(); /* eslint-disable-next-line */ }, [open]);
+
+    return (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4" data-testid="outbound-diagnostics-panel">
+            <button
+                onClick={() => setOpen((v) => !v)}
+                data-testid="outbound-diagnostics-toggle"
+                className="flex w-full items-center justify-between text-left"
+            >
+                <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Diagnostics & admin</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                        See exactly why a cycle returned 0/0/0, archive internal test seeds, or reset today's send counter for verification runs.
+                    </p>
+                </div>
+                <ChevronDown size={14} className={`text-amber-300 transition-transform ${open ? "rotate-180" : ""}`} />
+            </button>
+            {open && (
+                <div className="mt-4 space-y-3" data-testid="outbound-diagnostics-body">
+                    {diag ? (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="outbound-diagnostics-tiles">
+                            {[
+                                ["Daily limit",     diag.daily_limit],
+                                ["Sent today",      diag.sent_today],
+                                ["Remaining today", diag.remaining_today],
+                                ["Eligible to send",diag.eligible_for_initial_send],
+                                ["Unscored",        diag.unscored_prospects],
+                                ["Internal seeds",  `${diag.internal_seed_count} / ${diag.internal_cap}`],
+                                ["Archived",        diag.internal_archived_count],
+                                ["Engine",          diag.paused ? "PAUSED" : "running"],
+                            ].map(([label, value]) => (
+                                <div key={label} className="rounded-sm border border-white/5 bg-ink-900 p-2">
+                                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{label}</p>
+                                    <p className="font-heading mt-0.5 text-sm font-semibold text-white">{value}</p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-xs text-slate-400" data-testid="outbound-diagnostics-loading">Loading diagnostics…</p>
+                    )}
+                    {diag?.blockers?.length > 0 && (
+                        <div className="rounded-sm border border-amber-500/30 bg-amber-500/10 p-2" data-testid="outbound-blockers">
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">Active blockers</p>
+                            <p className="mt-0.5 font-mono text-xs text-amber-200">{diag.blockers.join(" · ")}</p>
+                        </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={archiveInternal}
+                            disabled={busy}
+                            data-testid="outbound-archive-internal"
+                            className="inline-flex items-center gap-2 rounded-md border border-amber-500/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-amber-300 hover:bg-amber-500/10 disabled:opacity-60"
+                        >
+                            <Trash2 size={11} /> Archive internal seeds
+                        </button>
+                        <button
+                            onClick={resetDaily}
+                            disabled={busy}
+                            data-testid="outbound-reset-daily"
+                            className="inline-flex items-center gap-2 rounded-md border border-amber-500/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-amber-300 hover:bg-amber-500/10 disabled:opacity-60"
+                        >
+                            <RefreshCcw size={11} /> Reset daily counter
+                        </button>
+                        <button
+                            onClick={refreshDiag}
+                            disabled={busy}
+                            data-testid="outbound-diagnostics-refresh"
+                            className="inline-flex items-center gap-2 rounded-md border border-white/10 p-2 text-slate-300 hover:border-amber-500/40 hover:text-amber-300 disabled:opacity-60"
+                        >
+                            <RefreshCcw size={11} />
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const SourcesStatusRow = ({ dash }) => {
     if (!dash) return null;
     const sources = dash.sources_configured || {};
@@ -1475,7 +1595,13 @@ const OutboundTab = ({ auth }) => {
                             const seeded = last.seeded?.added || 0;
                             const scored = last.scored || 0;
                             const sent = last.sent_this_cycle || 0;
-                            toast.success(`Autopilot complete · seeded ${seeded} · scored ${scored} · sent ${sent}`);
+                            const reasons = (last.reasons || []).join(" · ");
+                            const head = `Autopilot complete · seeded ${seeded} · scored ${scored} · sent ${sent}`;
+                            if (seeded === 0 && scored === 0 && sent === 0 && reasons) {
+                                toast.message(`${head}  →  ${reasons}`);
+                            } else {
+                                toast.success(head);
+                            }
                             refresh();
                         } else if (last && last.status === "failed") {
                             clearInterval(interval);
@@ -1579,6 +1705,7 @@ const OutboundTab = ({ auth }) => {
                     <OutboundKPIStrip dash={dash} />
                     <DeliverabilityPanel dash={dash} onTogglePause={togglePause} busy={busy} />
                     <SourcesStatusRow dash={dash} />
+                    <DiagnosticsPanel auth={auth} dash={dash} onChange={refresh} />
 
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                         <AddProspectForm auth={auth} onAdded={refresh} />

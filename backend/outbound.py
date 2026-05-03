@@ -1457,6 +1457,25 @@ def make_outbound_router(
 
         result["finished_at"] = now_iso()
         result["sent_today"] = await _today_sent_count()
+        # Diagnostic reasons explaining why any step might have produced 0
+        reasons: List[str] = []
+        if (result.get("seeded") or {}).get("added", 0) == 0 and (result.get("internal_seeded") or {}).get("added", 0) == 0:
+            r = (result.get("internal_seeded") or {}).get("reason")
+            if r == "cap_reached":
+                reasons.append("internal_cap_reached")
+            else:
+                reasons.append("no_fresh_demo_viewers")
+        if result.get("scored", 0) == 0:
+            reasons.append("nothing_to_score")
+        if result.get("sent_this_cycle", 0) == 0:
+            state = await _state()
+            if state.get("paused"):
+                reasons.append("engine_paused")
+            elif result["sent_today"] >= int(state.get("daily_limit", DAILY_LIMIT_DEFAULT)):
+                reasons.append("daily_cap_reached")
+            else:
+                reasons.append("no_eligible_prospects_to_send")
+        result["reasons"] = reasons
         return result
 
     @router.post("/autopilot-now")
@@ -1506,6 +1525,88 @@ def make_outbound_router(
         await require_founder(payload)
         from lead_sources import configured_status
         return {"sources": configured_status()}
+
+    @router.post("/admin/archive-internal")
+    async def admin_archive_internal(payload: OpsAuth):
+        """Migration · move all internal-seed test prospects to source='internal_archived'
+        so KPIs reset to real-source-only. Adds them to the suppression list so they
+        cannot accidentally receive future autopilot emails. Frees up the internal-cap
+        room so the next 'Run autopilot now' produces fresh seeds."""
+        await require_founder(payload)
+        # Find all internal seeds
+        cursor = db.outbound_prospects.find({"source": "internal_seed"}, {"_id": 0, "id": 1, "email": 1})
+        ids: List[str] = []
+        emails: List[str] = []
+        async for r in cursor:
+            ids.append(r["id"])
+            emails.append(r["email"])
+        if not ids:
+            return {"ok": True, "archived": 0, "message": "no internal seeds to archive"}
+        # Archive them
+        await db.outbound_prospects.update_many(
+            {"id": {"$in": ids}},
+            {"$set": {
+                "source": "internal_archived",
+                "status": "archived",
+                "suppressed": True,
+                "updated_at": now_iso(),
+            }},
+        )
+        # Suppress emails so they cannot be re-targeted
+        for e in emails:
+            await db.outbound_suppression.update_one(
+                {"email": e},
+                {"$set": {"reason": "internal_archived", "updated_at": now_iso()}},
+                upsert=True,
+            )
+        return {"ok": True, "archived": len(ids)}
+
+    @router.post("/admin/reset-daily-counter")
+    async def admin_reset_daily_counter(payload: OpsAuth):
+        """Testing helper — clears today's `sent` event records so the daily 50/day
+        cap resets. Use this only when verifying autopilot execution; in production
+        the cap should be respected to protect deliverability."""
+        await require_founder(payload)
+        r = await db.outbound_events.delete_many({"type": "sent", "day_key": today_key()})
+        return {"ok": True, "deleted": r.deleted_count}
+
+    @router.post("/admin/diagnostics")
+    async def admin_diagnostics(payload: OpsAuth):
+        """Returns the exact reasons the next autopilot cycle might produce 0
+        seeded / 0 scored / 0 sent — so the founder can see why and reset."""
+        await require_founder(payload)
+        state = await _state()
+        sent_today = await _today_sent_count()
+        daily_limit = int(state.get("daily_limit", DAILY_LIMIT_DEFAULT))
+        unscored = await db.outbound_prospects.count_documents({"lead_score": None})
+        internal_count = await db.outbound_prospects.count_documents({"source": "internal_seed"})
+        internal_archived = await db.outbound_prospects.count_documents({"source": "internal_archived"})
+        eligible_initial = await db.outbound_prospects.count_documents({
+            "status": {"$in": ["new", "scored"]},
+            "unsubscribed": {"$ne": True},
+            "suppressed": {"$ne": True},
+            "emails_sent": {"$lte": 0},
+            "lead_score": {"$gte": 40},
+        })
+        cap = int(os.environ.get("INTERNAL_LEAD_CAP", "200"))
+        return {
+            "paused": bool(state.get("paused")),
+            "daily_limit": daily_limit,
+            "sent_today": sent_today,
+            "remaining_today": max(0, daily_limit - sent_today),
+            "unscored_prospects": unscored,
+            "eligible_for_initial_send": eligible_initial,
+            "internal_seed_count": internal_count,
+            "internal_archived_count": internal_archived,
+            "internal_cap": cap,
+            "internal_cap_remaining": max(0, cap - internal_count),
+            "blockers": [
+                *(["paused"] if state.get("paused") else []),
+                *(["daily_cap_reached"] if sent_today >= daily_limit else []),
+                *(["internal_cap_reached"] if internal_count >= cap else []),
+                *(["nothing_to_send"] if eligible_initial == 0 else []),
+            ],
+        }
 
     # ── Clay inbound webhook ── public, secret-gated. Clay → POST → outbound.
     @router.post("/clay-webhook")

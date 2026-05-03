@@ -371,6 +371,15 @@ export const opsOutboundAutopilotHistory = (auth) =>
 export const opsOutboundSourcesStatus = (auth) =>
     api.post("/ops/outbound/sources-status", auth).then((r) => r.data);
 
+export const opsOutboundArchiveInternal = (auth) =>
+    api.post("/ops/outbound/admin/archive-internal", auth).then((r) => r.data);
+
+export const opsOutboundResetDaily = (auth) =>
+    api.post("/ops/outbound/admin/reset-daily-counter", auth).then((r) => r.data);
+
+export const opsOutboundDiagnostics = (auth) =>
+    api.post("/ops/outbound/admin/diagnostics", auth).then((r) => r.data);
+
 export const opsOutboundSeedFromDemos = (auth) =>
     api.post("/ops/outbound/seed-from-demos", auth).then((r) => r.data);
 
