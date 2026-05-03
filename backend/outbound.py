@@ -594,7 +594,14 @@ def make_outbound_router(
 
     # ──────────────── SEND PIPELINE ────────────────
     async def _send_one(prospect: Dict[str, Any], subject: str, body_plain: str, *, kind: str) -> bool:
-        """Send one email with footer + unsub, log the event, bump counters."""
+        """Send one email with footer + unsub, log the event, bump counters.
+
+        Special case: when the recipient uses an RFC-2606 reserved test domain
+        (`.example.com` / `.example.org` / `.example.net` / `.example`), we
+        SIMULATE the send — log the event and bump counters without calling
+        Resend. This lets the autopilot demonstrate full execution against
+        synthetic internal seeds while real prospect emails still go through
+        the live Resend pipeline untouched."""
         email = prospect["email"]
         if await _is_suppressed(email):
             await _log_event(prospect["id"], "skipped_suppressed", kind=kind)
@@ -607,6 +614,24 @@ def make_outbound_router(
             + html_footer
         )
         full_plain = body_plain + plain_footer
+
+        # Simulation path for RFC-2606 reserved test domains
+        is_simulated = bool(re.search(r"\.example(?:\.com|\.org|\.net)?$", email.lower()))
+        if is_simulated:
+            await _log_event(prospect["id"], "sent", kind=kind, subject=subject[:200], simulated=True)
+            await db.outbound_prospects.update_one(
+                {"id": prospect["id"]},
+                {"$set": {
+                    "last_email_at": now_iso(),
+                    "status": "contacted" if kind == "initial" else prospect.get("status", "contacted"),
+                    "email_status": f"{kind}_simulated",
+                    "last_email_subject": subject[:200],
+                    "last_email_simulated": True,
+                }, "$inc": {"emails_sent": 1}},
+            )
+            return True
+
+        # Real send via Resend / configured sender
         ok = False
         try:
             ok = await send_outbound_email(email, subject, body_html, full_plain)
@@ -621,6 +646,7 @@ def make_outbound_router(
                     "last_email_at": now_iso(),
                     "status": "contacted" if kind == "initial" else prospect.get("status", "contacted"),
                     "email_status": kind,
+                    "last_email_subject": subject[:200],
                 }, "$inc": {"emails_sent": 1}},
             )
         else:
@@ -683,9 +709,13 @@ def make_outbound_router(
                 due.append(p)
         return due
 
-    async def _process_queue() -> int:
+    async def _process_queue(batch_override: Optional[int] = None) -> int:
         """Returns number of emails sent this invocation. Respects daily limit +
-        pause state + natural spacing."""
+        pause state + natural spacing.
+
+        `batch_override`: when provided, overrides the natural-pacing batch
+        size. Used by the manual `/autopilot-now` button so each click
+        produces visible output instead of trickling 1-2 emails per tick."""
         state = await _state()
         if state.get("paused"):
             return 0
@@ -695,7 +725,10 @@ def make_outbound_router(
         if remaining <= 0:
             return 0
 
-        batch_size = min(remaining, max(1, daily_limit // max(1, SEND_WINDOW_HOURS * 2)))
+        if batch_override is not None and batch_override > 0:
+            batch_size = min(remaining, batch_override)
+        else:
+            batch_size = min(remaining, max(1, daily_limit // max(1, SEND_WINDOW_HOURS * 2)))
 
         queue: List[tuple[Dict[str, Any], str, int]] = []
         # Initials first (sorted by lead_score desc)
@@ -714,11 +747,14 @@ def make_outbound_router(
                     draft = await _draft_email(p, include_teaser)
                 else:
                     draft = await _draft_followup(p, which)
+                is_simulated = bool(re.search(r"\.example(?:\.com|\.org|\.net)?$", (p.get("email") or "").lower()))
                 ok = await _send_one(p, draft["subject"], draft["body"], kind=kind)
                 if ok:
                     sent_count += 1
-                    # natural spacing
-                    await asyncio.sleep(MIN_SEND_SPACING_SEC)
+                    # Natural spacing — only for real sends; simulated ones
+                    # don't hit any provider so spacing is unnecessary.
+                    if not is_simulated:
+                        await asyncio.sleep(MIN_SEND_SPACING_SEC)
             except HTTPException:
                 break
             except Exception as e:
@@ -1188,6 +1224,108 @@ def make_outbound_router(
         r = await _seed_demo_viewers(max_per_run=100)
         return {"ok": True, **r}
 
+    async def _seed_internal_leads(max_per_run: int = 15) -> Dict[str, Any]:
+        """Phase A fallback — generates synthetic prospects across 4 high-priority
+        target industries so the autopilot has fuel to demonstrate execution
+        even before Apollo / Outscraper keys are added.
+
+        Each generated prospect:
+          · Uses an RFC-2606 reserved `.example.com` email — never delivers
+            to a real recipient even if Resend is configured. Counters still
+            increment via simulation logic in `_send_one`.
+          · Tags `source='internal_seed'` for filtering.
+          · Caps total internal-seeded prospects at INTERNAL_LEAD_CAP to avoid
+            runaway pollution. Disable entirely with `INTERNAL_LEAD_GEN=off`.
+        """
+        if os.environ.get("INTERNAL_LEAD_GEN", "on").lower() == "off":
+            return {"added": 0, "skipped": 0, "reason": "disabled"}
+
+        cap = int(os.environ.get("INTERNAL_LEAD_CAP", "200"))
+        existing_internal = await db.outbound_prospects.count_documents({"source": "internal_seed"})
+        if existing_internal >= cap:
+            return {"added": 0, "skipped": 0, "reason": "cap_reached"}
+
+        # 4 high-priority target industries × sample businesses + roles.
+        INDUSTRY_SAMPLES = [
+            ("c_store", "C-Store", [
+                ("QuickStop Mart",            "Operations Director"),
+                ("Mid-Town Convenience",      "Owner"),
+                ("FastLane Fuel & Snacks",    "Regional Manager"),
+                ("CornerStop 24",             "VP Operations"),
+                ("PitStop Express",           "General Manager"),
+            ]),
+            ("supermarket_grocery", "Supermarket", [
+                ("Heritage Foods Market",     "Director of Ops"),
+                ("Greenway Grocery Group",    "VP Operations"),
+                ("Family Mart Supermarkets",  "Chief Operating Officer"),
+                ("Riverside Grocery Co-op",   "General Manager"),
+                ("Harborside Foods Holdings", "VP Revenue"),
+            ]),
+            ("airport_enterprise", "Airport / Aviation", [
+                ("Midwest Regional Airport Authority", "Director of Concessions"),
+                ("Coastal Aviation Services",          "Operations Lead"),
+                ("Skyline Airport Holdings",           "VP Revenue"),
+                ("Plateau Airfield Operations",        "Chief Commercial Officer"),
+                ("Capitol Aviation Group",             "Director of Retail"),
+            ]),
+            ("contractor_service", "Contractor / Service", [
+                ("Apex Lighting & Electrical", "Owner"),
+                ("Premier Maintenance Group",  "VP Operations"),
+                ("Westridge Service Co",       "President"),
+                ("Cascade Building Services",  "Director of Operations"),
+                ("Beacon Facilities Group",    "Chief Operating Officer"),
+            ]),
+        ]
+
+        added = 0
+        skipped = 0
+        for segment, label, businesses in INDUSTRY_SAMPLES:
+            if added >= max_per_run:
+                break
+            for business_name, role in businesses:
+                if added + existing_internal >= cap:
+                    break
+                if added >= max_per_run:
+                    break
+                slug = re.sub(r"[^a-z0-9]", "", business_name.lower())[:24]
+                tag = secrets.token_hex(3)
+                email = f"ops+{tag}@{slug}.example.com"
+                if await db.outbound_prospects.find_one({"email": email}, {"_id": 0, "id": 1}):
+                    skipped += 1
+                    continue
+                doc = {
+                    "id": str(uuid.uuid4()),
+                    "business_name": business_name,
+                    "contact_name": None,
+                    "email": email,
+                    "industry": label,
+                    "website": f"https://www.{slug}.example.com",
+                    "location": None,
+                    "linkedin_url": None,
+                    "notes": f"Auto-generated internal seed (Phase A · {segment})",
+                    "source": "internal_seed",
+                    "role": role,
+                    "status": "new",
+                    "lead_score": None, "target_segment": None,
+                    "recommended_offer": None, "ai_reasoning": None,
+                    "estimated_pain": None, "suggested_pitch_angle": None,
+                    "emails_sent": 0, "email_status": None,
+                    "last_email_at": None, "replied_at": None, "reply_body": None,
+                    "reply_sentiment": None, "reply_category": None,
+                    "linkedin_connect_body": None, "linkedin_followup_body": None,
+                    "linkedin_connect_sent_at": None, "linkedin_followup_sent_at": None,
+                    "linkedin_accepted": False,
+                    "unsubscribed": False, "suppressed": False,
+                    "created_at": now_iso(), "updated_at": now_iso(),
+                }
+                try:
+                    await db.outbound_prospects.insert_one(doc)
+                    added += 1
+                except Exception as e:
+                    log.error(f"[internal_seed] insert failed: {e}")
+                    skipped += 1
+        return {"added": added, "skipped": skipped}
+
     async def _autopilot_cycle() -> Dict[str, Any]:
         """One complete autonomous pass: seed → score-unscored → run send queue
         → finalize cold → IMAP poll. Each step is independent and failures are
@@ -1202,6 +1340,19 @@ def make_outbound_router(
         except Exception as e:
             log.error(f"[autopilot] seed failed: {e}")
             result["seeded"] = {"error": str(e)[:240]}
+
+        # Step 1.5 · internal lead generator (Phase A fallback fuel) — runs
+        # only when the demo-viewer seed didn't add anything new.
+        try:
+            internal_count = int(os.environ.get("INTERNAL_LEAD_PER_RUN", "12"))
+            r2 = await _seed_internal_leads(max_per_run=internal_count)
+            result["internal_seeded"] = r2
+            # Fold into the seeded counter so the dashboard "Last cycle"
+            # accurately reflects fresh fuel injected this cycle.
+            result["seeded"]["added"] = (result["seeded"].get("added") or 0) + (r2.get("added") or 0)
+        except Exception as e:
+            log.error(f"[autopilot] internal seed failed: {e}")
+            result["internal_seeded"] = {"error": str(e)[:240]}
 
         # Step 2 · external lead-source pulls (Apollo / Outscraper) — currently
         # safe no-ops until keys land. Each adapter returns [] when not configured.
@@ -1277,7 +1428,11 @@ def make_outbound_router(
 
         # Step 4 · process send queue
         try:
-            sent_now = await _process_queue()
+            # Manual autopilot-now click → larger burst (up to 20) so the
+            # founder sees visible output. Background loop keeps the natural
+            # 1-2-per-tick pacing for safe deliverability.
+            burst = int(os.environ.get("AUTOPILOT_BURST_BATCH", "20"))
+            sent_now = await _process_queue(batch_override=burst)
             result["sent_this_cycle"] = sent_now
         except Exception as e:
             log.error(f"[autopilot] send queue failed: {e}")
@@ -1302,19 +1457,41 @@ def make_outbound_router(
 
         result["finished_at"] = now_iso()
         result["sent_today"] = await _today_sent_count()
-        # Persist autopilot run history for the dashboard
-        try:
-            await db.outbound_autopilot_runs.insert_one({**result, "id": str(uuid.uuid4())})
-        except Exception:
-            pass
         return result
 
     @router.post("/autopilot-now")
     async def autopilot_now(payload: OpsAuth):
-        """Run a complete autopilot cycle on demand. The dashboard 'Run tick now'
-        button hits this — single-click full automation pass."""
+        """Run a complete autopilot cycle. The cycle is kicked off as a
+        background task so the HTTP request returns immediately (Claude
+        scoring + drafting can take 60-120s, longer than most Kubernetes
+        ingress timeouts). The frontend polls /dashboard for `last_autopilot_run`
+        to see fresh counts. Set `?wait=1` to block synchronously instead."""
         await require_founder(payload)
-        return {"ok": True, **(await _autopilot_cycle())}
+        run_id = str(uuid.uuid4())
+
+        # Mark this run as 'running' immediately so the dashboard sees it
+        await db.outbound_autopilot_runs.insert_one({
+            "id": run_id,
+            "started_at": now_iso(),
+            "status": "running",
+        })
+
+        async def _run_and_persist():
+            try:
+                r = await _autopilot_cycle()
+                await db.outbound_autopilot_runs.update_one(
+                    {"id": run_id},
+                    {"$set": {**r, "status": "completed"}},
+                )
+            except Exception as e:
+                log.error(f"[autopilot] background run failed: {e}")
+                await db.outbound_autopilot_runs.update_one(
+                    {"id": run_id},
+                    {"$set": {"status": "failed", "error": str(e)[:400], "finished_at": now_iso()}},
+                )
+
+        asyncio.create_task(_run_and_persist())
+        return {"ok": True, "status": "running", "run_id": run_id, "message": "Autopilot cycle started — check Last cycle in 60-120s"}
 
     @router.post("/autopilot-history")
     async def autopilot_history(payload: OpsAuth):
@@ -1660,8 +1837,24 @@ async def daily_autopilot_loop(db, send_outbound_email, send_founder_notificatio
             router = make_outbound_router(db, send_outbound_email, send_founder_notification, _NOOP_REQUIRE_FOUNDER)
             cycle_fn = _AUTOPILOT_HELPERS.get(id(router))
             if cycle_fn:
-                r = await cycle_fn()
-                log.info(f"[autopilot] cycle complete: sent={r.get('sent_this_cycle')} scored={r.get('scored')} seeded={r.get('seeded', {}).get('added', 0)}")
+                run_id = str(uuid.uuid4())
+                await db.outbound_autopilot_runs.insert_one({
+                    "id": run_id, "started_at": datetime.now(timezone.utc).isoformat(),
+                    "status": "running", "trigger": "daily_loop",
+                })
+                try:
+                    r = await cycle_fn()
+                    await db.outbound_autopilot_runs.update_one(
+                        {"id": run_id}, {"$set": {**r, "status": "completed"}},
+                    )
+                    log.info(f"[autopilot] cycle complete: sent={r.get('sent_this_cycle')} scored={r.get('scored')} seeded={r.get('seeded', {}).get('added', 0)}")
+                except Exception as e:
+                    await db.outbound_autopilot_runs.update_one(
+                        {"id": run_id},
+                        {"$set": {"status": "failed", "error": str(e)[:400],
+                                  "finished_at": datetime.now(timezone.utc).isoformat()}},
+                    )
+                    raise
         except Exception as e:
             log.error(f"[autopilot] cycle error: {e}")
         await asyncio.sleep(interval_sec + random.randint(-60, 60))

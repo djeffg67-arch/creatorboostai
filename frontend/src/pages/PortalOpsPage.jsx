@@ -1461,11 +1461,43 @@ const OutboundTab = ({ auth }) => {
         setBusy(true);
         try {
             const r = await opsOutboundAutopilotNow(auth);
-            const seeded = r.seeded?.added || 0;
-            const scored = r.scored || 0;
-            const sent = r.sent_this_cycle || 0;
-            toast.success(`Autopilot complete · seeded ${seeded} · scored ${scored} · sent ${sent}`);
-            refresh();
+            if (r.status === "running") {
+                toast.success("Autopilot started — refreshing dashboard in 60s…");
+                // Poll dashboard every 15s until last_autopilot_run.status flips to completed
+                let polls = 0;
+                const interval = setInterval(async () => {
+                    polls += 1;
+                    try {
+                        const fresh = await opsOutboundDashboard(auth);
+                        const last = fresh?.last_autopilot_run;
+                        if (last && last.status === "completed") {
+                            clearInterval(interval);
+                            const seeded = last.seeded?.added || 0;
+                            const scored = last.scored || 0;
+                            const sent = last.sent_this_cycle || 0;
+                            toast.success(`Autopilot complete · seeded ${seeded} · scored ${scored} · sent ${sent}`);
+                            refresh();
+                        } else if (last && last.status === "failed") {
+                            clearInterval(interval);
+                            toast.error(`Autopilot failed: ${last.error || "unknown"}`);
+                            refresh();
+                        } else if (polls >= 30) { // 30 × 15s = 7.5 min cap
+                            clearInterval(interval);
+                            toast.message("Autopilot still running — check Last cycle later");
+                            refresh();
+                        }
+                    } catch (_e) {
+                        // ignore poll error; will retry
+                    }
+                }, 15000);
+            } else {
+                // Fallback shape (old sync response)
+                const seeded = r.seeded?.added || 0;
+                const scored = r.scored || 0;
+                const sent = r.sent_this_cycle || 0;
+                toast.success(`Autopilot complete · seeded ${seeded} · scored ${scored} · sent ${sent}`);
+                refresh();
+            }
         } catch (e) {
             const d = e?.response?.data?.detail;
             toast.error(typeof d === "string" ? d : "Autopilot cycle failed");
