@@ -1,6 +1,74 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-03 (Iter 43 — Outbound Phase A · Diagnostics, Admin Migration Toggle, & Verified Live Execution)
+**Last update:** 2026-05-03 (Iter 44 — Outbound Phase A · LOW CREDIT EXECUTION MODE LIVE · KPI Source Toggle · Standard/Low mode presets)
+
+---
+
+## ⚠️ IMPORTANT — PREVIEW vs PRODUCTION
+
+**All Iter 39-44 changes are live in the PREVIEW environment** (`bodyiq-training.preview.emergentagent.com`). They are NOT yet deployed to **production** (`creatorboostai.com`).
+
+If you see `seeded 0 · scored 0 · sent 0` on `creatorboostai.com`, the production build needs to be **redeployed** via the Emergent Deploy dashboard. After deploy, the same Diagnostics panel + Low Credit Mode + Run Autopilot Now will be available on production.
+
+This recurrence has happened 3 times now — flagging it explicitly.
+
+---
+
+## 🚀 ITER 44 — LOW CREDIT EXECUTION MODE + KPI SOURCE TOGGLE
+
+Per Jeffrey's spec: "Low Credit Execution Mode" — system goes live but in controlled, low-cost mode. Verified end-to-end in preview.
+
+### Live verification (after switching to Low Credit Mode)
+```
+Last run · status=completed
+  internal_seeded: 10  ✅ (Jeffrey: "10 leads per run")
+  scored: 10           ✅ ("Score all 10 using BodyIQ")
+  sent_this_cycle: 5   ✅ ("Max 5 emails per run")
+  reasons: []          (no blockers)
+KPI: total=135 · scored=135 · contacted=80 · sent_today=10/10
+```
+
+### Low Credit Mode defaults (per Jeffrey's spec)
+| Setting | Old | New (Low-Credit) | Env override |
+|---|---|---|---|
+| Daily send cap | 50 | **10** | `OUTBOUND_DAILY_LIMIT` |
+| Min score to send | 40 | **70** | `OUTBOUND_MIN_SCORE` |
+| Internal leads / autopilot run | 12 | **10** | `INTERNAL_LEAD_PER_RUN` |
+| Manual autopilot burst | 20 | **5** | `AUTOPILOT_BURST_BATCH` |
+| Cadence | 0/2/5/10 | 0/2/5/10 | (already set) |
+
+### What was shipped
+
+**1. `MIN_SCORE_TO_SEND` gate** — only prospects with `lead_score >= 70` reach the send queue (was 40). Per Jeffrey: "score > 70 → proceed to email · Others → ignore".
+
+**2. `/admin/set-daily-limit` endpoint** — body `{email, token, limit:int}`, founder-only. Used by the new mode-preset buttons. Limit clamped to 1-1000.
+
+**3. KPI Source Toggle** — 3-way switch at top of dashboard:
+- **All sources** — server-side global counts
+- **Real prospects** — filters out `source IN ("internal_seed", "internal_archived")` — recomputes Total / Scored / Contacted / Replied / Reply rate from prospects array client-side
+- **Internal seeds (test)** — filters to `source = "internal_seed"` only
+- Reply rate clamped to ≤100 % to avoid display glitch when manually-marked-replied prospects skew the math
+
+**4. Mode preset buttons** in the Diagnostics & Admin panel:
+- **Low Credit Mode (10/day)** — sets `daily_limit = 10`, single-click activation (`outbound-mode-low` testid)
+- **Standard (50/day)** — sets `daily_limit = 50` (`outbound-mode-standard` testid)
+
+**5. Diagnostics now exposes `min_score_to_send`** — visible in `/admin/diagnostics` so the founder can see the active gating threshold.
+
+### Stop conditions enforced (already in place from prior iterations)
+- ✅ `unsubscribed = true` — skipped
+- ✅ `suppressed = true` — skipped (auto-suppressed on bounce / not-interested / unsubscribe reply category)
+- ✅ `replied_at != null` — follow-ups stop immediately
+- ✅ `emails_sent > 0` for "initial" send — never re-contacted as cold
+
+### Outstanding / backlog
+- **P0 — DEPLOY TO PRODUCTION** so `creatorboostai.com` runs Iter 39-44 code. Until redeploy, prod stays on Iter 38 (LIVE Stripe only).
+- **P0** — Add `RESEND_API_KEY` to production `.env` so real prospects (non-`.example.com`) get real emails.
+- **P0** — Verify SPF / DKIM / DMARC on `creatorboostai.com`.
+- **P1** — Apollo.io + Outscraper API keys.
+- **P1** — IMAP creds for live reply detection.
+- **P1** — PayPal Business integration.
+- **P2** — Refactor 6 `*DemoPage.jsx` files.
 
 ---
 

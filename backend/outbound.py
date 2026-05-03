@@ -31,7 +31,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, UploadFile, Body
 from pydantic import BaseModel, EmailStr, Field
 
 try:
@@ -107,7 +107,7 @@ DEMO_MAP = {
     "supermarket_grocery": {"route": "/demo/supermarket", "label": "Grocery Ops Engine"},
 }
 
-DAILY_LIMIT_DEFAULT = 50
+DAILY_LIMIT_DEFAULT = int(os.environ.get("OUTBOUND_DAILY_LIMIT", "10"))   # Phase A · Low Credit Execution Mode
 SEND_WINDOW_HOURS = 14                 # spread sends across 14-hour workday
 MIN_SEND_SPACING_SEC = 60              # hard floor between two sends
 BOUNCE_RATE_PAUSE_THRESHOLD = 0.05     # auto-pause if ≥5 % over last 7 days
@@ -117,6 +117,7 @@ MAX_EMAILS_BEFORE_COLD = 4              # initial + 3 follow-ups → then cold
 DEMO_VIEWER_DELAY_MIN_HRS = 12          # warm demo viewer delay lower bound
 DEMO_VIEWER_DELAY_MAX_HRS = 24          # warm demo viewer delay upper bound
 DEMO_VIEWER_BASELINE_SCORE = 82         # pre-scored warm lead baseline
+MIN_SCORE_TO_SEND = int(os.environ.get("OUTBOUND_MIN_SCORE", "70"))  # Phase A · only high-fit leads proceed to email
 
 # Subject-line rotation seeds — picked per prospect for variety without
 # repeating across the cadence. The AI sees one of these as a style hint.
@@ -661,7 +662,7 @@ def make_outbound_router(
                 "unsubscribed": {"$ne": True},
                 "suppressed": {"$ne": True},
                 "emails_sent": {"$lte": 0},
-                "lead_score": {"$gte": 40},
+                "lead_score": {"$gte": MIN_SCORE_TO_SEND},
                 "$or": [
                     {"not_before_at": {"$exists": False}},
                     {"not_before_at": None},
@@ -1344,7 +1345,7 @@ def make_outbound_router(
         # Step 1.5 · internal lead generator (Phase A fallback fuel) — runs
         # only when the demo-viewer seed didn't add anything new.
         try:
-            internal_count = int(os.environ.get("INTERNAL_LEAD_PER_RUN", "12"))
+            internal_count = int(os.environ.get("INTERNAL_LEAD_PER_RUN", "10"))  # Phase A · Low Credit Mode
             r2 = await _seed_internal_leads(max_per_run=internal_count)
             result["internal_seeded"] = r2
             # Fold into the seeded counter so the dashboard "Last cycle"
@@ -1428,10 +1429,10 @@ def make_outbound_router(
 
         # Step 4 · process send queue
         try:
-            # Manual autopilot-now click → larger burst (up to 20) so the
-            # founder sees visible output. Background loop keeps the natural
-            # 1-2-per-tick pacing for safe deliverability.
-            burst = int(os.environ.get("AUTOPILOT_BURST_BATCH", "20"))
+            # Manual autopilot-now click → controlled burst (5 in Low-Credit
+            # Mode). Background loop keeps natural 1-2-per-tick pacing for
+            # safe deliverability.
+            burst = int(os.environ.get("AUTOPILOT_BURST_BATCH", "5"))
             sent_now = await _process_queue(batch_override=burst)
             result["sent_this_cycle"] = sent_now
         except Exception as e:
@@ -1570,6 +1571,24 @@ def make_outbound_router(
         r = await db.outbound_events.delete_many({"type": "sent", "day_key": today_key()})
         return {"ok": True, "deleted": r.deleted_count}
 
+    @router.post("/admin/set-daily-limit")
+    async def admin_set_daily_limit(payload: Dict[str, Any] = Body(...)):
+        """Update the engine's daily send cap. Pass {limit: int}. Used by the
+        'Low Credit Mode' preset and any future scaling controls."""
+        class _A:
+            email = (payload.get("email") or "").strip()
+            token = (payload.get("token") or "").strip()
+        await require_founder(_A())
+        try:
+            limit = int(payload.get("limit", DAILY_LIMIT_DEFAULT))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "limit must be an integer")
+        limit = max(1, min(limit, 1000))
+        await db.outbound_campaign_state.update_one(
+            {}, {"$set": {"daily_limit": limit, "updated_at": now_iso()}}, upsert=True,
+        )
+        return {"ok": True, "daily_limit": limit}
+
     @router.post("/admin/diagnostics")
     async def admin_diagnostics(payload: OpsAuth):
         """Returns the exact reasons the next autopilot cycle might produce 0
@@ -1586,7 +1605,7 @@ def make_outbound_router(
             "unsubscribed": {"$ne": True},
             "suppressed": {"$ne": True},
             "emails_sent": {"$lte": 0},
-            "lead_score": {"$gte": 40},
+            "lead_score": {"$gte": MIN_SCORE_TO_SEND},
         })
         cap = int(os.environ.get("INTERNAL_LEAD_CAP", "200"))
         return {
@@ -1596,6 +1615,7 @@ def make_outbound_router(
             "remaining_today": max(0, daily_limit - sent_today),
             "unscored_prospects": unscored,
             "eligible_for_initial_send": eligible_initial,
+            "min_score_to_send": MIN_SCORE_TO_SEND,
             "internal_seed_count": internal_count,
             "internal_archived_count": internal_archived,
             "internal_cap": cap,

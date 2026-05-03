@@ -25,6 +25,7 @@ import {
     opsOutboundDraftReject, opsOutboundRunTick, opsOutboundSeedFromDemos,
     opsOutboundImapPollNow, opsOutboundAutopilotNow,
     opsOutboundArchiveInternal, opsOutboundResetDaily, opsOutboundDiagnostics,
+    opsOutboundSetDailyLimit,
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 
@@ -731,21 +732,54 @@ const RISK_TONE = {
     high:   "border-rose-500/50 bg-rose-500/10 text-rose-300 animate-pulse",
 };
 
-const OutboundKPIStrip = ({ dash }) => {
+const OutboundKPIStrip = ({ dash, prospects, sourceView }) => {
     if (!dash) return null;
     const k = dash.kpi || {};
     const state = dash.state || {};
-    const limit = state.daily_limit ?? 50;
+    const limit = state.daily_limit ?? 10;
+
+    // When a source filter is active, recompute all counters from the
+    // already-loaded prospects array so the founder sees the filtered view.
+    let filtered;
+    if (sourceView === "real") {
+        filtered = (prospects || []).filter((p) => p.source !== "internal_seed" && p.source !== "internal_archived");
+    } else if (sourceView === "internal") {
+        filtered = (prospects || []).filter((p) => p.source === "internal_seed");
+    } else {
+        filtered = null; // 'all' uses dash.kpi as-is
+    }
+
+    let total, scored, contacted, replied, positive, unsubs, replyRate;
+    if (filtered) {
+        total = filtered.length;
+        scored = filtered.filter((p) => p.lead_score != null).length;
+        contacted = filtered.filter((p) => (p.emails_sent || 0) > 0).length;
+        replied = filtered.filter((p) => p.replied_at).length;
+        positive = filtered.filter((p) => p.status === "replied_positive").length;
+        unsubs = filtered.filter((p) => p.unsubscribed).length;
+        // Bound reply_rate to <=100 — replies can outnumber contacts when
+        // a manually-marked-replied prospect has emails_sent=0.
+        replyRate = contacted ? Math.min(100, Math.round((replied / contacted) * 100)) : 0;
+    } else {
+        total = k.total_prospects ?? 0;
+        scored = k.scored ?? 0;
+        contacted = k.contacted ?? 0;
+        replied = k.replied ?? 0;
+        positive = k.positive ?? 0;
+        unsubs = k.unsubscribed ?? 0;
+        replyRate = Math.round((k.reply_rate || 0) * 100);
+    }
+
     const sentToday = dash.sent_today ?? 0;
     const pct = Math.min(100, Math.round((sentToday / Math.max(1, limit)) * 100));
     const tiles = [
-        { label: "Total prospects", value: k.total_prospects ?? 0, Icon: Users, tone: "white" },
-        { label: "Scored",          value: k.scored ?? 0,          Icon: Sparkles, tone: "cyan" },
-        { label: "Contacted",       value: k.contacted ?? 0,       Icon: Mail, tone: "cyan" },
-        { label: "Replied",         value: k.replied ?? 0,         Icon: MessageSquare, tone: "white" },
-        { label: "Positive",        value: k.positive ?? 0,        Icon: ThumbsUp, tone: "emerald" },
-        { label: "Unsubs",          value: k.unsubscribed ?? 0,    Icon: XCircle, tone: "rose" },
-        { label: "Reply rate",      value: `${Math.round((k.reply_rate || 0) * 100)}%`, Icon: Activity, tone: "cyan" },
+        { label: "Total prospects", value: total,    Icon: Users, tone: "white" },
+        { label: "Scored",          value: scored,   Icon: Sparkles, tone: "cyan" },
+        { label: "Contacted",       value: contacted,Icon: Mail, tone: "cyan" },
+        { label: "Replied",         value: replied,  Icon: MessageSquare, tone: "white" },
+        { label: "Positive",        value: positive, Icon: ThumbsUp, tone: "emerald" },
+        { label: "Unsubs",          value: unsubs,   Icon: XCircle, tone: "rose" },
+        { label: "Reply rate",      value: `${replyRate}%`, Icon: Activity, tone: "cyan" },
         { label: `Sent today (${sentToday}/${limit})`, value: `${pct}%`, Icon: Send, tone: "emerald" },
     ];
     const toneCls = {
@@ -1371,6 +1405,20 @@ const DiagnosticsPanel = ({ auth, dash, onChange }) => {
         } finally { setBusy(false); }
     };
 
+    const setMode = async (limit, label) => {
+        if (!window.confirm(`Switch to ${label} (daily cap = ${limit})?`)) return;
+        setBusy(true);
+        try {
+            await opsOutboundSetDailyLimit({ ...auth, limit });
+            toast.success(`${label} active · daily cap ${limit}`);
+            await refreshDiag();
+            onChange?.();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Mode change failed");
+        } finally { setBusy(false); }
+    };
+
     useEffect(() => { if (open) refreshDiag(); /* eslint-disable-next-line */ }, [open]);
 
     return (
@@ -1418,6 +1466,24 @@ const DiagnosticsPanel = ({ auth, dash, onChange }) => {
                         </div>
                     )}
                     <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={() => setMode(10, "Low Credit Mode")}
+                            disabled={busy}
+                            data-testid="outbound-mode-low"
+                            className="inline-flex items-center gap-2 rounded-md border border-emerald-500/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-60"
+                            title="10 leads/run · 5 emails/click · 10/day cap · score ≥70 to send"
+                        >
+                            <Sparkles size={11} /> Low credit mode (10/day)
+                        </button>
+                        <button
+                            onClick={() => setMode(50, "Standard Mode")}
+                            disabled={busy}
+                            data-testid="outbound-mode-standard"
+                            className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-60"
+                            title="Scale up — 50/day cap"
+                        >
+                            <Zap size={11} /> Standard (50/day)
+                        </button>
                         <button
                             onClick={archiveInternal}
                             disabled={busy}
@@ -1511,6 +1577,7 @@ const OutboundTab = ({ auth }) => {
     const [view, setView] = useState("prospects"); // prospects | drafts
     const [filter, setFilter] = useState("all");
     const [liProspect, setLiProspect] = useState(null);
+    const [sourceView, setSourceView] = useState("all"); // all | real | internal
 
     const refresh = async () => {
         try {
@@ -1631,11 +1698,17 @@ const OutboundTab = ({ auth }) => {
     };
 
     const filtered = useMemo(() => {
-        if (filter === "all") return prospects;
-        if (filter === "unscored") return prospects.filter((p) => p.lead_score == null);
-        if (filter === "high") return prospects.filter((p) => (p.lead_score || 0) >= 70);
-        return prospects.filter((p) => p.status === filter);
-    }, [prospects, filter]);
+        let base = prospects;
+        if (sourceView === "real") {
+            base = prospects.filter((p) => p.source !== "internal_seed" && p.source !== "internal_archived");
+        } else if (sourceView === "internal") {
+            base = prospects.filter((p) => p.source === "internal_seed");
+        }
+        if (filter === "all") return base;
+        if (filter === "unscored") return base.filter((p) => p.lead_score == null);
+        if (filter === "high") return base.filter((p) => (p.lead_score || 0) >= 70);
+        return base.filter((p) => p.status === filter);
+    }, [prospects, filter, sourceView]);
 
     const filterBtns = [
         ["all",              "All"],
@@ -1702,7 +1775,25 @@ const OutboundTab = ({ auth }) => {
                 <p className="text-slate-400" data-testid="outbound-loading">Loading outbound engine…</p>
             ) : (
                 <>
-                    <OutboundKPIStrip dash={dash} />
+                    <OutboundKPIStrip dash={dash} prospects={prospects} sourceView={sourceView} />
+                    {/* KPI Source Toggle — Real prospects vs Internal seeds */}
+                    <div className="flex flex-wrap items-center gap-2" data-testid="outbound-source-toggle">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">View:</span>
+                        {[
+                            ["all",      "All sources"],
+                            ["real",     "Real prospects"],
+                            ["internal", "Internal seeds (test)"],
+                        ].map(([id, label]) => (
+                            <button
+                                key={id}
+                                onClick={() => setSourceView(id)}
+                                data-testid={`outbound-source-toggle-${id}`}
+                                className={`rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] ${sourceView === id ? "border border-cyan-500/50 bg-cyan-500/10 text-cyan-300" : "border border-white/10 text-slate-400 hover:border-cyan-500/30 hover:text-cyan-300"}`}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
                     <DeliverabilityPanel dash={dash} onTogglePause={togglePause} busy={busy} />
                     <SourcesStatusRow dash={dash} />
                     <DiagnosticsPanel auth={auth} dash={dash} onChange={refresh} />

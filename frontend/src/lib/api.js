@@ -380,6 +380,9 @@ export const opsOutboundResetDaily = (auth) =>
 export const opsOutboundDiagnostics = (auth) =>
     api.post("/ops/outbound/admin/diagnostics", auth).then((r) => r.data);
 
+export const opsOutboundSetDailyLimit = (payload) =>
+    api.post("/ops/outbound/admin/set-daily-limit", payload).then((r) => r.data);
+
 export const opsOutboundSeedFromDemos = (auth) =>
     api.post("/ops/outbound/seed-from-demos", auth).then((r) => r.data);
 
