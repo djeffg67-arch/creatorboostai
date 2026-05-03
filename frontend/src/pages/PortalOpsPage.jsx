@@ -7,7 +7,8 @@ import {
     MessageSquare, Copy, Link2, Mail, Check, Activity, DollarSign, Target,
     ArrowRight, Sparkles, UserPlus, ShieldCheck, ChevronDown, RefreshCcw,
     UserCog, AlertTriangle, PhoneCall, KeyRound, CheckCircle2, XCircle,
-    Smartphone, Trash2,
+    Smartphone, Trash2, Radar, Upload, Play, Pause, Linkedin, Zap, ExternalLink,
+    FileText, ThumbsUp, ThumbsDown, X,
 } from "lucide-react";
 import {
     opsFounderAccess, opsExecutiveAccess, opsEmployeeAcceptInvite, opsMe,
@@ -17,6 +18,11 @@ import {
     opsLogout, opsAdminUsersList, opsAdminUsersUpsert, opsAdminUsersDeactivate,
     opsAdminUsersResetAccess, opsAdminLoginAttempts, opsAdminDeliveryStatus,
     opsDemoRevenue,
+    opsOutboundDashboard, opsOutboundPause, opsOutboundListProspects,
+    opsOutboundAddProspect, opsOutboundUploadProspects, opsOutboundScore,
+    opsOutboundScoreAll, opsOutboundLinkedinGenerate, opsOutboundLinkedinMarkSent,
+    opsOutboundMarkReplied, opsOutboundDraftsList, opsOutboundDraftApprove,
+    opsOutboundDraftReject, opsOutboundRunTick,
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 
@@ -151,6 +157,7 @@ const Sidebar = ({ me, active, onNav, onSignOut }) => {
         { id: "ai",          label: "AI Assistant",Icon: Bot },
     ];
     if (me.scopes.can_see_all_employees) items.push({ id: "employees", label: "Employees", Icon: Users });
+    if (me.scopes.can_see_settings)      items.push({ id: "outbound",  label: "Outbound",  Icon: Radar });
     if (me.scopes.can_see_settings)      items.push({ id: "revenue",   label: "Demo Revenue", Icon: DollarSign });
     if (me.scopes.can_see_settings)      items.push({ id: "admin",     label: "Admin",     Icon: UserCog });
     if (me.scopes.can_see_settings)      items.push({ id: "settings",  label: "Settings",  Icon: ShieldCheck });
@@ -696,6 +703,798 @@ const kindTone = {
     share_send:           "border-white/10 bg-ink-800 text-slate-300",
 };
 
+// ======================================================================
+// OUTBOUND TAB — Autonomous Outbound Sales Engine command center
+// ======================================================================
+const SEGMENT_LABELS = {
+    realtor: "Realtors", insurance_agent: "Insurance", creator_influencer: "Creators",
+    contractor_service: "Contractors", retail_chain: "Retail", airport_enterprise: "Airports",
+    sales_team_agency: "Sales Teams", c_store: "C-Stores", supermarket_grocery: "Grocery",
+};
+
+const OUTBOUND_STATUS_TONE = {
+    new:              "border-white/10 bg-ink-900 text-slate-300",
+    scored:           "border-cyan-500/30 bg-cyan-500/5 text-cyan-300",
+    contacted:        "border-amber-500/30 bg-amber-500/5 text-amber-300",
+    replied:          "border-cyan-500/40 bg-cyan-500/10 text-cyan-200",
+    replied_positive: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+    not_interested:   "border-rose-500/30 bg-rose-500/5 text-rose-300",
+    unsubscribed:     "border-rose-500/30 bg-rose-500/5 text-rose-300",
+};
+
+const RISK_TONE = {
+    low:    "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+    medium: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+    high:   "border-rose-500/50 bg-rose-500/10 text-rose-300 animate-pulse",
+};
+
+const OutboundKPIStrip = ({ dash }) => {
+    if (!dash) return null;
+    const k = dash.kpi || {};
+    const state = dash.state || {};
+    const limit = state.daily_limit ?? 50;
+    const sentToday = dash.sent_today ?? 0;
+    const pct = Math.min(100, Math.round((sentToday / Math.max(1, limit)) * 100));
+    const tiles = [
+        { label: "Total prospects", value: k.total_prospects ?? 0, Icon: Users, tone: "white" },
+        { label: "Scored",          value: k.scored ?? 0,          Icon: Sparkles, tone: "cyan" },
+        { label: "Contacted",       value: k.contacted ?? 0,       Icon: Mail, tone: "cyan" },
+        { label: "Replied",         value: k.replied ?? 0,         Icon: MessageSquare, tone: "white" },
+        { label: "Positive",        value: k.positive ?? 0,        Icon: ThumbsUp, tone: "emerald" },
+        { label: "Unsubs",          value: k.unsubscribed ?? 0,    Icon: XCircle, tone: "rose" },
+        { label: "Reply rate",      value: `${Math.round((k.reply_rate || 0) * 100)}%`, Icon: Activity, tone: "cyan" },
+        { label: `Sent today (${sentToday}/${limit})`, value: `${pct}%`, Icon: Send, tone: "emerald" },
+    ];
+    const toneCls = {
+        white:   "border-white/10 bg-ink-700/40",
+        cyan:    "border-cyan-500/30 bg-cyan-500/5",
+        emerald: "border-emerald-500/30 bg-emerald-500/5",
+        rose:    "border-rose-500/30 bg-rose-500/5",
+    };
+    return (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8" data-testid="outbound-kpi-strip">
+            {tiles.map((t) => (
+                <div key={t.label} className={`rounded-md border p-3 ${toneCls[t.tone]}`}>
+                    <div className="flex items-center gap-2">
+                        <t.Icon size={10} className="text-cyan-400" />
+                        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400 truncate">{t.label}</span>
+                    </div>
+                    <p className="font-heading mt-1 text-xl font-semibold text-white">{t.value}</p>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+const DeliverabilityPanel = ({ dash, onTogglePause, busy }) => {
+    if (!dash) return null;
+    const d = dash.deliverability || {};
+    const state = dash.state || {};
+    const risk = (d.risk || "low").toLowerCase();
+    const riskCls = RISK_TONE[risk] || RISK_TONE.low;
+    const paused = Boolean(state.paused);
+    return (
+        <div
+            className={`rounded-md border p-5 ${risk === "high" ? "border-rose-500/40 bg-rose-500/5" : "border-white/10 bg-ink-700/40"}`}
+            data-testid="outbound-deliverability-panel"
+        >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Deliverability · last 7 days</p>
+                    <div className="mt-2 flex items-center gap-2">
+                        <span
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] ${riskCls}`}
+                            data-testid="outbound-risk-pill"
+                        >
+                            <AlertTriangle size={10} />
+                            RISK · {risk}
+                        </span>
+                        {paused && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-rose-300" data-testid="outbound-paused-pill">
+                                <Pause size={10} /> Paused
+                            </span>
+                        )}
+                    </div>
+                </div>
+                <button
+                    onClick={onTogglePause}
+                    disabled={busy}
+                    data-testid="outbound-pause-toggle"
+                    className={`inline-flex items-center gap-2 rounded-md px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] ${paused ? "bg-emerald-500 text-ink-900 hover:bg-emerald-400" : "border border-rose-500/40 text-rose-300 hover:bg-rose-500/10"} disabled:opacity-60`}
+                >
+                    {paused ? <><Play size={11} /> Resume engine</> : <><Pause size={11} /> Pause engine</>}
+                </button>
+            </div>
+            {risk === "high" && (
+                <div className="mt-4 rounded-sm border border-rose-500/40 bg-rose-500/10 p-3" data-testid="outbound-risk-alert">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-rose-200">
+                        ⚠ High risk — outbound may auto-pause. Investigate bounce/complaint sources before resuming.
+                    </p>
+                </div>
+            )}
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                {[
+                    ["Sent",         d.sent ?? 0],
+                    ["Bounced",      d.bounced ?? 0],
+                    ["Complained",   d.complained ?? 0],
+                    ["Bounce rate",  `${Math.round((d.bounce_rate || 0) * 1000) / 10}%`],
+                    ["Complaint rate", `${Math.round((d.complaint_rate || 0) * 10000) / 100}%`],
+                ].map(([label, value]) => (
+                    <div key={label} className="rounded-sm border border-white/5 bg-ink-900 p-3">
+                        <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{label}</p>
+                        <p className="font-heading mt-1 text-lg font-semibold text-white">{value}</p>
+                    </div>
+                ))}
+            </div>
+            {state.pause_reason && (
+                <p className="mt-3 font-mono text-[10px] text-amber-300" data-testid="outbound-pause-reason">
+                    Pause reason: {state.pause_reason}
+                </p>
+            )}
+        </div>
+    );
+};
+
+const AddProspectForm = ({ auth, onAdded }) => {
+    const [f, setF] = useState({ business_name: "", contact_name: "", email: "", industry: "", website: "", location: "", linkedin_url: "", notes: "" });
+    const [busy, setBusy] = useState(false);
+    const submit = async () => {
+        if (!f.business_name || !f.email) { toast.error("Business name and email are required"); return; }
+        setBusy(true);
+        try {
+            await opsOutboundAddProspect({ auth_email: auth.email, auth_token: auth.token, ...f });
+            toast.success("Prospect added");
+            setF({ business_name: "", contact_name: "", email: "", industry: "", website: "", location: "", linkedin_url: "", notes: "" });
+            onAdded?.();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Could not add prospect");
+        } finally { setBusy(false); }
+    };
+    return (
+        <div className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-4" data-testid="outbound-add-form">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Add prospect</p>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {[
+                    ["business_name", "Business name *"],
+                    ["contact_name",  "Contact name"],
+                    ["email",         "Email *"],
+                    ["industry",      "Industry"],
+                    ["website",       "Website"],
+                    ["location",      "Location"],
+                    ["linkedin_url",  "LinkedIn URL"],
+                ].map(([k, label]) => (
+                    <input
+                        key={k}
+                        placeholder={label}
+                        value={f[k]}
+                        onChange={(e) => setF({ ...f, [k]: e.target.value })}
+                        data-testid={`outbound-add-${k}`}
+                        className="rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+                    />
+                ))}
+            </div>
+            <textarea
+                placeholder="Notes"
+                value={f.notes}
+                onChange={(e) => setF({ ...f, notes: e.target.value })}
+                data-testid="outbound-add-notes"
+                rows={2}
+                className="mt-2 w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+            />
+            <div className="mt-2 flex justify-end">
+                <button
+                    onClick={submit}
+                    disabled={busy}
+                    data-testid="outbound-add-submit"
+                    className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 text-xs font-semibold text-ink-900 hover:bg-cyan-400 disabled:opacity-60"
+                >
+                    <Plus size={11} /> {busy ? "Adding…" : "Add prospect"}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const CsvUploadBox = ({ auth, onUploaded }) => {
+    const [busy, setBusy] = useState(false);
+    const inputRef = useRef(null);
+    const onFile = async (file) => {
+        if (!file) return;
+        setBusy(true);
+        try {
+            const r = await opsOutboundUploadProspects(auth.email, auth.token, file);
+            toast.success(`Imported ${r.added} · skipped ${r.skipped}`);
+            onUploaded?.();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Upload failed");
+        } finally {
+            setBusy(false);
+            if (inputRef.current) inputRef.current.value = "";
+        }
+    };
+    return (
+        <div className="rounded-md border border-dashed border-white/15 bg-ink-700/30 p-4" data-testid="outbound-csv-upload">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">CSV Upload</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                        Columns supported: <span className="font-mono text-slate-300">business_name, contact_name, email, industry, website, location, linkedin_url, notes</span>
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <input
+                        ref={inputRef}
+                        type="file"
+                        accept=".csv,text/csv"
+                        className="hidden"
+                        data-testid="outbound-csv-input"
+                        onChange={(e) => onFile(e.target.files?.[0])}
+                    />
+                    <button
+                        onClick={() => inputRef.current?.click()}
+                        disabled={busy}
+                        data-testid="outbound-csv-btn"
+                        className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-60"
+                    >
+                        <Upload size={11} /> {busy ? "Uploading…" : "Upload CSV"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const LinkedinModal = ({ prospect, auth, onClose, onChange }) => {
+    const [busy, setBusy] = useState(false);
+    const [connect, setConnect] = useState(prospect?.linkedin_connect_body || "");
+    const [followup, setFollowup] = useState(prospect?.linkedin_followup_body || "");
+
+    useEffect(() => {
+        setConnect(prospect?.linkedin_connect_body || "");
+        setFollowup(prospect?.linkedin_followup_body || "");
+    }, [prospect]);
+
+    const generate = async () => {
+        setBusy(true);
+        try {
+            const r = await opsOutboundLinkedinGenerate({ ...auth, prospect_id: prospect.id });
+            setConnect(r.connect_body || "");
+            setFollowup(r.followup_body || "");
+            toast.success("LinkedIn messages generated");
+            onChange?.();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "AI generation failed");
+        } finally { setBusy(false); }
+    };
+
+    const copyText = async (text, label) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            toast.success(`${label} copied`);
+        } catch { toast.error("Copy failed"); }
+    };
+
+    const markSent = async (which) => {
+        try {
+            await opsOutboundLinkedinMarkSent({ ...auth, prospect_id: prospect.id }, which);
+            toast.success(`Marked ${which} as sent`);
+            onChange?.();
+        } catch { toast.error("Could not mark sent"); }
+    };
+
+    if (!prospect) return null;
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/90 p-4 backdrop-blur-sm"
+            data-testid="outbound-linkedin-modal"
+            onClick={onClose}
+        >
+            <div
+                className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-cyan-500/30 bg-ink-900 p-6 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-400">LinkedIn Assist · Manual Send</p>
+                        <h3 className="font-heading mt-1 text-xl font-semibold text-white">{prospect.business_name}</h3>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">{prospect.contact_name || "—"} · {prospect.email}</p>
+                    </div>
+                    <button onClick={onClose} data-testid="outbound-linkedin-close" className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-white">
+                        <X size={16} />
+                    </button>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={generate}
+                        disabled={busy}
+                        data-testid="outbound-linkedin-generate"
+                        className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 text-xs font-semibold text-ink-900 hover:bg-cyan-400 disabled:opacity-60"
+                    >
+                        <Sparkles size={11} /> {busy ? "Generating…" : (connect ? "Regenerate with AI" : "Generate with AI")}
+                    </button>
+                    {prospect.linkedin_url && (
+                        <a
+                            href={prospect.linkedin_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            data-testid="outbound-linkedin-open-profile"
+                            className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500/10"
+                        >
+                            <ExternalLink size={11} /> Open LinkedIn profile
+                        </a>
+                    )}
+                </div>
+
+                {/* Connection message */}
+                <div className="mt-5 rounded-md border border-white/10 bg-ink-700/40 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Connection request (≤300 chars)</p>
+                        {prospect.linkedin_connect_sent_at && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-300">
+                                <Check size={9} /> Sent
+                            </span>
+                        )}
+                    </div>
+                    <textarea
+                        value={connect}
+                        onChange={(e) => setConnect(e.target.value)}
+                        rows={4}
+                        data-testid="outbound-linkedin-connect-body"
+                        placeholder="Generate with AI above, or paste your own."
+                        className="mt-2 w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white focus:border-cyan-500/50 focus:outline-none"
+                    />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={() => copyText(connect, "Connect message")}
+                            disabled={!connect}
+                            data-testid="outbound-linkedin-copy-connect"
+                            className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-40"
+                        >
+                            <Copy size={11} /> Copy
+                        </button>
+                        <button
+                            onClick={() => markSent("connect")}
+                            data-testid="outbound-linkedin-mark-connect-sent"
+                            className="inline-flex items-center gap-2 rounded-md border border-emerald-500/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500/10"
+                        >
+                            <Check size={11} /> Mark as sent
+                        </button>
+                    </div>
+                </div>
+
+                {/* Follow-up message */}
+                <div className="mt-4 rounded-md border border-white/10 bg-ink-700/40 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Follow-up after accept (≤600 chars)</p>
+                        {prospect.linkedin_followup_sent_at && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-300">
+                                <Check size={9} /> Sent
+                            </span>
+                        )}
+                    </div>
+                    <textarea
+                        value={followup}
+                        onChange={(e) => setFollowup(e.target.value)}
+                        rows={5}
+                        data-testid="outbound-linkedin-followup-body"
+                        placeholder="Generate with AI above, or paste your own."
+                        className="mt-2 w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white focus:border-cyan-500/50 focus:outline-none"
+                    />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={() => copyText(followup, "Follow-up message")}
+                            disabled={!followup}
+                            data-testid="outbound-linkedin-copy-followup"
+                            className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-40"
+                        >
+                            <Copy size={11} /> Copy
+                        </button>
+                        <button
+                            onClick={() => markSent("followup")}
+                            data-testid="outbound-linkedin-mark-followup-sent"
+                            className="inline-flex items-center gap-2 rounded-md border border-emerald-500/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500/10"
+                        >
+                            <Check size={11} /> Mark as sent
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ProspectRow = ({ p, auth, onChange, onLinkedin }) => {
+    const [busy, setBusy] = useState(false);
+    const score = async () => {
+        setBusy(true);
+        try {
+            await opsOutboundScore({ ...auth, prospect_id: p.id });
+            toast.success("AI scored prospect");
+            onChange?.();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Scoring failed");
+        } finally { setBusy(false); }
+    };
+    const markReplied = async (positive) => {
+        const body = window.prompt(`Reply body (optional) — marking as ${positive === true ? "positive" : positive === false ? "not interested" : "replied"}:`, "");
+        if (body === null) return;
+        setBusy(true);
+        try {
+            await opsOutboundMarkReplied({ ...auth, prospect_id: p.id, reply_body: body, positive });
+            toast.success("Reply recorded");
+            onChange?.();
+        } catch { toast.error("Could not mark replied"); }
+        finally { setBusy(false); }
+    };
+
+    const scoreBadge = p.lead_score == null
+        ? "border-white/10 bg-ink-900 text-slate-400"
+        : p.lead_score >= 80 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+        : p.lead_score >= 60 ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
+        : p.lead_score >= 40 ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+        : "border-rose-500/40 bg-rose-500/10 text-rose-300";
+
+    return (
+        <tr className="border-t border-white/5 hover:bg-white/5" data-testid={`outbound-prospect-row-${p.id}`}>
+            <td className="px-3 py-2">
+                <p className="text-sm font-semibold text-white">{p.business_name}</p>
+                <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400">{p.contact_name || "—"}</p>
+            </td>
+            <td className="px-3 py-2 text-xs text-slate-300">{p.email}</td>
+            <td className="px-3 py-2">
+                {p.target_segment ? (
+                    <span className="rounded-full border border-cyan-500/30 bg-cyan-500/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">
+                        {SEGMENT_LABELS[p.target_segment] || p.target_segment}
+                    </span>
+                ) : <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">—</span>}
+            </td>
+            <td className="px-3 py-2">
+                <span className={`inline-flex items-center justify-center rounded-md border px-2 py-0.5 font-mono text-[10px] ${scoreBadge}`}>
+                    {p.lead_score ?? "—"}
+                </span>
+            </td>
+            <td className="px-3 py-2">
+                <span className={`rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] ${OUTBOUND_STATUS_TONE[p.status] || OUTBOUND_STATUS_TONE.new}`}>
+                    {p.status}
+                </span>
+            </td>
+            <td className="px-3 py-2 text-center font-mono text-xs text-slate-300">{p.emails_sent || 0}</td>
+            <td className="px-3 py-2">
+                <div className="flex flex-wrap items-center justify-end gap-1">
+                    <button
+                        onClick={score}
+                        disabled={busy}
+                        title="AI Score"
+                        data-testid={`outbound-row-score-${p.id}`}
+                        className="rounded-md border border-white/10 p-1.5 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-40"
+                    >
+                        <Sparkles size={12} />
+                    </button>
+                    <button
+                        onClick={() => onLinkedin?.(p)}
+                        title="LinkedIn Assist"
+                        data-testid={`outbound-row-linkedin-${p.id}`}
+                        className="rounded-md border border-white/10 p-1.5 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"
+                    >
+                        <Linkedin size={12} />
+                    </button>
+                    <button
+                        onClick={() => markReplied(true)}
+                        disabled={busy}
+                        title="Mark replied · positive"
+                        data-testid={`outbound-row-reply-positive-${p.id}`}
+                        className="rounded-md border border-white/10 p-1.5 text-emerald-300 hover:border-emerald-500/40 hover:bg-emerald-500/10 disabled:opacity-40"
+                    >
+                        <ThumbsUp size={12} />
+                    </button>
+                    <button
+                        onClick={() => markReplied(false)}
+                        disabled={busy}
+                        title="Mark not interested"
+                        data-testid={`outbound-row-reply-negative-${p.id}`}
+                        className="rounded-md border border-white/10 p-1.5 text-rose-300 hover:border-rose-500/40 hover:bg-rose-500/10 disabled:opacity-40"
+                    >
+                        <ThumbsDown size={12} />
+                    </button>
+                </div>
+            </td>
+        </tr>
+    );
+};
+
+const DraftCard = ({ draft, auth, onChange }) => {
+    const [busy, setBusy] = useState(false);
+    const [editing, setEditing] = useState(false);
+    const [body, setBody] = useState(draft.body);
+    const approve = async () => {
+        setBusy(true);
+        try {
+            await opsOutboundDraftApprove({ ...auth, draft_id: draft.id, edited_body: editing ? body : undefined });
+            toast.success("Draft sent");
+            onChange?.();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Send failed");
+        } finally { setBusy(false); }
+    };
+    const reject = async () => {
+        setBusy(true);
+        try {
+            await opsOutboundDraftReject({ ...auth, draft_id: draft.id });
+            toast.success("Draft rejected");
+            onChange?.();
+        } catch { toast.error("Could not reject"); }
+        finally { setBusy(false); }
+    };
+    return (
+        <div className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-4" data-testid={`outbound-draft-${draft.id}`}>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Reply draft · pending approval</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{draft.business_name}</p>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400">{draft.prospect_email}</p>
+                </div>
+            </div>
+            <p className="mt-3 text-xs font-semibold text-cyan-200">Subject: <span className="font-mono text-slate-200">{draft.subject}</span></p>
+            {editing ? (
+                <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    rows={8}
+                    data-testid={`outbound-draft-body-${draft.id}`}
+                    className="mt-2 w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white focus:border-cyan-500/50 focus:outline-none"
+                />
+            ) : (
+                <pre className="mt-2 whitespace-pre-wrap rounded-md border border-white/5 bg-ink-900 p-3 font-mono text-xs text-slate-200" data-testid={`outbound-draft-preview-${draft.id}`}>
+                    {body}
+                </pre>
+            )}
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                <button
+                    onClick={() => setEditing((p) => !p)}
+                    data-testid={`outbound-draft-edit-${draft.id}`}
+                    className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300"
+                >
+                    <FileText size={11} /> {editing ? "Preview" : "Edit"}
+                </button>
+                <button
+                    onClick={reject}
+                    disabled={busy}
+                    data-testid={`outbound-draft-reject-${draft.id}`}
+                    className="inline-flex items-center gap-2 rounded-md border border-rose-500/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-rose-300 hover:bg-rose-500/10 disabled:opacity-60"
+                >
+                    <XCircle size={11} /> Reject
+                </button>
+                <button
+                    onClick={approve}
+                    disabled={busy}
+                    data-testid={`outbound-draft-approve-${draft.id}`}
+                    className="inline-flex items-center gap-2 rounded-md bg-emerald-500 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-900 hover:bg-emerald-400 disabled:opacity-60"
+                >
+                    <CheckCircle2 size={11} /> Approve & send
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const OutboundTab = ({ auth }) => {
+    const [dash, setDash] = useState(null);
+    const [prospects, setProspects] = useState([]);
+    const [drafts, setDrafts] = useState([]);
+    const [busy, setBusy] = useState(false);
+    const [view, setView] = useState("prospects"); // prospects | drafts
+    const [filter, setFilter] = useState("all");
+    const [liProspect, setLiProspect] = useState(null);
+
+    const refresh = async () => {
+        try {
+            const [d, p, dr] = await Promise.all([
+                opsOutboundDashboard(auth),
+                opsOutboundListProspects(auth),
+                opsOutboundDraftsList(auth),
+            ]);
+            setDash(d);
+            setProspects(p.items || []);
+            setDrafts(dr.items || []);
+        } catch (e) {
+            const det = e?.response?.data?.detail;
+            toast.error(typeof det === "string" ? det : "Could not load outbound data");
+        }
+    };
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth.email]);
+
+    const togglePause = async () => {
+        const paused = !(dash?.state?.paused);
+        setBusy(true);
+        try {
+            await opsOutboundPause({ ...auth, paused, reason: paused ? "manual_pause_by_founder" : null });
+            toast.success(paused ? "Outbound paused" : "Outbound resumed");
+            refresh();
+        } catch { toast.error("Could not toggle pause"); }
+        finally { setBusy(false); }
+    };
+
+    const scoreAll = async () => {
+        setBusy(true);
+        try {
+            const r = await opsOutboundScoreAll(auth);
+            toast.success(`Scored ${r.scored} prospects`);
+            refresh();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Score-all failed");
+        } finally { setBusy(false); }
+    };
+
+    const runTick = async () => {
+        setBusy(true);
+        try {
+            const r = await opsOutboundRunTick(auth);
+            toast.success(`Tick complete · ${r.sent_this_tick} sent · ${r.sent_today} today`);
+            refresh();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Tick failed");
+        } finally { setBusy(false); }
+    };
+
+    const filtered = useMemo(() => {
+        if (filter === "all") return prospects;
+        if (filter === "unscored") return prospects.filter((p) => p.lead_score == null);
+        if (filter === "high") return prospects.filter((p) => (p.lead_score || 0) >= 70);
+        return prospects.filter((p) => p.status === filter);
+    }, [prospects, filter]);
+
+    const filterBtns = [
+        ["all",              "All"],
+        ["unscored",         "Unscored"],
+        ["scored",           "Scored"],
+        ["high",             "High fit (70+)"],
+        ["contacted",        "Contacted"],
+        ["replied_positive", "Positive"],
+        ["not_interested",   "Not interested"],
+    ];
+
+    return (
+        <div data-testid="tab-outbound" className="space-y-6">
+            <SectionHeader sub="Autonomous Outbound Sales Engine" title="Outbound command center">
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={scoreAll}
+                        disabled={busy}
+                        data-testid="outbound-score-all"
+                        className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-60"
+                    >
+                        <Sparkles size={11} /> Score unscored
+                    </button>
+                    <button
+                        onClick={runTick}
+                        disabled={busy}
+                        data-testid="outbound-run-tick"
+                        className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-900 hover:bg-cyan-400 disabled:opacity-60"
+                    >
+                        <Zap size={11} /> Run tick now
+                    </button>
+                    <button
+                        onClick={refresh}
+                        disabled={busy}
+                        data-testid="outbound-refresh"
+                        className="inline-flex items-center gap-2 rounded-md border border-white/10 p-2 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-60"
+                        title="Refresh"
+                    >
+                        <RefreshCcw size={12} />
+                    </button>
+                </div>
+            </SectionHeader>
+
+            {!dash ? (
+                <p className="text-slate-400" data-testid="outbound-loading">Loading outbound engine…</p>
+            ) : (
+                <>
+                    <OutboundKPIStrip dash={dash} />
+                    <DeliverabilityPanel dash={dash} onTogglePause={togglePause} busy={busy} />
+
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <AddProspectForm auth={auth} onAdded={refresh} />
+                        <CsvUploadBox auth={auth} onUploaded={refresh} />
+                    </div>
+
+                    {/* View switcher */}
+                    <div className="flex flex-wrap items-center gap-2 border-b border-white/5 pb-2" data-testid="outbound-view-switch">
+                        <button
+                            onClick={() => setView("prospects")}
+                            data-testid="outbound-view-prospects"
+                            className={`inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] ${view === "prospects" ? "border border-cyan-500/50 bg-cyan-500/10 text-cyan-300" : "border border-white/10 text-slate-400 hover:border-cyan-500/30 hover:text-cyan-300"}`}
+                        >
+                            <Users size={11} /> Prospects ({prospects.length})
+                        </button>
+                        <button
+                            onClick={() => setView("drafts")}
+                            data-testid="outbound-view-drafts"
+                            className={`inline-flex items-center gap-2 rounded-md px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] ${view === "drafts" ? "border border-cyan-500/50 bg-cyan-500/10 text-cyan-300" : "border border-white/10 text-slate-400 hover:border-cyan-500/30 hover:text-cyan-300"}`}
+                        >
+                            <FileText size={11} /> Reply drafts ({drafts.length})
+                        </button>
+                    </div>
+
+                    {view === "prospects" && (
+                        <>
+                            <div className="flex flex-wrap items-center gap-2" data-testid="outbound-filters">
+                                {filterBtns.map(([id, label]) => (
+                                    <button
+                                        key={id}
+                                        onClick={() => setFilter(id)}
+                                        data-testid={`outbound-filter-${id}`}
+                                        className={`rounded-md px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] ${filter === id ? "border border-cyan-500/50 bg-cyan-500/10 text-cyan-300" : "border border-white/10 text-slate-400 hover:border-cyan-500/30 hover:text-cyan-300"}`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                            {filtered.length === 0 ? (
+                                <p className="rounded-md border border-white/10 bg-ink-700/40 p-6 text-center text-sm text-slate-400" data-testid="outbound-prospects-empty">
+                                    No prospects match this filter. Add one above or upload a CSV.
+                                </p>
+                            ) : (
+                                <div className="overflow-x-auto rounded-md border border-white/10 bg-ink-700/40" data-testid="outbound-prospects-table">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="border-b border-white/5 bg-ink-900/60">
+                                                {["Business", "Email", "Segment", "Score", "Status", "Emails", "Actions"].map((h, i) => (
+                                                    <th key={h} className={`px-3 py-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400 ${i === 5 ? "text-center" : ""} ${i === 6 ? "text-right" : ""}`}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filtered.map((p) => (
+                                                <ProspectRow
+                                                    key={p.id}
+                                                    p={p}
+                                                    auth={auth}
+                                                    onChange={refresh}
+                                                    onLinkedin={setLiProspect}
+                                                />
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {view === "drafts" && (
+                        <div className="space-y-3" data-testid="outbound-drafts-list">
+                            {drafts.length === 0 ? (
+                                <p className="rounded-md border border-white/10 bg-ink-700/40 p-6 text-center text-sm text-slate-400" data-testid="outbound-drafts-empty">
+                                    No pending reply drafts. When a prospect replies positively, the AI will draft a response here for your approval.
+                                </p>
+                            ) : (
+                                drafts.map((d) => <DraftCard key={d.id} draft={d} auth={auth} onChange={refresh} />)
+                            )}
+                        </div>
+                    )}
+                </>
+            )}
+
+            {liProspect && (
+                <LinkedinModal
+                    prospect={liProspect}
+                    auth={auth}
+                    onClose={() => setLiProspect(null)}
+                    onChange={refresh}
+                />
+            )}
+        </div>
+    );
+};
+
+
 const DemoRevenueTab = ({ auth }) => {
     const [range, setRange] = useState("30d");
     const [sortBy, setSortBy] = useState("revenue");
@@ -1234,6 +2033,7 @@ export default function PortalOpsPage() {
             case "demos":       return <DemosTab auth={auth} />;
             case "ai":          return <AITab auth={auth} />;
             case "employees":   return me.scopes.can_see_all_employees ? <EmployeesTab auth={auth} me={me} /> : null;
+            case "outbound":    return me.scopes.can_see_settings ? <OutboundTab auth={auth} /> : null;
             case "revenue":     return me.scopes.can_see_settings ? <DemoRevenueTab auth={auth} /> : null;
             case "admin":       return me.scopes.can_see_settings ? <AdminTab auth={auth} /> : null;
             case "settings":    return me.scopes.can_see_settings ? <SettingsTab auth={auth} me={me} /> : null;

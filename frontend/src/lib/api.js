@@ -309,3 +309,55 @@ export const opsListEmployees = (auth) =>
 
 export const opsInviteEmployee = (payload) =>
     api.post("/ops/employees/invite", payload).then((r) => r.data);
+
+// ---------- Outbound Sales Engine (Founder-only) ----------
+export const opsOutboundState = (auth) =>
+    api.post("/ops/outbound/state", auth).then((r) => r.data);
+
+export const opsOutboundDashboard = (auth) =>
+    api.post("/ops/outbound/dashboard", auth).then((r) => r.data);
+
+export const opsOutboundPause = (payload) =>
+    api.post("/ops/outbound/pause", payload).then((r) => r.data);
+
+export const opsOutboundListProspects = (auth) =>
+    api.post("/ops/outbound/prospects/list", auth).then((r) => r.data);
+
+export const opsOutboundAddProspect = (payload) =>
+    api.post("/ops/outbound/prospects/add", payload).then((r) => r.data);
+
+export const opsOutboundUploadProspects = (authEmail, authToken, file) => {
+    const form = new FormData();
+    form.append("file", file);
+    const qs = `auth_email=${encodeURIComponent(authEmail)}&auth_token=${encodeURIComponent(authToken)}`;
+    return api.post(`/ops/outbound/prospects/upload?${qs}`, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+    }).then((r) => r.data);
+};
+
+export const opsOutboundScore = (payload) =>
+    api.post("/ops/outbound/prospects/score", payload).then((r) => r.data);
+
+export const opsOutboundScoreAll = (auth) =>
+    api.post("/ops/outbound/prospects/score-all", auth).then((r) => r.data);
+
+export const opsOutboundLinkedinGenerate = (payload) =>
+    api.post("/ops/outbound/prospects/linkedin-generate", payload).then((r) => r.data);
+
+export const opsOutboundLinkedinMarkSent = (payload, which = "connect") =>
+    api.post(`/ops/outbound/prospects/linkedin-mark-sent?which=${encodeURIComponent(which)}`, payload).then((r) => r.data);
+
+export const opsOutboundMarkReplied = (payload) =>
+    api.post("/ops/outbound/prospects/mark-replied", payload).then((r) => r.data);
+
+export const opsOutboundDraftsList = (auth) =>
+    api.post("/ops/outbound/drafts/list", auth).then((r) => r.data);
+
+export const opsOutboundDraftApprove = (payload) =>
+    api.post("/ops/outbound/drafts/approve", payload).then((r) => r.data);
+
+export const opsOutboundDraftReject = (payload) =>
+    api.post("/ops/outbound/drafts/reject", payload).then((r) => r.data);
+
+export const opsOutboundRunTick = (auth) =>
+    api.post("/ops/outbound/run-tick", auth).then((r) => r.data);

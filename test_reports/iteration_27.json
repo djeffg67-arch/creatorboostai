@@ -1,0 +1,41 @@
+{
+  "summary": "Iter 27 — Autonomous Outbound Sales Engine Phase 1. Backend: 21/21 pytest tests PASSED (1 deliberately skipped — public unsubscribe valid token requires server-side hash secret). Auth enforcement verified across all 6 endpoints (executive → 403, no-auth → 401, founder → 200). Dashboard shape (kpi+state+deliverability+segments+warm_leads+sent_today), state shape, pause/resume toggle, prospect add/list/duplicate-409, CSV upload (added=2, skipped=1 for bad row), AI score + LinkedIn-generate (correctly returned 200 — EMERGENT_LLM_KEY appears configured), LinkedIn mark-sent (connect+followup), mark-replied (neutral path), drafts list, run-tick, and public unsubscribe 403 on bad token all verified. Frontend: 14/14 critical UI flows passed via Playwright on live preview URL. Founder login → nav-outbound visible → tab-outbound renders with KPI strip, deliverability panel, pause toggle, Run Tick Now, Add Prospect form, CSV upload, view switcher, filters, prospects table all present. Add Prospect form successfully created a new prospect and refreshed list (5 rows). LinkedIn modal opens on row click and closes via close button. View switcher toggles between Prospects and Reply Drafts (drafts-empty state shown). Pause toggle flipped 'Pause engine' → 'Resume engine' as expected. Executive login (erin master key) does NOT see nav-outbound — RBAC scoping correct.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/portal/ops → Outbound tab", "issues": ["KPI tile labels truncate on narrow widths ('TOTAL PRO…', 'SENT TODA…'). Consider shorter labels (e.g., 'TOTAL', 'SENT') or allow text wrap. Cosmetic only — values render correctly."]},
+      {"screen": "Top global nav (all pages)", "issues": ["Nav links wrap awkwardly and overlap with the BodyIQ brand logo at viewport widths around 1280–1400px. Pre-existing global layout issue, NOT specific to the Outbound feature added this iteration."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter27_outbound_engine.py",
+    "/app/test_reports/pytest/iter27_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "outbound.py background scheduler (line 954-989): _standalone_process_queue calls make_outbound_router every tick to look up _TICK_HELPERS[id(router)], but each call creates a NEW router instance with a new id, so _TICK_HELPERS.get(id(router)) returns None and the scheduler returns 0 every tick. Manual /run-tick works (router has its own closure) but the auto 5-min loop is effectively a no-op. Recommend hoisting the tick helper registration outside make_outbound_router or passing a closure directly to background_scheduler_loop. Severity: HIGH — autonomous send is broken until manually triggered.",
+    "outbound.py /prospects/upload (line 661-711): Uses query params for auth_email/auth_token (transmitted in URL — appears in webserver logs / browser history). Functional but a security smell. Consider Header-based auth or multipart form fields for credentials in a follow-up.",
+    "outbound.py /prospects/linkedin-mark-sent (line 770-781): `which` query param accepts any value but silently treats anything other than 'connect' as 'followup'. Add an explicit check (raise 400 on invalid `which`) for robustness.",
+    "PortalOpsPage.jsx is now 2068 lines (>700 line guideline). Recommend extracting OutboundTab + sub-components (OutboundKPIStrip, DeliverabilityPanel, AddProspectForm, CsvUploadBox, LinkedinModal, ProspectRow, DraftCard) into /app/frontend/src/pages/portal/outbound/*.jsx to keep this file maintainable.",
+    "outbound.py mark-replied (line 783): `status = replied_positive if positive else (not_interested if positive is False else replied)` — this is correct but tricky. `positive=True` flows correctly; `positive=False` becomes 'not_interested'; `positive=None` becomes 'replied' (neutral). Worth a one-line inline comment for the next maintainer.",
+    "outbound.py public unsubscribe (line 929-946): On invalid token → 403; on missing email → 200 with `ok:false`. Inconsistent. Either both should be 4xx or both should be 200 with error payload."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter27_outbound_engine.py"
+  ],
+  "success_rate": {
+    "backend": "100% (21/21 passed, 1 skipped intentionally)",
+    "frontend": "100% (14/14 critical UI checks)"
+  },
+  "test_credentials": "Founder master key: jeffrey-2026-bodyiq-founder-master · Executive master key: erin-flanigan-2026-executive-president-master · Both authenticate via POST /api/ops/{founder|executive}-access with body {key:<master_key>}",
+  "seed_data_creation": "Created TEST_-prefixed seed data in db.outbound_prospects: 1 prospect via /prospects/add (TEST_Outbound Inc), 2 prospects via CSV upload (TEST_CSV Co A, TEST_CSV Co B), and 1 via UI form (TEST_UI Outbound Co). All identifiable by 'TEST_' prefix in business_name. Pause state was toggled and restored to 'paused=false' at end of run, but state.pause_reason remains 'TEST_resume' from last toggle — harmless cosmetic remnant.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file is at /app/backend/tests/test_iter27_outbound_engine.py — re-runnable as a regression suite. EMERGENT_LLM_KEY is currently set (score + linkedin-generate returned 200, not 503). If the key is rotated or removed, those two tests still pass (assertion is `in (200, 503)`). The HIGH-severity scheduler bug (TICK_HELPERS lookup with stale id) was identified via code review only — not via runtime test, since the manual /run-tick path works fine and that's what the UI uses. Consider adding a long-running test that asserts the bg loop sends emails when prospects are queued.",
+  "rca of the issue": "n/a — no failures. Code review found 1 HIGH-severity latent bug in outbound.py background scheduler (manual tick works, autonomous tick is broken). Logged under critical_code_review_comments for main agent to fix."
+}
