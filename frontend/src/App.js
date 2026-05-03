@@ -20,6 +20,7 @@ import NoldusDemoPage from "@/pages/NoldusDemoPage";
 import SitaDemoPage from "@/pages/SitaDemoPage";
 import AirportDemoPage from "@/pages/AirportDemoPage";
 import SupermarketDemoPage from "@/pages/SupermarketDemoPage";
+import SchoolDistrictDemoPage from "@/pages/SchoolDistrictDemoPage";
 import VerticalPickerPage from "@/pages/VerticalPickerPage";
 import PressPage from "@/pages/PressPage";
 import ApplyPage from "@/pages/ApplyPage";
@@ -58,6 +59,10 @@ function App() {
                     <Route path="/demo/airport" element={<AirportDemoPage />} />
                     <Route path="/demo/airports" element={<AirportDemoPage />} />
                     <Route path="/demo/supermarket" element={<SupermarketDemoPage />} />
+                    <Route path="/demo/education" element={<SchoolDistrictDemoPage />} />
+                    <Route path="/demo/school" element={<SchoolDistrictDemoPage />} />
+                    <Route path="/demo/schools" element={<SchoolDistrictDemoPage />} />
+                    <Route path="/demo/k12" element={<SchoolDistrictDemoPage />} />
                     <Route path="/demo/retail" element={<SupermarketDemoPage />} />
                     <Route path="/demo/c-store" element={<SupermarketDemoPage />} />
                     <Route path="/demo/grocery" element={<SupermarketDemoPage />} />

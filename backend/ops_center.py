@@ -1436,8 +1436,9 @@ def make_router(db, email_service=None) -> APIRouter:
             ob_new        = await db.outbound_prospects.count_documents({"status": {"$in": ["new", "scored"]}, "source": {"$ne": "internal_archived"}})
             ob_contacted  = await db.outbound_prospects.count_documents({"status": "contacted", "source": {"$ne": "internal_archived"}})
             ob_qualified  = await db.outbound_prospects.count_documents({"status": "replied_positive", "source": {"$ne": "internal_archived"}})
-            # demos sent by the engine = high-score contacted prospects (FU2 demo-link injection)
-            ob_demo_sent  = await db.outbound_prospects.count_documents({"emails_sent": {"$gte": 2}, "lead_score": {"$gte": 60}, "source": {"$ne": "internal_archived"}})
+            # demos sent by the engine = prospects with demo_sent_at populated
+            # (FU2 demo-link injection + initial teaser for score≥70 prospects).
+            ob_demo_sent  = await db.outbound_prospects.count_documents({"demo_sent_at": {"$ne": None}, "source": {"$ne": "internal_archived"}})
             # today's outbound sends
             from datetime import datetime as _dt, timezone as _tz
             today_key = _dt.now(_tz.utc).strftime("%Y-%m-%d")
@@ -1468,9 +1469,9 @@ def make_router(db, email_service=None) -> APIRouter:
                 {"_id": 0, "business_name": 1, "email": 1},
             )
         last_demo = await db.outbound_prospects.find_one(
-            {"emails_sent": {"$gte": 2}, "lead_score": {"$gte": 60}, "source": {"$ne": "internal_archived"}},
-            {"_id": 0, "business_name": 1, "target_segment": 1, "last_email_at": 1},
-            sort=[("last_email_at", -1)],
+            {"demo_sent_at": {"$ne": None}, "source": {"$ne": "internal_archived"}},
+            {"_id": 0, "business_name": 1, "target_segment": 1, "demo_label": 1, "demo_sent_at": 1},
+            sort=[("demo_sent_at", -1)],
         )
         last_run = await db.outbound_autopilot_runs.find_one(
             {}, {"_id": 0, "started_at": 1, "status": 1},

@@ -56,6 +56,7 @@ TARGET_SEGMENTS = [
     "sales_team_agency",
     "c_store",
     "supermarket_grocery",
+    "education_school",
 ]
 
 # Phase 6 · 8-category reply taxonomy
@@ -91,6 +92,7 @@ SEGMENT_DISPLAY = {
     "sales_team_agency":   "Sales Teams · Agencies",
     "c_store":             "Convenience Stores (C-Stores)",
     "supermarket_grocery": "Supermarkets · Grocery Chains",
+    "education_school":    "Education · School Districts / Universities",
 }
 
 # Maps each segment → best-fit demo route + brand vocabulary. Used when
@@ -105,6 +107,7 @@ DEMO_MAP = {
     "sales_team_agency":   {"route": "/demo/noldus",      "label": "Enterprise Signal Engine"},
     "c_store":             {"route": "/demo/supermarket", "label": "C-Store Ops Engine"},
     "supermarket_grocery": {"route": "/demo/supermarket", "label": "Grocery Ops Engine"},
+    "education_school":    {"route": "/demo/education",   "label": "School District Intelligence System"},
 }
 
 DAILY_LIMIT_DEFAULT = int(os.environ.get("OUTBOUND_DAILY_LIMIT", "10"))   # Phase A · Low Credit Execution Mode
@@ -743,15 +746,36 @@ def make_outbound_router(
         sent_count = 0
         for p, kind, which in queue:
             try:
+                included_demo = False
                 if kind == "initial":
                     include_teaser = int(p.get("lead_score", 0)) >= 70
                     draft = await _draft_email(p, include_teaser)
+                    included_demo = include_teaser
                 else:
                     draft = await _draft_followup(p, which)
+                    # FU2 (which==2) injects demo link when score >= 60
+                    if which == 2 and int(p.get("lead_score", 0)) >= 60:
+                        included_demo = True
                 is_simulated = bool(re.search(r"\.example(?:\.com|\.org|\.net)?$", (p.get("email") or "").lower()))
                 ok = await _send_one(p, draft["subject"], draft["body"], kind=kind)
                 if ok:
                     sent_count += 1
+                    if included_demo:
+                        # Phase-6 demo tracking — log dedicated event + bump
+                        # prospect doc so /performance.demos_sent reflects real
+                        # demo deliveries, not just 2+ emails.
+                        seg = p.get("target_segment") or "sales_team_agency"
+                        demo_info = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
+                        await _log_event(p["id"], "demo_sent", kind=kind, demo_route=demo_info["route"], demo_label=demo_info["label"])
+                        await db.outbound_prospects.update_one(
+                            {"id": p["id"]},
+                            {"$set": {
+                                "demo_sent_at": now_iso(),
+                                "demo_route": demo_info["route"],
+                                "demo_label": demo_info["label"],
+                                "status": "demo_sent",
+                            }, "$inc": {"demos_delivered": 1}},
+                        )
                     # Natural spacing — only for real sends; simulated ones
                     # don't hit any provider so spacing is unnecessary.
                     if not is_simulated:
@@ -1216,6 +1240,9 @@ def make_outbound_router(
             "airport": "airport_enterprise",
             "contractor": "contractor_service",
             "lighting": "contractor_service",
+            "education": "education_school",
+            "school": "education_school",
+            "university": "education_school",
         }
         return mapping.get(d, "sales_team_agency")
 
@@ -1246,7 +1273,7 @@ def make_outbound_router(
         if existing_internal >= cap:
             return {"added": 0, "skipped": 0, "reason": "cap_reached"}
 
-        # 4 high-priority target industries × sample businesses + roles.
+        # 5 high-priority target industries × sample businesses + roles.
         INDUSTRY_SAMPLES = [
             ("c_store", "C-Store", [
                 ("QuickStop Mart",            "Operations Director"),
@@ -1276,18 +1303,33 @@ def make_outbound_router(
                 ("Cascade Building Services",  "Director of Operations"),
                 ("Beacon Facilities Group",    "Chief Operating Officer"),
             ]),
+            ("education_school", "Education / School District", [
+                ("Northridge Unified School District",   "Superintendent"),
+                ("Heritage Charter Academy Network",     "Director of Operations"),
+                ("Pacific Preparatory School",           "Head of School"),
+                ("Summit University System",             "VP Facilities & Operations"),
+                ("Clearwater Public Schools",            "Chief Financial Officer"),
+            ]),
         ]
 
+        # Interleave across all industries so each one gets representation
+        # per run. Previous implementation was industry-serial which meant
+        # later industries (Education) never got seeded when max_per_run
+        # was smaller than the first few industries' business counts.
         added = 0
         skipped = 0
-        for segment, label, businesses in INDUSTRY_SAMPLES:
+        max_business_idx = max(len(biz) for _, _, biz in INDUSTRY_SAMPLES)
+        for b_idx in range(max_business_idx):
             if added >= max_per_run:
                 break
-            for business_name, role in businesses:
-                if added + existing_internal >= cap:
-                    break
+            for segment, label, businesses in INDUSTRY_SAMPLES:
                 if added >= max_per_run:
                     break
+                if b_idx >= len(businesses):
+                    continue
+                if added + existing_internal >= cap:
+                    break
+                business_name, role = businesses[b_idx]
                 slug = re.sub(r"[^a-z0-9]", "", business_name.lower())[:24]
                 tag = secrets.token_hex(3)
                 email = f"ops+{tag}@{slug}.example.com"

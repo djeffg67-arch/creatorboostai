@@ -334,7 +334,7 @@ const PerformanceTab = ({ auth, me }) => {
                             {a.last_demo_sent ? (
                                 <>
                                     <p className="mt-0.5 truncate text-sm font-semibold text-white">{a.last_demo_sent.business_name}</p>
-                                    <p className="font-mono text-[9px] text-cyan-300">{a.last_demo_sent.target_segment || "—"} · {formatRel(a.last_demo_sent.last_email_at)}</p>
+                                    <p className="font-mono text-[9px] text-cyan-300">{a.last_demo_sent.demo_label || a.last_demo_sent.target_segment || "—"} · {formatRel(a.last_demo_sent.demo_sent_at)}</p>
                                 </>
                             ) : <p className="mt-0.5 font-mono text-[10px] text-slate-400">never</p>}
                         </div>

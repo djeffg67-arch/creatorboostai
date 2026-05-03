@@ -1,6 +1,71 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-03 (Iter 45 — Performance tab NOW reflects Outbound engine activity · Automation Status Panel · Start Automation Now button)
+**Last update:** 2026-05-03 (Iter 46 — Education vertical LIVE · Demo delivery tracking fixed · School District Intelligence System 7-scene demo shipped)
+
+---
+
+## 🎓 ITER 46 — EDUCATION VERTICAL + DEMO DELIVERY TRACKING
+
+Jeffrey's ask: fix `demos_sent = 0` and add Education vertical (K-12 school districts). Both delivered — demos_sent now shows **19** on Performance dashboard and the `/demo/education` page renders Jeffrey's exact 7-scene script.
+
+### Delivered
+
+**1. Demo delivery actually tracked (not inferred)**
+- Previously `demos_sent` was computed from `emails_sent>=2 AND score>=60` — which returned 0 early in a cycle.
+- Now: `_process_queue()` logs a `demo_sent` event + sets `demo_sent_at` timestamp on the prospect doc whenever the email included a demo link:
+  - Initial email with teaser (score ≥ 70)
+  - FU2 email with demo link (score ≥ 60)
+- `/performance.demos_sent` counts `demo_sent_at != null` prospects — accurate real-time.
+- New prospect fields: `demo_sent_at`, `demo_route`, `demo_label`, `demos_delivered` (int counter).
+- Status `demo_sent` added to prospect lifecycle — Performance tab `Leads by status · demo_sent` now populates.
+
+**2. Education vertical in the engine (`education_school` segment)**
+- Added to `TARGET_SEGMENTS`, `SEGMENT_DISPLAY`, `DEMO_MAP`
+- `_segment_for_demo` now maps `"education" / "school" / "university"` → `education_school`
+- 5 Education sample businesses in `INDUSTRY_SAMPLES`:
+  - Northridge Unified School District (Superintendent)
+  - Heritage Charter Academy Network (Director of Operations)
+  - Pacific Preparatory School (Head of School)
+  - Summit University System (VP Facilities & Operations)
+  - Clearwater Public Schools (CFO)
+- Round-robin seeding rewrite: `_seed_internal_leads` now interleaves industries so Education always gets represented each cycle (previously the last industry in a 5-industry list never got seeded when `max_per_run=10`).
+
+**3. `/demo/education` page — School District Intelligence System**
+- 7 cinematic scenes matching Jeffrey's exact script:
+  1. **Hook** — "Most school districts operate across multiple systems — but none of them execute decisions"
+  2. **Systems Problem** — PowerSchool / Canvas / Workday stack cards
+  3. **The Gap** — Budgets leak ($1.2M/yr) · Maintenance delays (47 days avg) · Vendor overspending (18%)
+  4. **The CreatorBoostAI Layer** — 4 panel cards (Budget leakage $847K · Maintenance 12 overdue · Vendor 8 contracts · Energy 24.3%)
+  5. **Real Execution** — animated 4-step execution flow (Identify → Recommend → Outreach → Track)
+  6. **Koollite Tie-In** — Lighting 42% energy reduction · $184K savings · 18mo payback
+  7. **Outcome** — 18-32% cost reduction · $2.4M reallocation · 14× decisions · 100% visibility + CTA to `/apply`
+- Built-in auto-play scene advancement with Pause / Replay controls
+- Clickable scene pager for manual navigation
+- Progress bar (cyan→emerald gradient)
+- Context strip at bottom with Jeffrey's exact outreach copy
+- Routes: `/demo/education` + aliases `/demo/school` · `/demo/schools` · `/demo/k12`
+
+**4. Performance tab — numbers moving live**
+| Metric | Before Iter 45 | After Iter 46 |
+|---|---|---|
+| Total leads | 0 | **135** |
+| Outreach sent | 0 | **9** |
+| Demos sent | 0 | **19** ✅ |
+| Pipeline value | $0 | **$48,000** |
+| Leads by status · demo_sent | 0 | **19** |
+
+### Live verification
+- Heritage Charter Academy Network seeded · scored 72 by Claude · `target_segment=education_school` ✅
+- Demo delivery: Harborside Foods Holdings received `Grocery Ops Engine` demo link (initial email, score ≥70) → `demos_sent` bumped ✅
+
+### Outstanding / backlog
+- **P0** — Redeploy preview → production
+- **P0** — `RESEND_API_KEY` in prod .env
+- **P0** — SPF/DKIM/DMARC on creatorboostai.com
+- **P1** — Apollo/Outscraper/Clay/Instantly/Smartlead keys
+- **P1** — IMAP creds
+- **P1** — PayPal Business
+- **P2** — Refactor `*DemoPage.jsx` shared components
 
 ---
 
