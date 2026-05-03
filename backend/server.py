@@ -3271,6 +3271,46 @@ class _OpsEmailAdapter:
 app.include_router(make_ops_router(db, email_service=_OpsEmailAdapter), prefix="/api")
 
 
+# ---------- Outbound Prospecting Engine (Iter 39 Phase 1) ----------
+from outbound import make_outbound_router, background_scheduler_loop  # noqa: E402
+
+
+async def _require_outbound_founder(payload) -> Dict[str, Any]:
+    """Resolve & authorize a founder for outbound endpoints. Mirrors ops_center
+    _require_founder but lives here to avoid a circular import."""
+    user = await db.users.find_one(
+        {"email": payload.email, "portal_token": payload.token}, {"_id": 0}
+    )
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or token")
+    if user.get("role") != "founder":
+        raise HTTPException(status_code=403, detail="Founder role required")
+    return user
+
+
+async def _send_outbound_email(to: str, subject: str, html: str, plain: str) -> bool:
+    """Thin Resend wrapper used by the outbound engine. Returns True on
+    accepted-by-provider; False otherwise. Silently returns False when RESEND
+    is unconfigured so callers don't raise."""
+    try:
+        from email_service import _send as _resend_send  # type: ignore
+        return await _resend_send(to, subject, html)
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"[outbound] send wrapper failed: {e}")
+        return False
+
+
+app.include_router(
+    make_outbound_router(
+        db,
+        send_outbound_email=_send_outbound_email,
+        send_founder_notification=send_founder_notification,
+        require_founder=_require_outbound_founder,
+    ),
+    prefix="/api",
+)
+
+
 # ---------- CORS ----------
 # Explicitly allow the production domains + any additional origins injected via
 # CORS_ORIGINS env var. "*" is used as a safety fallback so a misconfigured
@@ -3318,6 +3358,20 @@ async def _startup_warmup():
         logging.getLogger(__name__).info(f"[WARMUP STARTUP] {result.get('reason') or 'sent'}")
     except Exception as e:
         logging.getLogger(__name__).error(f"[WARMUP STARTUP FAIL] {e!r}")
+
+
+@app.on_event("startup")
+async def _start_outbound_scheduler():
+    """Spawn the outbound engine's background scheduler loop. Respects
+    OUTBOUND_SCHEDULER=off env-var short-circuit inside the loop itself."""
+    import asyncio as _asyncio
+    _asyncio.create_task(background_scheduler_loop(
+        db,
+        send_outbound_email=_send_outbound_email,
+        send_founder_notification=send_founder_notification,
+        interval_sec=int(os.environ.get("OUTBOUND_TICK_SECONDS", "300")),
+    ))
+    logging.getLogger(__name__).info("[outbound] background scheduler dispatched")
 
 
 @app.on_event("shutdown")
