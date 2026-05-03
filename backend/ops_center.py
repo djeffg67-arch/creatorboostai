@@ -1406,12 +1406,12 @@ def make_router(db, email_service=None) -> APIRouter:
         user = await _require_auth(payload)
         scope = _scope_for(user)
 
-        leads_total = await db.ops_leads.count_documents(scope)
+        # --- CRM leads (manually created via /leads endpoints) ---
+        crm_total = await db.ops_leads.count_documents(scope)
         by_status: Dict[str, int] = {}
         for s in LEAD_STATUSES:
             by_status[s] = await db.ops_leads.count_documents({**scope, "status": s})
         won = by_status.get("won", 0)
-        # Pipeline value
         pipeline = 0.0
         won_value = 0.0
         cursor = db.ops_leads.find(scope, {"_id": 0, "value_usd": 1, "status": 1})
@@ -1428,17 +1428,103 @@ def make_router(db, email_service=None) -> APIRouter:
         demo_scope = {} if user["role"] in ELEVATED_ROLES else {"by_email": user["email"]}
         demos_sent = await db.ops_demo_links.count_documents(demo_scope)
 
+        # --- Outbound engine activity (founders + president see it; EMs see 0) ---
+        ob_total = ob_new = ob_contacted = ob_qualified = ob_demo_sent = 0
+        ob_sent_today = 0
+        if user["role"] in ELEVATED_ROLES:
+            ob_total      = await db.outbound_prospects.count_documents({"source": {"$ne": "internal_archived"}})
+            ob_new        = await db.outbound_prospects.count_documents({"status": {"$in": ["new", "scored"]}, "source": {"$ne": "internal_archived"}})
+            ob_contacted  = await db.outbound_prospects.count_documents({"status": "contacted", "source": {"$ne": "internal_archived"}})
+            ob_qualified  = await db.outbound_prospects.count_documents({"status": "replied_positive", "source": {"$ne": "internal_archived"}})
+            # demos sent by the engine = high-score contacted prospects (FU2 demo-link injection)
+            ob_demo_sent  = await db.outbound_prospects.count_documents({"emails_sent": {"$gte": 2}, "lead_score": {"$gte": 60}, "source": {"$ne": "internal_archived"}})
+            # today's outbound sends
+            from datetime import datetime as _dt, timezone as _tz
+            today_key = _dt.now(_tz.utc).strftime("%Y-%m-%d")
+            ob_sent_today = await db.outbound_events.count_documents({"type": "sent", "day_key": today_key})
+
+        # Blended status counts (CRM + outbound) so the dashboard reflects
+        # all business activity, not just the manual CRM pipeline.
+        blended_by_status = dict(by_status)
+        blended_by_status["new"]         = by_status.get("new", 0) + ob_new
+        blended_by_status["contacted"]   = by_status.get("contacted", 0) + ob_contacted
+        blended_by_status["qualified"]   = by_status.get("qualified", 0) + ob_qualified
+        blended_by_status["demo_sent"]   = by_status.get("demo_sent", 0) + ob_demo_sent
+
+        # --- Automation status panel (Jeffrey's spec) ---
+        last_lead = await db.outbound_prospects.find_one(
+            {"source": {"$ne": "internal_archived"}},
+            {"_id": 0, "business_name": 1, "email": 1, "source": 1, "created_at": 1},
+            sort=[("created_at", -1)],
+        )
+        last_sent_ev = await db.outbound_events.find_one(
+            {"type": "sent"}, {"_id": 0, "prospect_id": 1, "subject": 1, "simulated": 1, "created_at": 1},
+            sort=[("created_at", -1)],
+        )
+        last_sent_prospect = None
+        if last_sent_ev:
+            last_sent_prospect = await db.outbound_prospects.find_one(
+                {"id": last_sent_ev.get("prospect_id")},
+                {"_id": 0, "business_name": 1, "email": 1},
+            )
+        last_demo = await db.outbound_prospects.find_one(
+            {"emails_sent": {"$gte": 2}, "lead_score": {"$gte": 60}, "source": {"$ne": "internal_archived"}},
+            {"_id": 0, "business_name": 1, "target_segment": 1, "last_email_at": 1},
+            sort=[("last_email_at", -1)],
+        )
+        last_run = await db.outbound_autopilot_runs.find_one(
+            {}, {"_id": 0, "started_at": 1, "status": 1},
+            sort=[("started_at", -1)],
+        )
+        ob_state = await db.outbound_campaign_state.find_one({}, {"_id": 0})
+        recent_errors = await db.outbound_events.find(
+            {"type": {"$in": ["send_failed", "skipped_suppressed"]}},
+            {"_id": 0, "type": 1, "prospect_id": 1, "created_at": 1},
+        ).sort("created_at", -1).to_list(5)
+
+        # Deliverability snapshot (last 7 days) for spam-protection status
+        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+        since = (_dt.now(_tz.utc) - _td(days=7)).isoformat()
+        sent_7d = await db.outbound_events.count_documents({"type": "sent", "created_at": {"$gte": since}})
+        bounced_7d = await db.outbound_events.count_documents({"type": "bounced", "created_at": {"$gte": since}})
+        bounce_rate = (bounced_7d / sent_7d) if sent_7d else 0.0
+        spam_risk = "high" if bounce_rate >= 0.05 else "medium" if bounce_rate >= 0.02 else "low"
+
         return {
             "role": user["role"],
             "scope_email": None if user["role"] in ELEVATED_ROLES else user["email"],
-            "leads_total": leads_total,
+            # Blended metrics (CRM + outbound)
+            "leads_total": crm_total + ob_total,
             "leads_won": won,
-            "leads_by_status": by_status,
+            "leads_by_status": blended_by_status,
             "pipeline_value_usd": round(pipeline, 2),
             "won_value_usd": round(won_value, 2),
-            "outreach_sent": outreach_sent,
-            "demos_sent": demos_sent,
-            "win_rate_pct": round((won / leads_total * 100) if leads_total else 0.0, 1),
+            "outreach_sent": outreach_sent + (await db.outbound_events.count_documents({"type": "sent"}) if user["role"] in ELEVATED_ROLES else 0),
+            "demos_sent": demos_sent + ob_demo_sent,
+            "win_rate_pct": round((won / max(1, crm_total + ob_total) * 100), 1),
+            # Breakdown — lets the UI distinguish manual CRM from engine-generated
+            "crm_leads_total": crm_total,
+            "outbound_prospects_total": ob_total,
+            # Automation status panel
+            "automation": {
+                "engine_paused": bool((ob_state or {}).get("paused")),
+                "daily_limit": int((ob_state or {}).get("daily_limit", 10)),
+                "sent_today": ob_sent_today,
+                "last_lead": last_lead,
+                "last_email_sent": {
+                    "business_name": (last_sent_prospect or {}).get("business_name"),
+                    "email": (last_sent_prospect or {}).get("email"),
+                    "subject": (last_sent_ev or {}).get("subject"),
+                    "simulated": bool((last_sent_ev or {}).get("simulated")),
+                    "at": (last_sent_ev or {}).get("created_at"),
+                } if last_sent_ev else None,
+                "last_demo_sent": last_demo,
+                "last_autopilot_run": last_run,
+                "next_scheduled_run": (ob_state or {}).get("next_scheduled_at"),
+                "spam_risk": spam_risk,
+                "bounce_rate_7d": round(bounce_rate * 100, 2),
+                "recent_errors": recent_errors,
+            },
         }
 
     # ------------------------------------------------------------------

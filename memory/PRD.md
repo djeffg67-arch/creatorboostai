@@ -1,6 +1,67 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-03 (Iter 44 — Outbound Phase A · LOW CREDIT EXECUTION MODE LIVE · KPI Source Toggle · Standard/Low mode presets)
+**Last update:** 2026-05-03 (Iter 45 — Performance tab NOW reflects Outbound engine activity · Automation Status Panel · Start Automation Now button)
+
+---
+
+## 🚀 ITER 45 — PERFORMANCE DASHBOARD WIRED TO OUTBOUND ENGINE
+
+Jeffrey's screenshot showed the Performance tab with all zeros (Total Leads 0, Outreach Sent 0, Pipeline $0) while the Outbound tab had 115 prospects active. **Root cause: two independent collections** — Performance tab pulled from `ops_leads` (manual CRM) while the outbound autopilot writes to `outbound_prospects`. Fixed by blending both sources into `/api/ops/performance`.
+
+### Live verification
+```
+leads_total:    75   (was 0) · CRM 16 + Engine 59
+pipeline_value: $48,000  (was $0)
+outreach_sent:  10   (was 0)
+by_status:      new=57, contacted=11
+automation:
+  engine_paused: false
+  sent_today: 10/10
+  spam_risk:  low
+  last_lead:  Harborside Foods Holdings (internal_seed, 1m ago)
+  last_email_sent: CornerStop 24 · simulated=true
+  last_autopilot_run: running
+```
+
+### Shipped
+
+**1. `/api/ops/performance` now blends CRM + Outbound engine**
+- `leads_total` = ops_leads count + outbound_prospects count (excl. internal_archived)
+- `leads_by_status.new` adds engine's new+scored prospects
+- `leads_by_status.contacted` adds engine's contacted prospects
+- `leads_by_status.qualified` adds engine's replied_positive prospects
+- `leads_by_status.demo_sent` adds engine prospects with emails_sent≥2 & score≥60 (FU2 demo injection)
+- `outreach_sent` adds outbound_events.type="sent" count
+- `demos_sent` adds engine demos
+- New fields: `crm_leads_total`, `outbound_prospects_total` for breakdown
+
+**2. Automation Status panel** (exact Jeffrey spec)
+- Header: "Outbound engine running" / "paused" with cyan pulsing "LAST CYCLE · RUNNING" pill
+- Spam risk pill with color gradient (low=emerald / medium=amber / high=rose)
+- 4 tiles: **Last lead found** (name + source + relative time), **Last email sent** (name + [sim]/live flag + time), **Last demo sent** (business + segment + time), **Daily limit** (sent/cap)
+- Recent errors/skips section with last 5 `send_failed` or `skipped_suppressed` events
+- Auto-refreshes every 30s so the panel stays live
+
+**3. "Start Automation Now" button** in Performance tab header
+- Founder-only (`me.role==="founder"` or `can_see_settings`)
+- Calls `/api/ops/outbound/autopilot-now`
+- Shows toast + auto-refreshes after 60s
+- Disabled when engine is paused
+
+**4. Blended source breakdown row**
+- Two tiles below main KPIs: "Manual CRM leads" + "Outbound engine prospects" so the founder instantly sees where volume comes from
+
+### Deployment reminder (4th flag)
+All Iter 39-45 changes are in **preview only**. Production (`creatorboostai.com`) must be **redeployed** via Emergent Deploy dashboard. Until then, the production Performance tab stays at 0/0/0.
+
+### Outstanding
+- **P0** — Deploy preview → production
+- **P0** — `RESEND_API_KEY` in prod `.env` for real sends (synthetic still simulate)
+- **P0** — SPF/DKIM/DMARC verification
+- **P1** — Apollo/Outscraper/Clay/Instantly/Smartlead API keys (adapter shells ready)
+- **P1** — IMAP creds
+- **P1** — PayPal Business
+- **P2** — Refactor `*DemoPage.jsx`
 
 ---
 

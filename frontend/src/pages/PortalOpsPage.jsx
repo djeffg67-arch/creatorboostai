@@ -205,8 +205,31 @@ const SectionHeader = ({ title, sub, children }) => (
 // ---------- Performance tab ----------
 const PerformanceTab = ({ auth, me }) => {
     const [data, setData] = useState(null);
-    useEffect(() => { opsPerformance(auth).then(setData).catch(() => {}); }, [auth]);
+    const [autopilotBusy, setAutopilotBusy] = useState(false);
+
+    const refresh = () => opsPerformance(auth).then(setData).catch(() => {});
+    useEffect(() => {
+        refresh();
+        // Auto-refresh every 30s so the panel stays live
+        const iv = setInterval(refresh, 30000);
+        return () => clearInterval(iv);
+        // eslint-disable-next-line
+    }, [auth]);
+
+    const startAutomation = async () => {
+        setAutopilotBusy(true);
+        try {
+            await opsOutboundAutopilotNow(auth);
+            toast.success("Automation cycle started — refreshing in 60s…");
+            setTimeout(refresh, 60000);
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Start failed");
+        } finally { setAutopilotBusy(false); }
+    };
+
     if (!data) return <p className="text-slate-400">Loading…</p>;
+
     const tiles = [
         { Icon: Inbox,      label: "Total leads",     value: data.leads_total, tone: "white" },
         { Icon: Target,     label: "Won",             value: data.leads_won,   tone: "emerald" },
@@ -217,9 +240,127 @@ const PerformanceTab = ({ auth, me }) => {
         { Icon: Lightbulb,  label: "Demos sent",      value: data.demos_sent, tone: "cyan" },
     ];
     const toneCls = { white: "border-white/10 bg-ink-700/40", cyan: "border-cyan-500/30 bg-cyan-500/5", emerald: "border-emerald-500/30 bg-emerald-500/5" };
+
+    const a = data.automation || {};
+    const isFounder = me.role === "founder" || me.scopes?.can_see_settings;
+    const runStatus = a.last_autopilot_run?.status || "never";
+    const runStatusTone = runStatus === "running"
+        ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300 animate-pulse"
+        : runStatus === "completed"
+        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+        : runStatus === "failed"
+        ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+        : "border-white/10 bg-ink-900 text-slate-400";
+    const spamTone = a.spam_risk === "high"
+        ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+        : a.spam_risk === "medium"
+        ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+        : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300";
+
+    const formatRel = (iso) => {
+        if (!iso) return "never";
+        const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+        if (mins < 1) return "just now";
+        if (mins < 60) return `${mins}m ago`;
+        if (mins < 1440) return `${Math.round(mins / 60)}h ago`;
+        return `${Math.round(mins / 1440)}d ago`;
+    };
+
     return (
         <div data-testid="tab-performance" className="space-y-6">
-            <SectionHeader sub={me.role === "employee" ? "Your performance" : "Team performance"} title="Operating snapshot" />
+            <SectionHeader sub={me.role === "employee" ? "Your performance" : "Team performance"} title="Operating snapshot">
+                {isFounder && (
+                    <button
+                        onClick={startAutomation}
+                        disabled={autopilotBusy || a.engine_paused}
+                        data-testid="perf-start-automation"
+                        className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-900 hover:bg-cyan-400 disabled:opacity-60"
+                        title="Run one full autopilot cycle: seed → score → send → poll replies"
+                    >
+                        <Zap size={11} /> {autopilotBusy ? "Starting…" : "Start automation now"}
+                    </button>
+                )}
+            </SectionHeader>
+
+            {/* ═══ AUTOMATION STATUS PANEL ═══ */}
+            {isFounder && (
+                <div
+                    className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-5"
+                    data-testid="automation-status-panel"
+                >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Automation status</p>
+                            <h3 className="font-heading mt-1 text-lg font-semibold text-white">
+                                {a.engine_paused ? "Outbound engine paused" : "Outbound engine running"}
+                            </h3>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] ${runStatusTone}`} data-testid="automation-run-status">
+                                <Activity size={10} /> Last cycle · {runStatus}
+                            </span>
+                            <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] ${spamTone}`} data-testid="automation-spam-status">
+                                <ShieldCheck size={10} /> Spam risk · {a.spam_risk || "low"}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="rounded-sm border border-white/5 bg-ink-900 p-3" data-testid="automation-last-lead">
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Last lead found</p>
+                            {a.last_lead ? (
+                                <>
+                                    <p className="mt-0.5 truncate text-sm font-semibold text-white">{a.last_lead.business_name}</p>
+                                    <p className="font-mono text-[9px] text-cyan-300">{a.last_lead.source || "—"} · {formatRel(a.last_lead.created_at)}</p>
+                                </>
+                            ) : <p className="mt-0.5 font-mono text-[10px] text-slate-400">never</p>}
+                        </div>
+
+                        <div className="rounded-sm border border-white/5 bg-ink-900 p-3" data-testid="automation-last-email">
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Last email sent</p>
+                            {a.last_email_sent ? (
+                                <>
+                                    <p className="mt-0.5 truncate text-sm font-semibold text-white">{a.last_email_sent.business_name || a.last_email_sent.email}</p>
+                                    <p className="font-mono text-[9px] text-cyan-300">
+                                        {a.last_email_sent.simulated && "[sim] "}
+                                        {formatRel(a.last_email_sent.at)}
+                                    </p>
+                                </>
+                            ) : <p className="mt-0.5 font-mono text-[10px] text-slate-400">never</p>}
+                        </div>
+
+                        <div className="rounded-sm border border-white/5 bg-ink-900 p-3" data-testid="automation-last-demo">
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Last demo sent</p>
+                            {a.last_demo_sent ? (
+                                <>
+                                    <p className="mt-0.5 truncate text-sm font-semibold text-white">{a.last_demo_sent.business_name}</p>
+                                    <p className="font-mono text-[9px] text-cyan-300">{a.last_demo_sent.target_segment || "—"} · {formatRel(a.last_demo_sent.last_email_at)}</p>
+                                </>
+                            ) : <p className="mt-0.5 font-mono text-[10px] text-slate-400">never</p>}
+                        </div>
+
+                        <div className="rounded-sm border border-white/5 bg-ink-900 p-3" data-testid="automation-next-run">
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Daily limit</p>
+                            <p className="mt-0.5 text-sm font-semibold text-white">{a.sent_today} / {a.daily_limit}</p>
+                            <p className="font-mono text-[9px] text-cyan-300">Sent today</p>
+                        </div>
+                    </div>
+
+                    {a.recent_errors && a.recent_errors.length > 0 && (
+                        <div className="mt-4 rounded-sm border border-rose-500/30 bg-rose-500/5 p-3" data-testid="automation-errors">
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-rose-300">Recent errors / skips</p>
+                            <ul className="mt-1 space-y-0.5">
+                                {a.recent_errors.map((e, i) => (
+                                    <li key={i} className="font-mono text-[10px] text-rose-200">
+                                        · {e.type} · {formatRel(e.created_at)}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" data-testid="performance-tiles">
                 {tiles.map((t) => (
                     <div key={t.label} className={`rounded-md border p-4 ${toneCls[t.tone]}`}>
@@ -228,6 +369,21 @@ const PerformanceTab = ({ auth, me }) => {
                     </div>
                 ))}
             </div>
+
+            {/* Blended CRM + engine breakdown */}
+            {isFounder && (
+                <div className="grid grid-cols-2 gap-3 text-xs" data-testid="perf-source-breakdown">
+                    <div className="rounded-sm border border-white/5 bg-ink-900 p-3">
+                        <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Manual CRM leads</p>
+                        <p className="mt-0.5 font-heading text-lg font-semibold text-white">{data.crm_leads_total}</p>
+                    </div>
+                    <div className="rounded-sm border border-white/5 bg-ink-900 p-3">
+                        <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Outbound engine prospects</p>
+                        <p className="mt-0.5 font-heading text-lg font-semibold text-white">{data.outbound_prospects_total}</p>
+                    </div>
+                </div>
+            )}
+
             <div className="rounded-md border border-white/10 bg-ink-700/40 p-5">
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Leads by status</p>
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
