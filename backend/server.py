@@ -2788,12 +2788,23 @@ async def demo_capture(payload: DemoCaptureIn, http_request: Request):
     except Exception as _e:
         pass
 
+    # Auto-create Deal for the captured prospect (Demo-First spec, idempotent)
+    deal_info: Dict[str, Any] = {}
+    try:
+        from outbound import standalone_create_deal
+        prospect_doc = await db.outbound_prospects.find_one({"id": result_id}, {"_id": 0})
+        if prospect_doc:
+            deal_info = await standalone_create_deal(db, prospect_doc, trigger="demo_capture")
+    except Exception as _e:
+        logger.error(f"demo_capture · deal auto-create failed: {_e}")
+
     return {
         "ok": True,
         "prospect_id": result_id,
         "scheduled_outreach_hours": delay_hours,
         "is_new_prospect": is_new,
         "segment": segment,
+        "deal": deal_info or None,
     }
 
 

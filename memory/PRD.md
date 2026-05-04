@@ -1,6 +1,95 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-03 (Iter 48 — Full pipeline verified · Calendly wired · Reply-YES auto-responder · E2E self-test endpoint)
+**Last update:** 2026-05-04 (Iter 49 — Demo-First sequence Day 0/1/3/7 · Auto-Deal creation · AI Reply Classifier)
+
+---
+
+## 🎯 ITER 49 — DEMO-FIRST EXECUTION COMPLETE (P0 from Jeffrey's final directive)
+
+Three P0 pieces from Jeffrey's "Demo-First" message — all shipped + verified live in preview:
+
+### 1 · Demo-First email cadence (Day 0/1/3/7)
+- `FOLLOWUP_OFFSETS_DAYS = [1, 3, 7]` · `MAX_EMAILS_BEFORE_COLD = 4`
+- **Day 0 (initial):** Demo link is the primary CTA; Calendly is an inline "Or grab 15 min" line. AI personalizes ONLY the second paragraph. Hard fallback to a fixed Demo-First template if the AI returns malformed JSON.
+- **Day 1 (FU1):** 35–50 words · "did the demo make sense for {company}?" + industry-specific stat + demo link + Calendly
+- **Day 3 (FU2):** 50–70 words · offer to record a 2-min Loom with their public data + demo link + Calendly
+- **Day 7 (FU3):** 35–50 words · low-pressure close ("leaving the door open") + demo link, no Calendly
+- Single source of truth — removed the duplicated dead-code `_draft_followup` block (was overriding itself silently).
+
+### 2 · Auto-Deal creation with industry pipeline values
+- New `SEGMENT_PIPELINE_VALUES` (Jeffrey's exact figures):
+
+| Segment | Pipeline Value |
+|---|---|
+| Airports / Enterprise | $150,000 |
+| Supermarkets / Grocery | $75,000 |
+| C-Stores | $50,000 |
+| Education · K-12/University | $50,000 |
+| Retail Chain | $50,000 |
+| Insurance | $40,000 |
+| Sales Team / Agency | $40,000 |
+| Contractor / Service | $35,000 |
+| Realtor / Brokerage | $30,000 |
+| Creator / Influencer | $15,000 |
+| Default fallback | $40,000 |
+| Enterprise tier override | $200,000 |
+
+- New `standalone_create_deal(db, prospect, trigger)` — module-level idempotent helper. At most ONE deal per prospect.
+- Sets `deal_id`, `deal_value_usd`, `deal_created_at`, `deal_trigger` on `outbound_prospects` and flips status to `qualified`.
+- Mirrors a row into `ops_leads` with `value_usd` so the existing `/api/ops/performance` pipeline math picks it up automatically — no schema change to the dashboard.
+- **Triggers:** auto-runs on `/api/demo/capture` (soft-gate) AND on positive replies (mark-replied + IMAP). One-deal-per-prospect enforced via the `deal_id` short-circuit.
+- When prospect goes to `not_interested` (mark-replied OR IMAP), the mirrored `ops_leads` flips to `status=lost` so pipeline_value_usd correctly drops it.
+
+### 3 · AI 3-bucket Reply Classifier (Claude Sonnet 4.5)
+- New `standalone_classify_reply(prospect, reply_body)` — Claude classifies replies into:
+  - `interested` → status=replied_positive · auto-create deal · founder email + SMS · AI draft queued
+  - `neutral`    → status=replied · no deal, no suppress (founder can review/respond)
+  - `not_interested` → status=not_interested · prospect suppressed · ops_leads flipped to lost
+- Falls back to keyword heuristic if `EMERGENT_LLM_KEY` missing (degraded mode).
+- Wired into BOTH paths:
+  - `POST /prospects/mark-replied` — when no explicit `category` is passed, classifier runs and routes status accordingly. Returns `{classifier: {bucket, rationale, via}, deal: {...}}`.
+  - `_imap_poll_once()` — keyword heuristic replaced with the AI classifier; deals auto-create on `interested`; `lost` mirror on `not_interested`.
+
+### Verified live (preview)
+```
+Day 0 self-test → step3_calendly_included: true ✓
+Demo-First template body: "I'll keep this direct. <personalized 2nd para>. We built a system that
+identifies hidden cost savings… I recorded a short demo… <demo_url>… Or grab 15 min: <calendly>"
+
+curl /api/demo/capture {airport}     → deal_value_usd: 150000 ✓ is_new: true
+curl /api/demo/capture {education}   → deal_value_usd:  50000 ✓
+curl /api/demo/capture {supermarket} → deal_value_usd:  75000 ✓
+curl /api/demo/capture {creator}     → deal_value_usd:  15000 ✓
+curl /api/demo/capture {airport}     → is_new: false (idempotent) ✓
+
+curl /prospects/mark-replied {"reply": "Yes, please send pricing and demo"}
+   → bucket=interested · via=claude · rationale="Explicitly requests pricing and demo link"
+   → deal: { id, value_usd: 75000, is_new: false } (already created on capture)
+
+curl /prospects/mark-replied {"reply": "Maybe. Let me think about it."}
+   → bucket=neutral · via=claude · status=replied · deal=null
+
+curl /prospects/mark-replied {"reply": "Please remove me from your list. Not interested."}
+   → bucket=not_interested · status=not_interested · ops_leads flipped to lost ✓
+
+GET /api/ops/performance →
+  pipeline_value_usd: 408,000 (was 48,000 before deals)
+  leads_total: 220 · qualified: 10
+```
+
+### Files touched
+- `/app/backend/outbound.py` — constants, helpers, classifier, deal helper, mark-replied wiring, IMAP wiring, dead-code removal
+- `/app/backend/server.py` — `/api/demo/capture` now calls `standalone_create_deal`
+- `/app/backend/ops_center.py` — `ob_qualified` now counts `qualified` + `replied_positive`
+
+### Outstanding / backlog
+- **P1** — Add `RESEND_API_KEY` to preview/prod for real outgoing email
+- **P1** — Add `IMAP_HOST/USER/PASSWORD` for live reply polling (classifier already wired)
+- **P1** — Apollo / Clay / Outscraper / Instantly / Smartlead API keys (adapter shells ready)
+- **P1** — PayPal Business secondary payments
+- **P2** — Personal Voice Avatar add-on via ElevenLabs (paused by user)
+- **P2** — Refactor 6× `*DemoPage.jsx` into shared components
+- **P2** — Apply `<SoftGateModal>` to the 6 other cinematic demos (Realtor / Insurance / Creator / Airport / Noldus / Supermarket / Lighting)
 
 ---
 

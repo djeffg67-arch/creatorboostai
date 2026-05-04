@@ -1439,7 +1439,7 @@ def make_router(db, email_service=None) -> APIRouter:
             ob_total      = await db.outbound_prospects.count_documents({"source": {"$ne": "internal_archived"}})
             ob_new        = await db.outbound_prospects.count_documents({"status": {"$in": ["new", "scored"]}, "source": {"$ne": "internal_archived"}})
             ob_contacted  = await db.outbound_prospects.count_documents({"status": "contacted", "source": {"$ne": "internal_archived"}})
-            ob_qualified  = await db.outbound_prospects.count_documents({"status": "replied_positive", "source": {"$ne": "internal_archived"}})
+            ob_qualified  = await db.outbound_prospects.count_documents({"status": {"$in": ["replied_positive", "qualified"]}, "source": {"$ne": "internal_archived"}})
             # demos sent by the engine = prospects with demo_sent_at populated
             # (FU2 demo-link injection + initial teaser for score≥70 prospects).
             ob_demo_sent  = await db.outbound_prospects.count_documents({"demo_sent_at": {"$ne": None}, "source": {"$ne": "internal_archived"}})

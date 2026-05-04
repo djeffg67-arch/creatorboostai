@@ -110,13 +110,31 @@ DEMO_MAP = {
     "education_school":    {"route": "/demo/education",   "label": "School District Intelligence System"},
 }
 
+# Pipeline values per segment — used to auto-create Deal estimates
+# whenever a prospect is qualified (demo capture, demo viewed, positive
+# reply). Jeffrey's exact spec.
+SEGMENT_PIPELINE_VALUES = {
+    "airport_enterprise":  150_000,
+    "supermarket_grocery":  75_000,
+    "education_school":     50_000,
+    "insurance_agent":      40_000,
+    "realtor":              30_000,
+    "c_store":              50_000,
+    "retail_chain":         50_000,   # treated like c_store/grocery class
+    "contractor_service":   35_000,
+    "sales_team_agency":    40_000,
+    "creator_influencer":   15_000,
+}
+SEGMENT_PIPELINE_DEFAULT = 40_000        # fallback for unknown segments
+ENTERPRISE_PIPELINE_VALUE = 200_000      # explicit "enterprise" upgrade tier
+
 DAILY_LIMIT_DEFAULT = int(os.environ.get("OUTBOUND_DAILY_LIMIT", "10"))   # Phase A · Low Credit Execution Mode
 SEND_WINDOW_HOURS = 14                 # spread sends across 14-hour workday
 MIN_SEND_SPACING_SEC = 60              # hard floor between two sends
 BOUNCE_RATE_PAUSE_THRESHOLD = 0.05     # auto-pause if ≥5 % over last 7 days
 COMPLAINT_RATE_PAUSE_THRESHOLD = 0.003  # auto-pause if ≥0.3 % over last 7 days
-FOLLOWUP_OFFSETS_DAYS = [1, 4]          # cadence · FU1(d1) / FU2(d4)  ·  matches Jeffrey's demo-first 3-email sequence
-MAX_EMAILS_BEFORE_COLD = 3              # initial + 2 follow-ups → then cold
+FOLLOWUP_OFFSETS_DAYS = [1, 3, 7]       # cadence · Day0 initial + FU1(d1) / FU2(d3) / FU3(d7)  ·  Demo-First
+MAX_EMAILS_BEFORE_COLD = 4              # initial + 3 follow-ups → then cold
 DEMO_VIEWER_DELAY_MIN_HRS = 12          # warm demo viewer delay lower bound
 DEMO_VIEWER_DELAY_MAX_HRS = 24          # warm demo viewer delay upper bound
 DEMO_VIEWER_BASELINE_SCORE = 82         # pre-scored warm lead baseline
@@ -401,7 +419,8 @@ def make_outbound_router(
             f"I recorded a short demo showing exactly how it works for companies like {company}:\n\n"
             f"{demo_url}\n\n"
             f"If it's relevant, I can walk you through what it would look like specifically for your locations.\n\n"
-            f"— Jeffrey"
+            + (f"Or grab 15 min: {calendly}\n\n" if calendly else "")
+            + f"— Jeffrey"
         )
         user = (
             f"Prospect first name: {first_name}\n"
@@ -445,97 +464,6 @@ def make_outbound_router(
                 out.append(r["subject"])
         return out
 
-    async def _draft_followup(p: Dict[str, Any], which: int) -> Dict[str, str]:
-        """Demo-first follow-ups per Jeffrey's spec.
-        FU1 (Day 1): "quick follow up" + demo link
-        FU2 (Day 4): "should I close this out?" — soft breakup with demo link
-        """
-        seg = p.get("target_segment") or "sales_team_agency"
-        demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
-        demo_url = f"{_public_base()}{demo['route']}"
-        company = p.get("business_name") or "your team"
-        first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
-
-        if which == 1:
-            subject = "quick follow up"
-            body = (
-                f"Hi {first_name},\n\n"
-                f"Wanted to make sure you saw this — the demo shows how we identify savings across "
-                f"lighting, maintenance, and operational spend.\n\n"
-                f"{demo_url}\n\n"
-                f"Worth a quick look.\n\n"
-                f"— Jeffrey"
-            )
-        else:
-            subject = "should I close this out?"
-            body = (
-                f"Hi {first_name},\n\n"
-                f"If this isn't relevant right now, no problem.\n\n"
-                f"Otherwise, here's the demo again:\n{demo_url}\n\n"
-                f"Happy to break down numbers for your locations if useful.\n\n"
-                f"— Jeffrey"
-            )
-        return {"subject": subject, "body": body}
-        seg = p.get("target_segment") or "sales_team_agency"
-        demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
-        source_demo = p.get("source_demo")
-        is_demo_viewer = bool(source_demo)
-        teaser_line = (
-            f"If useful, I put together a 90-second teaser: {_public_base()}{demo['route']}"
-            if include_teaser else
-            ""
-        )
-        style_hint = random.choice(SUBJECT_STYLE_POOL)
-        calendly = os.environ.get("CALENDLY_URL", "").strip()
-        calendly_line = (
-            f"Open to a 15-min call to see if this fits? Book any slot here: {calendly}"
-            if calendly else "Open to a quick call to see if this fits?"
-        )
-        if is_demo_viewer:
-            system = (
-                "You are writing a first follow-up email to someone who just viewed a CreatorBoostAI demo "
-                "but did NOT book or purchase. They already know the product visually — do NOT re-explain it. "
-                "Acknowledge they explored the demo. Offer a concrete next step (short call, or a specific signal-pack). "
-                f"CTA requirement: end with a booking offer using this exact line verbatim on its own line: '{calendly_line}' "
-                f"Style: 80-110 words, plain text, no hype, no !!!, no ALL CAPS. Subject style: {style_hint}. "
-                "Output STRICT JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
-            )
-        else:
-            system = (
-                "You are writing a cold-outreach email on behalf of the CreatorBoostAI team. "
-                "Style: short, human, specific, zero fluff, no hype, no spam tokens. "
-                "CONSTRAINTS: total email body <= 120 words. Zero !!! zero ALL CAPS. "
-                "Plain text, no markdown. "
-                "Structure: 1-line opener specific to their business · 1-line pain point · "
-                "1-line how CreatorBoostAI helps · booking CTA. "
-                f"CTA requirement: end with this exact line verbatim on its own line: '{calendly_line}' "
-                f"Subject style guidance: {style_hint}. "
-                "Output STRICT JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
-            )
-        user = (
-            f"Prospect: {p.get('contact_name') or p.get('business_name')}\n"
-            f"Business: {p.get('business_name')}\n"
-            f"Segment (best-fit): {SEGMENT_DISPLAY.get(seg, seg)}\n"
-            f"Estimated pain: {p.get('estimated_pain') or '—'}\n"
-            f"Suggested angle: {p.get('suggested_pitch_angle') or '—'}\n"
-            f"Recommended offer: {p.get('recommended_offer') or '—'}\n"
-            + (f"They viewed the {source_demo} demo at {_public_base()}{demo['route']}\n" if is_demo_viewer else "")
-            + f"Teaser demo (optional, include only if helpful): {teaser_line or '(none — do not add any link)'}\n"
-        )
-        raw = await _claude(system, user, session_id=f"email-{p['id']}")
-        import json as _json
-        m = re.search(r"\{.*\}", raw, flags=re.S)
-        if not m:
-            return {"subject": "Quick idea for " + (p.get("business_name") or "you"),
-                    "body": _strip_spammy(raw)[:600]}
-        try:
-            obj = _json.loads(m.group(0))
-            obj["subject"] = _strip_spammy(obj.get("subject", ""))[:120]
-            obj["body"] = _strip_spammy(obj.get("body", ""))[:1500]
-            return obj
-        except Exception:
-            return {"subject": "Quick idea", "body": _strip_spammy(raw)[:600]}
-
     async def _last_sent_subjects(prospect_id: str, limit: int = 3) -> List[str]:
         cursor = db.outbound_events.find(
             {"prospect_id": prospect_id, "type": "sent"},
@@ -548,9 +476,12 @@ def make_outbound_router(
         return out
 
     async def _draft_followup(p: Dict[str, Any], which: int) -> Dict[str, str]:
-        """Context-aware follow-up draft. FU1=bump, FU2=proof/demo-link,
-        FU3=low-pressure final. Injects prior subjects so the AI avoids
-        template repetition and actually references the prior thread."""
+        """Demo-First follow-up cadence per Jeffrey's spec.
+
+        which=1 → Day 1 · 35-50 words · short bump + demo link + Calendly
+        which=2 → Day 3 · 50-70 words · offer Loom for {company} + demo + Calendly
+        which=3 → Day 7 · 35-50 words · low-pressure close + demo only
+        """
         tone = TONE_VARIATIONS[(which - 1) % len(TONE_VARIATIONS)]
         prior_subjects = await _last_sent_subjects(p["id"], limit=3)
         prior = "\n".join([f"  · \"{s}\"" for s in prior_subjects]) or "  (no prior subjects recorded)"
@@ -558,40 +489,46 @@ def make_outbound_router(
         seg = p.get("target_segment") or "sales_team_agency"
         demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
         demo_url = f"{_public_base()}{demo['route']}"
-        lead_score = int(p.get("lead_score") or 0)
+        seg_label = SEGMENT_DISPLAY.get(seg, seg)
+        company = p.get("business_name") or "your team"
+        first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
+        calendly = os.environ.get("CALENDLY_URL", "").strip()
+        calendly_line = (
+            f"Or grab 15 min: {calendly}" if calendly else "Or open to a quick 15-min call?"
+        )
 
-        # Stage-specific instructions per Jeffrey's cadence spec
         if which == 1:
             stage = (
-                "FOLLOW-UP 1 (Day 2) — Simple bump. Acknowledge they may be busy. "
-                "Reinforce the outcome. 35-55 words max. Do NOT add a link."
+                f"DAY 1 BUMP · 35-50 words. Quick check — did the demo make sense for {company}? "
+                f"Include ONE industry-specific stat for {seg_label}. "
+                f"End with the demo link on its own line: {demo_url}\n"
+                f"Then on the next line: {calendly_line}"
             )
         elif which == 2:
-            include_demo = lead_score >= 60  # hi + medium fit get demo in FU2
             stage = (
-                "FOLLOW-UP 2 (Day 5) — Introduce a proof concept. Reference how CreatorBoostAI replaces "
-                "manual effort with a concrete outcome. 55-80 words. "
-                + (f"Include exactly ONE link: {demo_url}" if include_demo else "Do NOT add any link.")
+                f"DAY 3 LOOM OFFER · 50-70 words. Acknowledge they may be busy. "
+                f"Offer to record a 2-min Loom showing this with {company}'s public data. "
+                f"Include the demo link on its own line: {demo_url}\n"
+                f"Then on the next line: {calendly_line}"
             )
         else:
             stage = (
-                "FOLLOW-UP 3 (Day 8) — Final message. Low-pressure close. Ask if the timing is wrong. "
-                "40-60 words. Do NOT add a link. One sentence, one soft question."
+                f"DAY 7 SOFT CLOSE · 35-50 words. Low-pressure: 'wrapping up outreach on this — happy to leave the door open'. "
+                f"Respectful, no Calendly. End with the demo link on its own line: {demo_url}"
             )
 
         system = (
-            f"You are writing a short, {tone} follow-up on behalf of CreatorBoostAI. "
+            f"You are Jeffrey from CreatorBoostAI writing a {tone} demo-first follow-up. "
             f"{stage} "
-            "No hype, no ALL CAPS, no spam tokens, plain text, no markdown. "
-            "IMPORTANT: Do NOT reuse any subject line from the prior-subjects list below — pick a different angle. "
-            "Reference the prior thread lightly (e.g., 'following up on my note about …'). "
-            "Output STRICT JSON: {\"subject\": \"...\", \"body\": \"...\"}"
+            "Plain text, no hype, no ALL CAPS, no exclamation marks, no markdown, no spam tokens. "
+            "IMPORTANT: Do NOT reuse any subject line from the prior-subjects list — pick a different angle. "
+            "Output STRICT JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
         )
         user = (
-            f"Prospect: {p.get('contact_name') or p.get('business_name')}\n"
-            f"Business: {p.get('business_name')}\n"
-            f"Segment: {SEGMENT_DISPLAY.get(seg, seg)}\n"
-            f"Lead score: {lead_score}\n"
+            f"Prospect first name: {first_name}\n"
+            f"Company: {company}\n"
+            f"Segment: {seg_label}\n"
+            f"Lead score: {int(p.get('lead_score') or 0)}\n"
             f"Follow-up #{which} of {len(FOLLOWUP_OFFSETS_DAYS)}\n"
             f"Prior subjects to avoid repeating:\n{prior}\n"
         )
@@ -605,8 +542,26 @@ def make_outbound_router(
                         "body": _strip_spammy(obj.get("body", ""))[:1500]}
             except Exception:
                 pass
-        return {"subject": f"Circling back re: {p.get('business_name')}",
-                "body": _strip_spammy(raw)[:600]}
+        # Fallback — Demo-First template, no AI
+        if which == 1:
+            body = (
+                f"Hi {first_name},\n\nQuick check — did the demo make sense for {company}?\n\n"
+                f"{demo_url}\n\n{calendly_line}\n\n— Jeffrey"
+            )
+            subject = f"following up · {company}"
+        elif which == 2:
+            body = (
+                f"Hi {first_name},\n\nKnow you're busy. Want me to record a 2-min Loom showing this "
+                f"with {company}'s public data?\n\n{demo_url}\n\n{calendly_line}\n\n— Jeffrey"
+            )
+            subject = f"2-min Loom for {company}?"
+        else:
+            body = (
+                f"Hi {first_name},\n\nWrapping up outreach on this — happy to leave the door open if "
+                f"timing is wrong.\n\n{demo_url}\n\n— Jeffrey"
+            )
+            subject = "leaving the door open"
+        return {"subject": subject, "body": body}
 
     async def _draft_linkedin(p: Dict[str, Any], kind: str) -> str:
         system = (
@@ -659,6 +614,140 @@ def make_outbound_router(
             except Exception:
                 pass
         return {"subject": "Re: your reply", "body": _strip_spammy(raw)[:1000]}
+
+    # ──────────────── DEAL AUTO-CREATION (Demo-First spec) ────────────────
+    async def _segment_pipeline_value(seg: str, p: Dict[str, Any]) -> int:
+        """Resolve a deal value for a prospect. Defers to an explicit
+        `enterprise_tier=True` flag for $200K, otherwise looks up the
+        segment table, otherwise uses the safe default."""
+        if p.get("enterprise_tier") is True:
+            return ENTERPRISE_PIPELINE_VALUE
+        return SEGMENT_PIPELINE_VALUES.get(seg, SEGMENT_PIPELINE_DEFAULT)
+
+    async def _create_or_get_deal_for_prospect(
+        prospect: Dict[str, Any],
+        trigger: str = "demo_capture",
+    ) -> Dict[str, Any]:
+        """Idempotent: at most ONE deal per prospect. Sets `deal_value_usd`
+        and `deal_id` on the prospect doc, mirrors a row into `ops_leads`
+        as a `qualified` lead so the Performance dashboard pipeline
+        reflects real pipeline value, and logs an `outbound_events.deal_created`
+        row for the timeline."""
+        # Already has a deal — no-op (returns existing values for caller).
+        if prospect.get("deal_id"):
+            return {
+                "deal_id": prospect["deal_id"],
+                "deal_value_usd": prospect.get("deal_value_usd"),
+                "is_new": False,
+            }
+        seg = prospect.get("target_segment") or "sales_team_agency"
+        value = await _segment_pipeline_value(seg, prospect)
+        deal_id = str(uuid.uuid4())
+        now_s = now_iso()
+        await db.outbound_prospects.update_one(
+            {"id": prospect["id"]},
+            {"$set": {
+                "deal_id": deal_id,
+                "deal_value_usd": value,
+                "deal_created_at": now_s,
+                "deal_trigger": trigger,
+                "status": "qualified" if prospect.get("status") not in ("won", "lost") else prospect.get("status"),
+                "updated_at": now_s,
+            }},
+        )
+        # Mirror into ops_leads so /performance pipeline math picks it up
+        # (the Performance endpoint sums `value_usd` across non-lost leads).
+        try:
+            await db.ops_leads.update_one(
+                {"source_outbound_prospect_id": prospect["id"]},
+                {"$setOnInsert": {
+                    "id": str(uuid.uuid4()),
+                    "name": prospect.get("contact_name") or prospect.get("business_name") or prospect.get("email"),
+                    "company": prospect.get("business_name"),
+                    "email": prospect.get("email"),
+                    "industry": SEGMENT_DISPLAY.get(seg, seg),
+                    "status": "qualified",
+                    "value_usd": value,
+                    "source": "outbound_engine",
+                    "source_outbound_prospect_id": prospect["id"],
+                    "source_demo": prospect.get("source_demo"),
+                    "by_email": os.environ.get("FOUNDER_EMAIL", "").strip() or "founder@creatorboostai.com",
+                    "assigned_to_email": None,
+                    "trigger": trigger,
+                    "created_at": now_s,
+                    "updated_at": now_s,
+                }},
+                upsert=True,
+            )
+        except Exception as e:
+            log.error(f"[deal] ops_leads mirror failed for {prospect.get('email')}: {e}")
+        await _log_event(prospect["id"], "deal_created", value_usd=value, trigger=trigger, segment=seg)
+        return {"deal_id": deal_id, "deal_value_usd": value, "is_new": True}
+
+    # ──────────────── AI REPLY CLASSIFIER (Demo-First spec) ────────────────
+    async def _classify_reply_with_ai(prospect: Dict[str, Any], reply_body: str) -> Dict[str, Any]:
+        """Classify an inbound reply into one of three Demo-First buckets:
+        - "interested"     → wants more info / demo / call → fire Calendly + create deal
+        - "neutral"        → ambiguous / not yet qualified → offer custom store example
+        - "not_interested" → polite no / unsubscribe → suppress + stop
+
+        Returns {"bucket": "...", "rationale": "..."}. Falls back to a
+        keyword heuristic if Claude is unreachable so the engine still
+        progresses in degraded mode.
+        """
+        body = (reply_body or "").strip()
+        # Hard fallback heuristic — always available
+        b_lower = body.lower()
+        positive_kw = ("interested", "sounds good", "yes", "yeah", "yep", "tell me more",
+                       "let's", "book", "call", "demo", "see it", "schedule")
+        negative_kw = ("unsubscribe", "remove me", "not interested", "no thanks",
+                       "stop", "do not contact", "wrong person", "wrong contact")
+        keyword_bucket = (
+            "interested" if any(k in b_lower for k in positive_kw) and not any(k in b_lower for k in negative_kw)
+            else "not_interested" if any(k in b_lower for k in negative_kw)
+            else "neutral"
+        )
+        # If Claude isn't configured, return the heuristic
+        if not (LlmChat and LlmUserMessage and os.environ.get("EMERGENT_LLM_KEY", "").strip()):
+            return {"bucket": keyword_bucket, "rationale": "keyword-heuristic (no LLM)", "via": "heuristic"}
+        try:
+            seg = prospect.get("target_segment") or "sales_team_agency"
+            system = (
+                "You are a B2B sales reply classifier. Read the prospect's reply and "
+                "output STRICT JSON with exactly these keys:\n"
+                "  bucket: one of 'interested' | 'neutral' | 'not_interested'\n"
+                "  rationale: <12 words explaining the call>\n"
+                "Definitions:\n"
+                "- interested: explicitly wants more info, a demo, a call, pricing, or asks any qualifying question\n"
+                "- neutral: ambiguous, asks for time, says 'maybe', no clear yes or no\n"
+                "- not_interested: polite no, unsubscribe, wrong person, do not contact, asks to be removed\n"
+                "No prose outside the JSON."
+            )
+            user = (
+                f"Segment: {SEGMENT_DISPLAY.get(seg, seg)}\n"
+                f"Prospect company: {prospect.get('business_name') or '—'}\n"
+                f"Reply body:\n\"\"\"\n{body[:2000]}\n\"\"\"\n"
+                f"Output the classification JSON now."
+            )
+            raw = await _claude(system, user, session_id=f"reply-classify-{prospect['id']}")
+            import json as _json
+            m = re.search(r"\{.*\}", raw, flags=re.S)
+            if m:
+                obj = _json.loads(m.group(0))
+                bucket = (obj.get("bucket") or "").strip().lower()
+                if bucket in ("interested", "neutral", "not_interested"):
+                    return {
+                        "bucket": bucket,
+                        "rationale": (obj.get("rationale") or "")[:200],
+                        "via": "claude",
+                    }
+        except Exception as e:
+            log.error(f"[reply-classifier] Claude failed: {e}")
+        return {"bucket": keyword_bucket, "rationale": "fallback-keyword-heuristic", "via": "heuristic"}
+
+    # Expose helpers to module-scope hooks (e.g. /api/demo/capture caller).
+    _DEAL_HELPER[id(router)] = _create_or_get_deal_for_prospect
+    _CLASSIFIER_HELPER[id(router)] = _classify_reply_with_ai
 
     # ──────────────── DELIVERABILITY ────────────────
     async def _deliverability_stats(days: int = 7) -> Dict[str, Any]:
@@ -1095,17 +1184,28 @@ def make_outbound_router(
         if not p:
             raise HTTPException(status_code=404, detail="Prospect not found")
 
-        # Normalize category — explicit category wins; otherwise infer from positive flag
+        # Normalize category — explicit category wins; otherwise run AI classifier
         category = (payload.category or "").strip().lower() if payload.category else None
         if category and category not in REPLY_CATEGORIES:
             category = None
+        classifier_result: Optional[Dict[str, Any]] = None
         if not category:
             if payload.positive is True:
                 category = "positive"
             elif payload.positive is False:
                 category = "not_interested"
             else:
-                category = None
+                # AI 3-bucket classifier per Demo-First spec
+                try:
+                    classifier_result = await _classify_reply_with_ai(p, payload.reply_body or "")
+                    bucket = classifier_result["bucket"]
+                    category = (
+                        "interested" if bucket == "interested"
+                        else "not_interested" if bucket == "not_interested"
+                        else None  # neutral → leave uncategorized
+                    )
+                except Exception as e:
+                    log.error(f"reply classifier failed: {e}")
 
         status = REPLY_CATEGORY_TO_STATUS.get(category or "", "replied")
         sentiment = (
@@ -1122,6 +1222,8 @@ def make_outbound_router(
                 "reply_body": payload.reply_body,
                 "reply_sentiment": sentiment,
                 "reply_category": category,
+                "reply_classifier_via": (classifier_result or {}).get("via"),
+                "reply_classifier_rationale": (classifier_result or {}).get("rationale"),
                 "updated_at": now_iso(),
                 **({"unsubscribed": True} if category == "unsubscribe" else {}),
                 **({"suppressed": True} if category in ("unsubscribe", "not_interested") else {}),
@@ -1129,9 +1231,26 @@ def make_outbound_router(
         )
         await _log_event(p["id"], "replied", sentiment=status, category=category)
 
-        # Auto-suppress hard exits
+        # Auto-suppress hard exits + mark mirrored deal as lost
         if category in ("unsubscribe", "not_interested"):
             await _suppress(p["email"], reason=f"reply_{category}")
+            try:
+                await db.ops_leads.update_one(
+                    {"source_outbound_prospect_id": p["id"]},
+                    {"$set": {"status": "lost", "updated_at": now_iso()}},
+                )
+            except Exception:
+                pass
+
+        # Auto-create Deal on positive (Demo-First spec) — re-fetch to get fresh status
+        deal_info: Optional[Dict[str, Any]] = None
+        if status == "replied_positive":
+            p_fresh = await db.outbound_prospects.find_one({"id": p["id"]}, {"_id": 0})
+            if p_fresh:
+                try:
+                    deal_info = await _create_or_get_deal_for_prospect(p_fresh, trigger="reply_positive")
+                except Exception as e:
+                    log.error(f"deal auto-create failed: {e}")
 
         # Positive → AI draft + founder notification (email + SMS if configured)
         if status == "replied_positive":
@@ -1179,7 +1298,13 @@ def make_outbound_router(
             except Exception as e:
                 log.error(f"founder SMS failed: {e}")
 
-        return {"ok": True, "status": status, "category": category}
+        return {
+            "ok": True,
+            "status": status,
+            "category": category,
+            "classifier": classifier_result,
+            "deal": deal_info,
+        }
 
     @router.post("/drafts/list")
     async def drafts_list(payload: OpsAuth):
@@ -2027,6 +2152,8 @@ async def _NOOP_REQUIRE_FOUNDER(_payload):  # pragma: no cover
 
 
 _TICK_HELPERS: Dict[int, Any] = {}
+_DEAL_HELPER: Dict[int, Any] = {}
+_CLASSIFIER_HELPER: Dict[int, Any] = {}
 
 
 async def background_scheduler_loop(
@@ -2049,6 +2176,124 @@ async def background_scheduler_loop(
 # ════════════════════════════════════════════════════════════════════
 # IMAP REPLY POLLER — Phase 2 light implementation
 # ════════════════════════════════════════════════════════════════════
+async def standalone_create_deal(db, prospect: Dict[str, Any], trigger: str = "demo_capture") -> Dict[str, Any]:
+    """Module-level idempotent deal creator usable by /api/demo/capture and IMAP poller.
+    Mirrors the closure version inside make_outbound_router."""
+    if prospect.get("deal_id"):
+        return {
+            "deal_id": prospect["deal_id"],
+            "deal_value_usd": prospect.get("deal_value_usd"),
+            "is_new": False,
+        }
+    seg = prospect.get("target_segment") or "sales_team_agency"
+    value = (
+        ENTERPRISE_PIPELINE_VALUE if prospect.get("enterprise_tier") is True
+        else SEGMENT_PIPELINE_VALUES.get(seg, SEGMENT_PIPELINE_DEFAULT)
+    )
+    deal_id = str(uuid.uuid4())
+    now_s = datetime.now(timezone.utc).isoformat()
+    await db.outbound_prospects.update_one(
+        {"id": prospect["id"]},
+        {"$set": {
+            "deal_id": deal_id,
+            "deal_value_usd": value,
+            "deal_created_at": now_s,
+            "deal_trigger": trigger,
+            "status": "qualified" if prospect.get("status") not in ("won", "lost") else prospect.get("status"),
+            "updated_at": now_s,
+        }},
+    )
+    try:
+        await db.ops_leads.update_one(
+            {"source_outbound_prospect_id": prospect["id"]},
+            {"$setOnInsert": {
+                "id": str(uuid.uuid4()),
+                "name": prospect.get("contact_name") or prospect.get("business_name") or prospect.get("email"),
+                "company": prospect.get("business_name"),
+                "email": prospect.get("email"),
+                "industry": SEGMENT_DISPLAY.get(seg, seg),
+                "status": "qualified",
+                "value_usd": value,
+                "source": "outbound_engine",
+                "source_outbound_prospect_id": prospect["id"],
+                "source_demo": prospect.get("source_demo"),
+                "by_email": os.environ.get("FOUNDER_EMAIL", "").strip() or "founder@creatorboostai.com",
+                "assigned_to_email": None,
+                "trigger": trigger,
+                "created_at": now_s,
+                "updated_at": now_s,
+            }},
+            upsert=True,
+        )
+    except Exception as e:
+        log.error(f"[deal] ops_leads mirror failed for {prospect.get('email')}: {e}")
+    await db.outbound_events.insert_one({
+        "id": str(uuid.uuid4()),
+        "prospect_id": prospect["id"],
+        "type": "deal_created",
+        "value_usd": value,
+        "trigger": trigger,
+        "segment": seg,
+        "day_key": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "created_at": now_s,
+    })
+    return {"deal_id": deal_id, "deal_value_usd": value, "is_new": True}
+
+
+async def standalone_classify_reply(prospect: Dict[str, Any], reply_body: str) -> Dict[str, Any]:
+    """Module-level 3-bucket reply classifier (interested|neutral|not_interested).
+    Uses Claude when EMERGENT_LLM_KEY is set, otherwise keyword heuristic."""
+    body = (reply_body or "").strip()
+    b_lower = body.lower()
+    positive_kw = ("interested", "sounds good", "yes", "yeah", "yep", "tell me more",
+                   "let's", "book", "call", "demo", "see it", "schedule")
+    negative_kw = ("unsubscribe", "remove me", "not interested", "no thanks",
+                   "stop", "do not contact", "wrong person", "wrong contact")
+    keyword_bucket = (
+        "interested" if any(k in b_lower for k in positive_kw) and not any(k in b_lower for k in negative_kw)
+        else "not_interested" if any(k in b_lower for k in negative_kw)
+        else "neutral"
+    )
+    if not (LlmChat and LlmUserMessage and os.environ.get("EMERGENT_LLM_KEY", "").strip()):
+        return {"bucket": keyword_bucket, "rationale": "keyword-heuristic (no LLM)", "via": "heuristic"}
+    try:
+        seg = prospect.get("target_segment") or "sales_team_agency"
+        chat = LlmChat(
+            api_key=os.environ.get("EMERGENT_LLM_KEY", "").strip(),
+            session_id=f"reply-classify-{prospect['id']}",
+            system_message=(
+                "You are a B2B sales reply classifier. Read the prospect's reply and "
+                "output STRICT JSON with exactly these keys:\n"
+                "  bucket: one of 'interested' | 'neutral' | 'not_interested'\n"
+                "  rationale: <12 words explaining the call>\n"
+                "Definitions:\n"
+                "- interested: explicitly wants more info, a demo, a call, pricing, or asks any qualifying question\n"
+                "- neutral: ambiguous, asks for time, says 'maybe', no clear yes or no\n"
+                "- not_interested: polite no, unsubscribe, wrong person, do not contact, asks to be removed\n"
+                "No prose outside the JSON."
+            ),
+        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+        msg = LlmUserMessage(text=(
+            f"Segment: {SEGMENT_DISPLAY.get(seg, seg)}\n"
+            f"Prospect company: {prospect.get('business_name') or '—'}\n"
+            f"Reply body:\n\"\"\"\n{body[:2000]}\n\"\"\"\n"
+            f"Output the classification JSON now."
+        ))
+        raw = await chat.send_message(msg)
+        if hasattr(raw, "content"):
+            raw = raw.content
+        import json as _json
+        m = re.search(r"\{.*\}", str(raw), flags=re.S)
+        if m:
+            obj = _json.loads(m.group(0))
+            bucket = (obj.get("bucket") or "").strip().lower()
+            if bucket in ("interested", "neutral", "not_interested"):
+                return {"bucket": bucket, "rationale": (obj.get("rationale") or "")[:200], "via": "claude"}
+    except Exception as e:
+        log.error(f"[reply-classifier] Claude failed: {e}")
+    return {"bucket": keyword_bucket, "rationale": "fallback-keyword-heuristic", "via": "heuristic"}
+
+
 async def _imap_poll_once(db) -> Dict[str, Any]:
     """Connect to IMAP, scan UNSEEN messages in INBOX, match sender email to
     a known prospect, and record a reply + enqueue a draft. Best-effort: any
@@ -2128,14 +2373,18 @@ async def _imap_poll_once(db) -> Dict[str, Any]:
             continue
         if prospect.get("replied_at"):
             continue  # already recorded
-        # Rudimentary sentiment heuristic: look for keywords
         b = m["body"].lower()
-        positive = any(k in b for k in ("interested", "sounds good", "yes", "tell me more", "let's", "book", "call"))
-        negative = any(k in b for k in ("unsubscribe", "remove me", "not interested", "stop", "no thanks"))
         # "Reply YES" / "YES" shortcut — auto-respond with Calendly link
         is_yes_shortcut = bool(re.match(r"^\s*(yes|yeah|yep|sure|ok|sounds good|let'?s do it)[\s\.\!\?]*$", b.strip().split("\n")[0][:60]))
-        sentiment = "positive" if positive and not negative else ("negative" if negative else "neutral")
-        status = "replied_positive" if sentiment == "positive" else ("not_interested" if sentiment == "negative" else "replied")
+        # AI 3-bucket classifier (Demo-First spec) — interested/neutral/not_interested
+        try:
+            classification = await standalone_classify_reply(prospect, m["body"])
+        except Exception as _e:
+            log.error(f"[imap] classifier failed: {_e}")
+            classification = {"bucket": "neutral", "rationale": "classifier-error", "via": "heuristic"}
+        bucket = classification["bucket"]
+        sentiment = "positive" if bucket == "interested" else ("negative" if bucket == "not_interested" else "neutral")
+        status = "replied_positive" if bucket == "interested" else ("not_interested" if bucket == "not_interested" else "replied")
         await db.outbound_prospects.update_one(
             {"id": prospect["id"]},
             {"$set": {
@@ -2144,7 +2393,9 @@ async def _imap_poll_once(db) -> Dict[str, Any]:
                 "reply_body": m["body"][:4000],
                 "reply_subject": m["subject"],
                 "reply_sentiment": sentiment,
-                "reply_category": "yes_shortcut" if is_yes_shortcut else None,
+                "reply_category": "yes_shortcut" if is_yes_shortcut else bucket,
+                "reply_classifier_via": classification.get("via"),
+                "reply_classifier_rationale": classification.get("rationale"),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }},
         )
@@ -2155,16 +2406,32 @@ async def _imap_poll_once(db) -> Dict[str, Any]:
             "day_key": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "created_at": datetime.now(timezone.utc).isoformat(),
             "sentiment": sentiment,
+            "category": bucket,
             "source": "imap",
             "yes_shortcut": is_yes_shortcut,
         })
-        if negative:
+        if bucket == "not_interested":
             await db.outbound_suppression.update_one(
                 {"email": m["from"]},
-                {"$set": {"reason": "imap_opted_out", "updated_at": datetime.now(timezone.utc).isoformat()}},
+                {"$set": {"reason": "imap_not_interested", "updated_at": datetime.now(timezone.utc).isoformat()}},
                 upsert=True,
             )
             await db.outbound_prospects.update_one({"id": prospect["id"]}, {"$set": {"suppressed": True}})
+            try:
+                await db.ops_leads.update_one(
+                    {"source_outbound_prospect_id": prospect["id"]},
+                    {"$set": {"status": "lost", "updated_at": datetime.now(timezone.utc).isoformat()}},
+                )
+            except Exception:
+                pass
+        # Interested → auto-create Deal (idempotent) per Demo-First spec
+        if bucket == "interested":
+            try:
+                p_fresh = await db.outbound_prospects.find_one({"id": prospect["id"]}, {"_id": 0})
+                if p_fresh:
+                    await standalone_create_deal(db, p_fresh, trigger="imap_reply_interested")
+            except Exception as _e:
+                log.error(f"[imap] deal auto-create failed: {_e}")
         # YES shortcut → auto-send Calendly booking link (no founder approval needed)
         if is_yes_shortcut:
             calendly = os.environ.get("CALENDLY_URL", "").strip()
