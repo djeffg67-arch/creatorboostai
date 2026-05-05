@@ -6,8 +6,9 @@ import {
     Rocket, FileText, TrendingUp, Banknote, CheckCircle2, Users, Mail, Sparkles,
     Building2, Calculator, Target, BarChart3, MessageSquare, Receipt, Briefcase,
     Loader2, Download, Printer, Save, ArrowLeft, ArrowRight, Bookmark, ShieldCheck,
+    Zap, X, Check,
 } from "lucide-react";
-import { builderListTools, builderGenerate } from "@/lib/api";
+import { builderListTools, builderGenerate, businessActivationCapture } from "@/lib/api";
 import {
     exportMarkdownToPDF, exportMarkdownToDOCX, exportMarkdownTableToCSV,
     printMarkdown, saveToWorkspace, loadWorkspace, markdownToHTML,
@@ -171,6 +172,7 @@ export default function BusinessBuilderPage() {
                                     <OutputPanel
                                         tool={activeTool}
                                         markdown={output.markdown}
+                                        inputs={inputs}
                                         onRegenerate={() => { setOutput(null); }}
                                         onSave={onSave}
                                     />
@@ -288,9 +290,10 @@ const InputForm = ({ tool, inputs, setInputs, busy, onGenerate }) => (
 );
 
 // ---------- Output panel (rendered markdown + export) ----------
-const OutputPanel = ({ tool, markdown, onRegenerate, onSave }) => {
+const OutputPanel = ({ tool, markdown, onRegenerate, onSave, inputs }) => {
     const html = useMemo(() => markdownToHTML(markdown), [markdown]);
     const filename = `cb_${tool.key}_${Date.now()}`;
+    const [showActivate, setShowActivate] = useState(false);
 
     return (
         <div className="space-y-4" data-testid="builder-output-panel">
@@ -312,18 +315,206 @@ const OutputPanel = ({ tool, markdown, onRegenerate, onSave }) => {
                 </div>
             </div>
 
+            {/* Iter 57 · Activation CTA — primary top-of-funnel */}
+            <div className="rounded-md border border-emerald-400/40 bg-gradient-to-r from-emerald-500/10 to-cyan-500/5 p-5" data-testid="activation-cta-block">
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex-1 min-w-[260px]">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">
+                            <Zap className="inline" size={11} /> One-click activation
+                        </p>
+                        <p className="mt-1 text-sm text-slate-200">
+                            Send your <strong>{tool.label}</strong> + every output you've generated to your inbox as
+                            a branded PDF, and switch on your AI execution system in one click.
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => setShowActivate(true)}
+                        data-testid="activate-business-btn"
+                        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-400 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:bg-emerald-300"
+                    >
+                        Activate My Business System <ArrowRight size={14} />
+                    </button>
+                </div>
+            </div>
+
             <article
                 data-testid="builder-output-rendered"
                 className="prose prose-invert max-w-none rounded-md border border-white/10 bg-ink-700/20 p-6 sm:p-8"
-                style={{
-                    "--tw-prose-headings": "#fff",
-                    "--tw-prose-body": "#cbd5e1",
-                }}
+                style={{ "--tw-prose-headings": "#fff", "--tw-prose-body": "#cbd5e1" }}
                 dangerouslySetInnerHTML={{ __html: html }}
             />
+
+            {showActivate && (
+                <ActivationModal
+                    tool={tool}
+                    markdown={markdown}
+                    inputs={inputs || {}}
+                    onClose={() => setShowActivate(false)}
+                />
+            )}
         </div>
     );
 };
+
+// ---------- Activation Modal (Iter 57 · primary top-of-funnel) ----------
+const ActivationModal = ({ tool, markdown, inputs, onClose }) => {
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [businessName, setBusinessName] = useState(inputs.business_name || inputs.client_name || "");
+    const [businessType, setBusinessType] = useState(inputs.industry || inputs.industry_tag || "");
+    const [wantsHelp, setWantsHelp] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [done, setDone] = useState(null); // success result
+
+    const submit = async () => {
+        if (!name.trim() || !email.trim()) {
+            toast.error("Name and email are required");
+            return;
+        }
+        setBusy(true);
+        // Compile blocks: current output + last 5 saved workspace items
+        const ws = loadWorkspace();
+        const blocks = [
+            { tool: tool.key, tool_label: tool.label, markdown },
+            ...ws.slice(0, 5)
+                .filter((w) => w.tool !== tool.key)
+                .map((w) => ({ tool: w.tool, tool_label: w.label, markdown: w.markdown })),
+        ];
+        try {
+            const r = await businessActivationCapture({
+                name, email,
+                business_name: businessName || null,
+                business_type: businessType || null,
+                blocks,
+                wants_outbound_help: wantsHelp,
+                consent_marketing: true,
+                source: "startup_builder",
+            });
+            setDone(r);
+            toast.success(r.email_delivered ? "Package sent to your inbox" : "Activation captured · email queued");
+        } catch (e) {
+            toast.error(e?.response?.data?.detail || "Activation failed — try again");
+        } finally { setBusy(false); }
+    };
+
+    return (
+        <div
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-ink-900/85 p-4 backdrop-blur-sm"
+            data-testid="activation-modal"
+            onClick={onClose}
+        >
+            <div
+                className="w-full max-w-lg rounded-md border border-emerald-400/40 bg-ink-800 p-6 shadow-[0_0_40px_rgba(16,185,129,0.25)]"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {!done ? (
+                    <>
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">
+                                    <Zap className="inline" size={11} /> Send my plan + start my AI system
+                                </p>
+                                <h3 className="font-heading mt-2 text-xl font-semibold text-white">
+                                    Activate your business system
+                                </h3>
+                                <p className="mt-2 text-xs text-slate-400">
+                                    We'll compile every output you've generated into a branded PDF, send it to your
+                                    inbox, and lock your activation lead exclusively to your account.
+                                </p>
+                            </div>
+                            <button
+                                onClick={onClose}
+                                data-testid="activation-close"
+                                className="rounded-md border border-white/10 p-1.5 text-slate-400 hover:text-rose-300"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        <div className="mt-5 space-y-3">
+                            <Input testid="activate-name"     label="Your name"        value={name}         onChange={setName}         placeholder="Jane Doe" />
+                            <Input testid="activate-email"    label="Your email"       value={email}        onChange={setEmail}        placeholder="you@example.com" type="email" />
+                            <Input testid="activate-business" label="Business name (optional)" value={businessName} onChange={setBusinessName} placeholder="Acme Mobile Grooming" />
+                            <Input testid="activate-type"     label="Business type / industry (optional)" value={businessType} onChange={setBusinessType} placeholder="Pet services" />
+
+                            <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-emerald-400/30 bg-emerald-500/5 p-3">
+                                <input
+                                    type="checkbox"
+                                    checked={wantsHelp}
+                                    onChange={(e) => setWantsHelp(e.target.checked)}
+                                    data-testid="activate-wants-help"
+                                    className="mt-0.5 h-4 w-4 accent-emerald-400"
+                                />
+                                <span className="text-xs leading-relaxed text-slate-200">
+                                    <strong className="text-emerald-300">I want CreatorBoostAI to help me get customers</strong>{" "}
+                                    for this business. Flag my account for done-with-you outbound + lead generation later.
+                                </span>
+                            </label>
+                        </div>
+
+                        <button
+                            onClick={submit}
+                            disabled={busy || !name.trim() || !email.trim()}
+                            data-testid="activate-submit"
+                            className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-emerald-400 px-5 py-3 text-sm font-semibold text-ink-900 hover:bg-emerald-300 disabled:opacity-60"
+                        >
+                            {busy ? <><Loader2 className="animate-spin" size={14} /> Compiling + sending…</> : <>Activate My Business System <ArrowRight size={14} /></>}
+                        </button>
+
+                        <p className="mt-3 text-center text-[10px] text-slate-500">
+                            By activating, you agree to receive 3 short execution emails. Reply STOP any time.
+                        </p>
+                    </>
+                ) : (
+                    <div data-testid="activation-success">
+                        <div className="flex items-center gap-2.5">
+                            <CheckCircle2 size={20} className="text-emerald-300" />
+                            <p className="font-heading text-lg font-semibold text-white">Activation complete</p>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-300">
+                            {done.email_delivered
+                                ? "Your business package is on its way to your inbox. Check spam if it doesn't arrive in 2 minutes."
+                                : "Captured. Email delivery is queued for when our sender warms back up."}
+                        </p>
+                        <div className="mt-4 space-y-1 rounded-md border border-emerald-400/30 bg-emerald-500/5 p-3 font-mono text-[10px] text-emerald-200">
+                            <p>lead_id · {done.lead_id}</p>
+                            <p>capture_id · {done.capture_id}</p>
+                            <p>pdf · {Math.round((done.pdf_size_bytes || 0) / 1024)} KB</p>
+                            <p>nurture · {done.nurture_scheduled ? "scheduled (T+24h, T+72h)" : "queued"}</p>
+                        </div>
+                        <a
+                            href={done.continue_url}
+                            data-testid="activation-continue-link"
+                            className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-500 hover:text-ink-900"
+                        >
+                            Continue building <ArrowRight size={13} />
+                        </a>
+                        <button
+                            onClick={onClose}
+                            className="mt-2 w-full rounded-md border border-white/10 bg-ink-700/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400 hover:text-slate-200"
+                        >
+                            Close
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const Input = ({ label, value, onChange, placeholder, type = "text", testid }) => (
+    <label className="block">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">{label}</span>
+        <input
+            data-testid={testid}
+            type={type}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className="mt-1 w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+        />
+    </label>
+);
 
 const ExportBtn = ({ label, Icon, onClick, testid }) => (
     <button

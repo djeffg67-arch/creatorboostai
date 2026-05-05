@@ -503,4 +503,16 @@ export const builderListTools = () =>
 export const builderGenerate = ({ tool, inputs, user_email, session_id }) =>
     api.post("/business-builder/generate", { tool, inputs, user_email, session_id }, { timeout: 90000 }).then((r) => r.data);
 
+// ---------- Business Activation Capture (Iter 57) ----------
+export const businessActivationCapture = ({
+    name, email, business_type, business_name, blocks,
+    session_id, source, wants_outbound_help, consent_marketing,
+}) =>
+    api.post("/business-activation/capture", {
+        name, email, business_type, business_name, blocks,
+        session_id, source: source || "startup_builder",
+        wants_outbound_help: !!wants_outbound_help,
+        consent_marketing: consent_marketing !== false,
+    }, { timeout: 60000 }).then((r) => r.data);
+
 

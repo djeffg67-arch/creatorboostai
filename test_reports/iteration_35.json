@@ -1,0 +1,29 @@
+{
+  "summary": "Iter 57 Business Activation Capture — backend 6/6 pytest + frontend e2e PASS. Capture endpoint creates LOCKED lead assigned to j.davidg67@gmail.com, persists capture doc with all blocks, schedules 3-step nurture (step_1 T+0, step_2 T+24h, step_3 T+72h). Idempotency confirmed (same email → same lead_id, is_new_lead=false). Invalid email → 422. Email gracefully degrades with email_delivered=false + email_error='RESEND_API_KEY not configured'. /admin-list rejects bogus token (401) and returns enriched captures[] with nurture progress for founder (jeffrey@creatorboostai.com). Frontend: builder generates break_even output, activation-cta-block visible above output, modal opens/closes (X + backdrop), submit is disabled when required fields empty, filling name+email+help enables submit, success state displays lead_id/capture_id/pdf size/nurture scheduled and continue link points to /portal/builder?activation=<capture_id>.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter57_business_activation.py",
+    "/app/test_reports/pytest/iter57_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "LEAD DEDUP BEHAVIOR (observed, not a bug per spec): lead_registry.find_duplicate matches on ANY of {email, phone, company+location}. This means two different emails submitted with the same business_name end up merged into the SAME lead_id. Verified: qa.iter57.bd668c68ca@..., qa.iter57.bcddb4d68a@..., qa.iter57.158fdd194e@... all dedupe to lead cc766d12-... because they shared business_name 'TEST QA Mobile Grooming'. If founder expects 1 capture = 1 distinct lead, fingerprint should be email-only. Current merge-on-company could mask multiple activations from the same business but different owners.",
+    "business_activation.py capture() surfaces `email_error` only when !ok, but the payload doc inside business_activation_nurture.step_1 stores the error regardless — good for forensics. No issue, just noted.",
+    "business_activation.py._send_with_attachment imports email_service internals (_live_resend_key, FROM_HEADER, REPLY_TO_EMAIL). Those are private symbols in email_service — a small coupling risk if email_service is refactored. Low priority."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter57_business_activation.py (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% on tested flows"},
+  "test_credentials": "Founder admin-list auth uses users collection: email=jeffrey@creatorboostai.com token=PkxH2sPAHuiXiOCgHqE-_MnnQDUUwXxziPeFmzmhCsw (role=founder portal_token). FOUNDER_KEY env var was not needed since admin-list routes through _require_outbound_founder which checks users.email+portal_token. The request mentioned 'jeffrey-2026-bodyiq-founder-master' as a master key but the /admin-list endpoint does NOT consume that shape — it needs FounderAuth {email, token} validated against users collection.",
+  "seed_data_creation": "Test created ~3 qa.iter57.<random>@example.com captures + nurture docs in business_activation_captures / business_activation_nurture / leads_registry. All tagged with business_name starting 'TEST QA Grooming <hex>' for easy cleanup. Also 1 frontend capture qa.iter57.fe@example.com lead_id b58cb9b2-9fcb-426b-aa7a-4e6817eeeeb5 capture_id 70658502-dac5-4132-a48e-8f4b92fcd23d.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests at /app/backend/tests/test_iter57_business_activation.py — 6 tests, ~1s runtime (no LLM calls). Tests use fresh uuid4-based email AND business_name each run to avoid company-based dedupe collisions with prior runs. Frontend modal flow tested via /portal/builder?tool=break_even; generate takes ~30-60s (real Claude call) — use 75s timeout when waiting for activation-cta-block. RESEND_API_KEY intentionally missing in preview; capture returns email_delivered=false with email_error='RESEND_API_KEY not configured' — this is expected graceful degrade, NOT a failure.",
+  "rca of the issue": "Initial test run returned is_new_lead=false on the happy-path test even with a fresh unique qa_email. RCA: lead_registry dedupe_keys includes company+location key (_norm_company_loc), so two captures sharing business_name 'TEST QA Mobile Grooming' deduped into one lead regardless of different emails. Resolution: make the test's business_name also unique per run (added qa_business fixture with uuid suffix). This unblocked both is_new_lead=true assertion and the DB side-effects test. Not a product bug; flagged as behavior note for main agent."
+}

@@ -3603,6 +3603,19 @@ from business_builder import make_business_builder_router  # noqa: E402
 app.include_router(make_business_builder_router(db))
 
 
+# ---------- Business Activation Capture System (Iter 57) ----------
+from business_activation import (  # noqa: E402
+    make_business_activation_router, business_activation_nurture_loop,
+)
+
+app.include_router(make_business_activation_router(db, _require_outbound_founder))
+
+
+@app.on_event("startup")
+async def _start_business_activation_nurture():
+    asyncio.create_task(business_activation_nurture_loop(db))
+
+
 # ---------- CORS ----------
 # Explicitly allow the production domains + any additional origins injected via
 # CORS_ORIGINS env var. "*" is used as a safety fallback so a misconfigured
