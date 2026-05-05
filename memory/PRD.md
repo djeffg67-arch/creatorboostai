@@ -1,8 +1,64 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-05 (Iter 57 — Business Activation Capture System)
+**Last update:** 2026-05-05 (Iter 58 — Activation polish: outbound bridge + system-activation copy)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 58 — ACTIVATION SYSTEM POLISH (Outbound bridge + activation copy)
+
+Polish pass on Iter 57. Per Jeffrey's directive, the activation flow now feels like
+"I just activated something powerful" — not "I submitted a form" — and the cold-outreach
+engine actually picks up opt-in leads.
+
+### Backend (`/app/backend/business_activation.py`)
+- **Bridge to Outbound Engine** — when `wants_outbound_help=true`, the capture endpoint
+  also writes an `outbound_prospects` row tagged `target_segment="activation_opt_in"`,
+  `source="business_activation"`, with `source_capture_id` + `source_lead_id` joins so
+  the cold-outreach scheduler can claim it on its next tick. Idempotent — skips if an
+  outbound prospect with that email already exists.
+- Response now includes `outbound_prospect_id` and `outbound_bridged` so the frontend
+  can show the bridge status in the success state.
+
+### Frontend (`/app/frontend/src/pages/BusinessBuilderPage.jsx`)
+- **Success state rewritten** to match the spec exactly:
+  - Headline: "Your business system has been activated."
+  - Subhead: "Your plan has been sent to your email. CreatorBoostAI is now preparing your next steps."
+  - Live activation checklist with green checks / amber dots tied to real backend state:
+    Lead locked · Branded PDF compiled & emailed · 3-step execution sequence triggered ·
+    Outbound engine bridged
+  - Receipt block (lead_id, capture_id, pdf size + status)
+  - Primary CTA: **"Continue Building My Business"** (emerald, glowing)
+  - Pulsing emerald ping on the success icon — activation feel, not confirmation feel
+
+### Verified live (smoke-tested by main agent + Iter 57 testing agent baseline)
+```
+✓ Capture with wants_outbound_help=true → outbound_bridged=true + prospect_id minted
+✓ Capture with wants_outbound_help=false → outbound_bridged=false + prospect_id=null
+✓ Idempotency preserved — same email re-submits don't double-bridge
+✓ Frontend success state shows exact spec wording + Continue Building My Business CTA
+✓ All 6 production-readiness boxes:
+    1. Lead is captured ✓
+    2. Lead stored with unique ID ✓
+    3. Lead is locked (Exclusive Lead Engine) ✓
+    4. Email is sent (graceful degrade in preview without RESEND_API_KEY) ✓
+    5. Outbound sequence is triggered (nurture + opt-in bridge) ✓
+    6. User is returned into system (Continue Building My Business CTA) ✓
+```
+
+### Files touched
+- `/app/backend/business_activation.py` (outbound bridge block + response fields)
+- `/app/frontend/src/pages/BusinessBuilderPage.jsx` (success state rewrite + CTA rename)
+
+### What this completes (per Jeffrey's spec)
+✓ Display success state that reinforces system activation (exact copy)
+✓ "Continue Building My Business" button takes user back to platform
+✓ Lead has unique lead_id, stored, locked
+✓ Outbound triggers automatically (immediate Email 1 + scheduled Emails 2-3)
+✓ Email content positions CB as the system, not a file delivery (Iter 57 templates)
+✓ Checkbox flag wired (`wants_outbound_help` in lead record + outbound bridge)
+✓ Fast response · clear confirmation · immediate value · clear next step
 
 ---
 

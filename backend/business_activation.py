@@ -405,6 +405,62 @@ def make_business_activation_router(db, require_founder=None) -> APIRouter:
         }
         await db.business_activation_captures.insert_one(dict(capture_doc))
 
+        # Iter 58 · BRIDGE TO OUTBOUND — when the user opts into "help me get
+        # customers", create an outbound_prospects row so the cold-outreach engine
+        # picks them up on its next scheduler tick. Idempotent (skip if email exists).
+        outbound_prospect_id: Optional[str] = None
+        if payload.wants_outbound_help:
+            try:
+                existing_p = await db.outbound_prospects.find_one({"email": clean_email}, {"_id": 0, "id": 1})
+                if existing_p:
+                    outbound_prospect_id = existing_p["id"]
+                else:
+                    pdoc = {
+                        "id": str(uuid.uuid4()),
+                        "business_name": biz_name,
+                        "contact_name": payload.name,
+                        "email": clean_email,
+                        "industry": payload.business_type,
+                        "website": None,
+                        "location": None,
+                        "notes": (
+                            f"Auto-bridged from Business Activation capture {capture_id}. "
+                            f"User opted into 'help me get customers'. "
+                            f"Source: {payload.source or 'startup_builder'}."
+                        ),
+                        "linkedin_url": None,
+                        "status": "new",
+                        "lead_score": None,
+                        "target_segment": "activation_opt_in",
+                        "recommended_offer": None,
+                        "ai_reasoning": None,
+                        "estimated_pain": None,
+                        "suggested_pitch_angle": None,
+                        "emails_sent": 0,
+                        "email_status": None,
+                        "last_email_at": None,
+                        "replied_at": None,
+                        "reply_body": None,
+                        "reply_sentiment": None,
+                        "linkedin_connect_body": None,
+                        "linkedin_followup_body": None,
+                        "linkedin_connect_sent_at": None,
+                        "linkedin_followup_sent_at": None,
+                        "linkedin_accepted": False,
+                        "unsubscribed": False,
+                        "suppressed": False,
+                        "source": "business_activation",
+                        "source_capture_id": capture_id,
+                        "source_lead_id": lead_id,
+                        "created_at": _now_iso(),
+                        "updated_at": _now_iso(),
+                    }
+                    await db.outbound_prospects.insert_one(dict(pdoc))
+                    outbound_prospect_id = pdoc["id"]
+                    log.info(f"[activation] bridged to outbound · prospect_id={outbound_prospect_id}")
+            except Exception as e:
+                log.warning(f"[activation] outbound bridge failed: {e}")
+
         # 4. Send Email 1 (immediate) with PDF attached
         continue_url = f"{SITE_URL}/portal/builder?activation={capture_id}"
         email1 = await _send_with_attachment(
@@ -474,6 +530,8 @@ def make_business_activation_router(db, require_founder=None) -> APIRouter:
             "pdf_size_bytes": pdf_size,
             "continue_url": continue_url,
             "nurture_scheduled": True,
+            "outbound_prospect_id": outbound_prospect_id,
+            "outbound_bridged": bool(outbound_prospect_id),
         }
 
     @router.post("/admin-list")

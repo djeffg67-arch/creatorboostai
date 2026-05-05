@@ -468,29 +468,45 @@ const ActivationModal = ({ tool, markdown, inputs, onClose }) => {
                 ) : (
                     <div data-testid="activation-success">
                         <div className="flex items-center gap-2.5">
-                            <CheckCircle2 size={20} className="text-emerald-300" />
-                            <p className="font-heading text-lg font-semibold text-white">Activation complete</p>
+                            <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-emerald-400/20">
+                                <CheckCircle2 size={20} className="text-emerald-300" />
+                                <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/30" aria-hidden="true" />
+                            </div>
+                            <p className="font-heading text-lg font-semibold text-white">Your business system has been activated.</p>
                         </div>
-                        <p className="mt-2 text-sm text-slate-300">
-                            {done.email_delivered
-                                ? "Your business package is on its way to your inbox. Check spam if it doesn't arrive in 2 minutes."
-                                : "Captured. Email delivery is queued for when our sender warms back up."}
+                        <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                            Your plan has been sent to your email. CreatorBoostAI is now preparing your next steps.
                         </p>
+                        <ul className="mt-4 space-y-1.5">
+                            {[
+                                ["Lead locked to your account", true],
+                                ["Branded PDF compiled & emailed", done.email_delivered],
+                                ["3-step execution sequence triggered", done.nurture_scheduled],
+                                ["Outbound engine bridged", done.outbound_bridged],
+                            ].map(([label, ok]) => (
+                                <li key={label} className="flex items-center gap-2 text-xs text-slate-300">
+                                    {ok
+                                        ? <Check size={12} className="text-emerald-300" />
+                                        : <span className="h-2 w-2 rounded-full bg-amber-400/70" />}
+                                    <span>{label}</span>
+                                </li>
+                            ))}
+                        </ul>
                         <div className="mt-4 space-y-1 rounded-md border border-emerald-400/30 bg-emerald-500/5 p-3 font-mono text-[10px] text-emerald-200">
                             <p>lead_id · {done.lead_id}</p>
                             <p>capture_id · {done.capture_id}</p>
-                            <p>pdf · {Math.round((done.pdf_size_bytes || 0) / 1024)} KB</p>
-                            <p>nurture · {done.nurture_scheduled ? "scheduled (T+24h, T+72h)" : "queued"}</p>
+                            <p>pdf · {Math.round((done.pdf_size_bytes || 0) / 1024)} KB · status {done.email_delivered ? "sent" : "queued"}</p>
                         </div>
                         <a
                             href={done.continue_url}
                             data-testid="activation-continue-link"
-                            className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-500 hover:text-ink-900"
+                            className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-emerald-400 px-5 py-3 text-sm font-semibold text-ink-900 shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:bg-emerald-300"
                         >
-                            Continue building <ArrowRight size={13} />
+                            Continue Building My Business <ArrowRight size={14} />
                         </a>
                         <button
                             onClick={onClose}
+                            data-testid="activation-close-success"
                             className="mt-2 w-full rounded-md border border-white/10 bg-ink-700/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400 hover:text-slate-200"
                         >
                             Close
