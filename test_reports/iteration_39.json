@@ -1,0 +1,61 @@
+{
+  "summary": "Iter 62 — Phase 0 (AgenticExecutionCore) + Phase 1 (Supermarket demo) testing. Backend: 11/11 PASS — new POST /api/audit/demo-feed verified public/no-auth/PII-redacted/sorted-desc/limit-clamped, plus Iter 61 regression (CFO case insurance, audit/list founder auth, business-builder website-generate) all green. Frontend: /demo/supermarket loads cleanly, all 5 required testids present, action #8801 fires within ~3s of scene 1, reasoning stream shows DETECTED/REASONED/EXECUTED phases, scene 4 cost prevention drives Savings counter to $7,400, Auto/Manual mode toggle works (border color flip confirmed), Sovereign Vault drawer opens and loads 13 real audit rows after refresh, scene 17 Portfolio Command Center renders with Execute Portfolio Upgrade button completing 3-phase state transition (idle → 'Executing rollout…' → 'Rollout plan generated · tasks scheduled' with 'rollout · vendor coord · proposals · task scheduling' subtext). Other 6 demos (/demo/realtor /insurance /creator /airport /noldus /school-district) load with 0 page errors and 0 console errors — no regression. TWO BUGS FOUND: (1) vendor name 'NCR' literally appears 2× in SupermarketDemoPage.jsx (lines 1058 and 1379) and is rendered in scenes 1 and 9 — violates the strip-all-vendor-names requirement; (2) 6 of 8 PortfolioCommandCenter tile testids in spec do not match implementation — spec asks loc-2218/3304/4490/5576/6652/7738 but actual store IDs are 2207/3054/4411/5019/6122/7731. Only loc-1142 and loc-8865 match. Plus one minor React hydration warning (<span> child of <option> in scene-jump select).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "SupermarketDemoPage.jsx",
+        "issue": "Vendor name 'NCR' is hardcoded at line 1058 (Store POS items array: ['NCR','Toshiba','Verifone','Banner POS']) and line 1379 ('NCR · 2 lanes · auto ticket'). Both render in scenes 1 and 9. Spec explicitly forbids NCR — must replace with generic 'POS' / 'POS vendor'.",
+        "selector": "scenes 1 and 9 body text",
+        "priority": "HIGH"
+      },
+      {
+        "component": "PortfolioCommandCenter (AgenticExecutionCore.jsx)",
+        "issue": "6 of 8 tile data-testids do not match the spec. Spec requires loc-1142, loc-2218, loc-3304, loc-4490, loc-5576, loc-6652, loc-7738, loc-8865. Implementation renders loc-1142 and loc-8865 but uses loc-2207/3054/4411/5019/6122/7731 for the middle 6. Either spec or store-id list needs reconciliation.",
+        "selector": "[data-testid='supermarket-portfolio-tile-loc-XXXX']",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "SupermarketDemoPage.jsx scene-jump <select>",
+        "issue": "React hydration warning — '<span> cannot be a child of <option>'. Some emergent x-id/x-dynamic wrappers are injecting <span style={display:contents}> inside <option> children. Cosmetic but pollutes the console.",
+        "selector": "[data-testid='scene-jump']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter62_supermarket_demo_feed.py",
+    "/app/test_reports/pytest/iter62_results.xml"
+  ],
+  "action_items": [
+    "FIX vendor leaks in /app/frontend/src/pages/SupermarketDemoPage.jsx lines 1058 + 1379 — remove 'NCR' literal, replace with 'POS vendor' or similar generic.",
+    "RECONCILE PortfolioCommandCenter tile IDs vs spec — either update spec to actual store IDs (1142/2207/3054/4411/5019/6122/7731/8865) or update tile labels to match expected loc-2218/3304/4490/5576/6652/7738.",
+    "(Optional) Suppress emergent x-id <span> wrapper inside <option> elements in scene-jump <select> to clear hydration warning."
+  ],
+  "critical_code_review_comments": [
+    "AgenticExecutionCore.jsx is a single ~470-line module exporting 7 components + 1 hook — consider splitting (engine hook, ledger/stream/counter into ui.jsx, vault into vault.jsx) once the file grows past 700 lines.",
+    "audit_trail.py /demo-feed parses limit from a free-form `dict` payload — would benefit from a small Pydantic DemoFeedRequest model (consistent with /detail criticism from Iter 61) for OpenAPI + 422 validation.",
+    "audit_trail.py /demo-feed projects only 6 fields (good PII hygiene) but the projection list is duplicated across /lead-trail and /demo-feed — extract a SAFE_PROJECTION constant.",
+    "SupermarketDemoPage.jsx is now ~1400+ lines — past the 700-line threshold; the SCENES array (28-280) and the top-level page should be split (e.g., scenes/data.js + scene render-blocks)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter62_supermarket_demo_feed.py (new)",
+    "/app/test_reports/pytest/iter62_results.xml (new)",
+    "/app/test_reports/iteration_39.json (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11)",
+    "frontend": "85% — agentic core, ledger, stream, counter, control, vault, scene jumps, scene 17 Portfolio + Execute button all working; vendor leak (NCR ×2) and 6/8 portfolio tile-id mismatch are the failures."
+  },
+  "test_credentials": "Founder master-key path: POST /api/ops/founder-access {key:'jeffrey-2026-bodyiq-founder-master'} → returns {email,token}. Used for /api/audit/list regression test only.",
+  "seed_data_creation": "None — relied on existing 13+ rows in sovereign_audit_trail from prior Iter 61 CFO + orchestrator runs. No data created or modified.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend POST /api/audit/demo-feed is solid (public, sorted DESC, limit-clamped 1-50, no PII). Frontend agentic UI integration is functionally complete — the only blockers are 2 hardcoded 'NCR' strings in SupermarketDemoPage.jsx (lines 1058, 1379) and the portfolio tile ID mismatch (review spec asked for loc-2218/3304/4490/5576/6652/7738 but code renders 2207/3054/4411/5019/6122/7731). Demo flow validated: Start Demo → action #8801 fires <3s → scene 4 hits $7,400 savings counter → vault drawer loads 13 real rationale packages → scene 17 Execute Portfolio Upgrade transitions to success state with rollout subtext. Other 6 demos (/demo/{realtor,insurance,creator,airport,noldus,school-district}) all load with 0 page errors, 0 console errors — no regression from agentic-core import. Iter 61 regression GREEN: CFO insurance case generated 1500+ char markdown, /api/audit/list rejects no-auth, business-builder/website-generate works (note: payload field is 'business_idea' not 'value_prop').",
+  "rca of the issue": "NCR vendor leak — main agent stripped vendor names from the SCENES narration array (lines 28-280) but missed two unrelated arrays deeper in the file (line 1058 SystemsLayerVisual ItemArray, line 1379 OperationsCenterVisual detail string) that render inside scene 2 and scene 9 visuals. Fix: replace 'NCR' with 'POS vendor' (or simply 'POS') in both spots. Portfolio tile-ID mismatch — review spec lists tile IDs that don't match what the implementation actually renders; cosmetic-only since the testids that DO exist work and the Execute button flow is verified end-to-end. Recommend the main agent updates the AgenticExecutionCore.jsx PortfolioCommandCenter tile array to use the spec-mandated IDs (loc-2218 etc.) so future automated tests don't fail on selectors."
+}

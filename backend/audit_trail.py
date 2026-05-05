@@ -162,6 +162,22 @@ def make_audit_router(db, require_founder=None) -> APIRouter:
         ).sort("timestamp", -1).limit(payload.limit).to_list(payload.limit)
         return {"trail": rows, "total": len(rows)}
 
+    @router.post("/demo-feed")
+    async def demo_feed(payload: dict):
+        """Public (no-auth) rationale feed for the Sovereign Vault drawer shown
+        inside the agentic demos. Redacts lead_id + previews so no PII leaks."""
+        try:
+            limit = int((payload or {}).get("limit") or 25)
+        except Exception:
+            limit = 25
+        limit = max(1, min(limit, 50))
+        rows = await db.sovereign_audit_trail.find(
+            {},
+            {"_id": 0, "decision_id": 1, "timestamp": 1, "agent_id": 1,
+             "action": 1, "reasoning_summary": 1, "confidence": 1},
+        ).sort("timestamp", -1).limit(limit).to_list(limit)
+        return {"decisions": rows, "total": len(rows)}
+
     return router
 
 

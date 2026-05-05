@@ -16,241 +16,385 @@ import {
     RefreshCcw, Snowflake, Crown, Workflow, ShieldCheck, FileCheck2, Coins,
     PiggyBank, BadgeCheck, Hammer,
 } from "lucide-react";
+import {
+    useAgenticEngine, ActionLedger, ReasoningStream, RevenueSavingsCounter,
+    ExecutionControlPanel, SovereignVault, PortfolioCommandCenter,
+} from "@/components/agentic/AgenticExecutionCore";
 
 // =================================================================
-// 17 scenes · ~14 min auto-played · Supermarket / C-Store / Retail
-// CreatorBoostAI execution layer — sits on top of SAP, Oracle, Salesforce,
-// Blue Yonder, UKG, ServiceChannel, Manhattan TMS, PDI, NCR, Gilbarco
-// Passport, FuelQuest, Titan Cloud, OneStream and store-level POS.
-// Connects intelligence across systems · prioritizes actions · saves
-// money · recovers revenue.
+// 17 scenes · Agentic Execution OS · Detected → Reasoned → Executed → Measured
+// CreatorBoostAI is the execution layer, decision engine, revenue system,
+// and operational control layer. It operates ACROSS existing systems
+// (ERP · POS · workforce · maintenance · CRM · fuel) — it does not replace them.
 // =================================================================
 const SCENES = [
     {
         id: "opening",
         section: "Scene 1 · The Modern Retail Operation",
         focus: "opening",
-        fallback_ms: 44000,
+        fallback_ms: 34000,
         narration:
-            "This is what a modern retail operation looks like at scale. Thousands of stores. Dozens " +
-            "of warehouses. Hundreds of trucks. Fuel locations across multiple regions. Tens of " +
-            "thousands of employees. Hundreds of thousands of maintenance requests every year. " +
-            "Inventory systems running across multiple platforms. Financial dashboards in every " +
-            "region. Large retailers do not need another disconnected tool. They need an execution " +
-            "layer that helps their existing systems work together.",
+            "Thousands of stores. Dozens of warehouses. Hundreds of trucks. " +
+            "Fuel locations across multiple regions. Tens of thousands of employees. " +
+            "The data is already flowing. CreatorBoostAI is the execution layer that " +
+            "turns it into decisions, actions, and measured financial outcomes in real time.",
+        actions: [{
+            id: "#8801",
+            trigger: "Enterprise data feeds connected — ERP, POS, workforce, maintenance, fuel",
+            reasoning: "Signal volume exceeds human review capacity; establish agentic execution baseline",
+            action: "Portfolio execution session initialized",
+            impact_usd: 0, impact_label: "Session start", status: "executed",
+        }],
     },
     {
         id: "existing-systems",
-        section: "Scene 2 · The Existing Systems Layer",
+        section: "Scene 2 · The Systems Layer We Operate On",
         focus: "existing-systems",
-        fallback_ms: 50000,
+        fallback_ms: 40000,
         narration:
-            "Every modern retailer already runs on a stack like this. ERP — SAP, Microsoft Dynamics, " +
-            "OneStream. Retail — Oracle Retail and SAP Retail. Workforce — UKG and Blue Yonder. " +
-            "Maintenance — ServiceChannel and Accruent. CRM — Salesforce. Fleet — Manhattan TMS. " +
-            "Convenience and fuel — PDI Enterprise, NCR POS, Gilbarco Passport, FuelQuest, and Titan " +
-            "Cloud. And every store has its own POS system. CreatorBoostAI does not replace any of " +
-            "this. CreatorBoostAI overlays these systems and gives executives, regional managers, " +
-            "store operators, and maintenance teams one command view.",
+            "Every retailer already runs on a system stack — ERP, retail platforms, workforce, " +
+            "maintenance, CRM, fleet, fuel, and store-level POS. CreatorBoostAI does not replace " +
+            "these systems. It sits across them, reads what they produce, reasons about what " +
+            "matters, and executes the next action — automatically.",
+        actions: [{
+            id: "#8802",
+            trigger: "Heterogeneous data from ERP, POS, workforce, fuel, maintenance",
+            reasoning: "Unified schema synthesized across legacy sources; no rip-and-replace required",
+            action: "Execution overlay established across 7 system classes",
+            impact_usd: 0, impact_label: "Integration", status: "executed",
+        }],
     },
     {
         id: "command-center",
         section: "Scene 3 · The Operations Command Center",
         focus: "command-center",
-        fallback_ms: 45000,
+        fallback_ms: 38000,
         narration:
-            "The Operations Command Center opens. CreatorBoostAI pulls live information from sales, " +
-            "inventory, labor, maintenance, refrigeration, fleet, fuel, marketing, pricing, store " +
-            "tasks, vendor performance, customer demand, and regional performance. For every issue " +
-            "it surfaces, the system answers four questions immediately. What needs attention first. " +
-            "What action should be taken. Who should handle it. And what the financial impact will " +
-            "be if it is ignored.",
+            "The Operations Command Center opens. For every live signal, the engine answers four " +
+            "questions instantly. What needs attention first. What action to take. Who owns it. " +
+            "What the dollar impact is if ignored. Not reporting — execution.",
+        actions: [{
+            id: "#8803",
+            trigger: "1,247 live signals across portfolio exceed priority threshold",
+            reasoning: "Financial-impact ranking applied; top 42 actions surfaced for execution",
+            action: "Command Center activated · 42 actions queued for execution",
+            impact_usd: 0, impact_label: "Queue", status: "executed",
+        }],
     },
     {
         id: "money-saving",
-        section: "Scene 4 · Money-Saving Scenarios",
+        section: "Scene 4 · Cost Prevention Engine",
         focus: "money-saving",
-        fallback_ms: 50000,
+        fallback_ms: 42000,
         narration:
-            "CreatorBoostAI flags high-cost problems before they become expensive. Refrigeration " +
-            "drift. HVAC failures. Lighting waste. Overstaffing on slow days. Understaffing during " +
-            "rushes. Late maintenance response. Fuel inventory risk. Shrink. Expired products. " +
-            "Missed vendor credits. Energy waste. Slow repair cycles. The system reduces waste, " +
-            "prevents downtime, lowers labor inefficiency, reduces emergency repair costs, and " +
-            "creates accountability across the operation.",
+            "Detected: refrigeration drift, HVAC fatigue, lighting waste, overstaffing, late " +
+            "maintenance, shrink exposure. Reasoned: priority × dollar impact. Executed: work " +
+            "orders dispatched, schedules adjusted, vendor escalations sent. Measured: every dollar " +
+            "saved is tagged to the Action ID that prevented the loss.",
+        actions: [
+            {
+                id: "#8821",
+                trigger: "Refrigeration drift detected · Store 1142 · Unit A3",
+                reasoning: "Temperature trend predicts spoilage within 6 hours; warranty coverage active",
+                action: "Work order dispatched · warranty claim auto-filed",
+                impact_usd: 1200, impact_label: "Savings", status: "executed",
+            },
+            {
+                id: "#8822",
+                trigger: "Lighting energy consumption 34% above efficient baseline",
+                reasoning: "Retrofit ROI modeled at 11-month payback; capital fund available",
+                action: "Retrofit proposal generated · capital request routed to regional",
+                impact_usd: 3400, impact_label: "Savings", status: "pending",
+            },
+            {
+                id: "#8823",
+                trigger: "Maintenance vendor response time 2.4× SLA on 17 calls",
+                reasoning: "Performance breach threshold exceeded; escalation path unlocked",
+                action: "Vendor escalation email drafted · alternate vendor quote requested",
+                impact_usd: 2800, impact_label: "Savings", status: "executed",
+            },
+        ],
     },
     {
         id: "revenue-making",
-        section: "Scene 5 · Revenue-Making Scenarios",
+        section: "Scene 5 · Revenue Recovery Engine",
         focus: "revenue-making",
-        fallback_ms: 50000,
+        fallback_ms: 40000,
         narration:
-            "CreatorBoostAI also identifies opportunities to make more money. Out-of-stock recovery. " +
-            "Better promotion timing. Localized pricing opportunities. Basket-size improvement. " +
-            "Missed upsell opportunities. Fuel-to-store conversion. Loyalty campaign triggers. " +
-            "Regional product demand. Slow-moving inventory actions. High-margin product focus. " +
-            "The system does not just report problems. It recommends the next best action and " +
-            "helps execute it.",
+            "The engine identifies every missed dollar. Out-of-stock recovery. Better promotion " +
+            "timing. Localized pricing. Basket-size lift. Upsell paths. Fuel-to-store conversion. " +
+            "Loyalty triggers. For every opportunity, CreatorBoostAI recommends the next best " +
+            "action and executes it — signage updated, promotion pushed, pricing adjusted.",
+        actions: [
+            {
+                id: "#8824",
+                trigger: "4 high-margin SKUs out of stock at 23 locations during weekend peak",
+                reasoning: "Demand forecast vs on-hand inventory · priority replenishment justified",
+                action: "Priority replenishment orders generated · substitute shelf-tags pushed",
+                impact_usd: 8600, impact_label: "Revenue recovered", status: "executed",
+            },
+            {
+                id: "#8825",
+                trigger: "Freshness risk detected on 142 perishable SKUs · 48-hour window",
+                reasoning: "Discount-to-move vs write-off financial modeling · FRESHNESS REVENUE ENGINE",
+                action: "Time-limited promotion generated · pushed to in-store signage and app",
+                impact_usd: 5400, impact_label: "Revenue recovered", status: "executed",
+            },
+        ],
     },
     {
         id: "store-example",
-        section: "Scene 6 · Store-Level Example · Store 1142",
+        section: "Scene 6 · Single-Store Execution · Store 1142",
         focus: "store-example",
-        fallback_ms: 55000,
+        fallback_ms: 44000,
         narration:
-            "Store one one four two. Falling sales in dairy. Refrigeration alerts on two units. " +
-            "Labor schedule gaps. Rising customer complaints. CreatorBoostAI connects all of this " +
-            "data and recommends six coordinated actions. Dispatch maintenance to refrigeration. " +
-            "Adjust the labor schedule for the evening shift. Trigger a manager task to inspect " +
-            "the cold chain. Reorder affected products. Update the dairy promotion. Send a regional " +
-            "alert to the area lead. The financial impact is tracked end to end.",
+            "Store 1142. Dairy sales falling. Refrigeration alerts on two units. Labor schedule " +
+            "gaps. Customer complaints rising. Detected across six data streams. Reasoned against " +
+            "financial impact. Executed: six coordinated actions fired in under ninety seconds. " +
+            "Measured: every outcome tagged to an Action ID.",
+        actions: [
+            {
+                id: "#8831",
+                trigger: "Dairy category velocity −23% · 2 refrigeration units at risk",
+                reasoning: "Cold-chain failure cascade predicted; financial exposure $4,800",
+                action: "Maintenance dispatched · cold-chain inspection queued · manager notified",
+                impact_usd: 4800, impact_label: "Savings", status: "executed",
+            },
+            {
+                id: "#8832",
+                trigger: "Evening-shift labor gap during forecasted customer peak",
+                reasoning: "Understaffing cost vs on-call activation; net positive",
+                action: "Schedule adjusted · on-call associate activated · manager task created",
+                impact_usd: 920, impact_label: "Revenue recovered", status: "executed",
+            },
+            {
+                id: "#8833",
+                trigger: "Dairy promotion out of sync with inventory position",
+                reasoning: "Price-point model recalculated against current shelf state",
+                action: "Promotion updated · regional area-lead alert fired",
+                impact_usd: 1600, impact_label: "Revenue recovered", status: "executed",
+            },
+        ],
     },
     {
         id: "regional-view",
-        section: "Scene 7 · Regional Operator View",
+        section: "Scene 7 · Regional Execution View",
         focus: "regional-view",
-        fallback_ms: 45000,
+        fallback_ms: 38000,
         narration:
-            "Zoom out to the regional operator view. A regional manager oversees fifty to three " +
-            "hundred stores. CreatorBoostAI ranks every store by highest financial risk, highest " +
-            "savings opportunity, highest revenue opportunity, maintenance backlog, labor " +
-            "inefficiency, inventory problems, energy waste, and sales opportunity. Regional " +
-            "leaders stop guessing — and start managing by financial priority.",
+            "Zoom out. A regional manager oversees fifty to three hundred stores. Every location " +
+            "is ranked by live financial risk. The top ten actions surface automatically. No " +
+            "dashboards to hunt through. No reports to read. Just the next action to execute, " +
+            "with the dollar impact attached.",
+        actions: [{
+            id: "#8841",
+            trigger: "Regional portfolio scored across 187 locations",
+            reasoning: "Weighted financial risk × opportunity × maintenance backlog ranking applied",
+            action: "Top 10 priority actions pushed to regional operator dashboard",
+            impact_usd: 14200, impact_label: "Savings", status: "executed",
+        }],
     },
     {
         id: "executive-view",
-        section: "Scene 8 · Executive View · CEO · COO · CFO · Regional · Store",
+        section: "Scene 8 · Role-Tailored Execution",
         focus: "executive-view",
-        fallback_ms: 50000,
+        fallback_ms: 38000,
         narration:
-            "Each level of the organization sees what matters to them. The CEO sees total " +
-            "performance across the enterprise. The COO sees execution bottlenecks. The CFO sees " +
-            "savings, leakage, and return on investment. Regional managers see store action " +
-            "priorities. Store managers see simple daily tasks they can act on immediately. One " +
-            "system. Every role. Every level. Aligned.",
+            "CEO sees enterprise performance. COO sees execution bottlenecks. CFO sees savings, " +
+            "leakage, and return on investment — every dollar traceable to an Action ID. " +
+            "Regional sees store priorities. Store managers see simple daily tasks. " +
+            "One system. Every role. Every level. Aligned on execution.",
+        actions: [{
+            id: "#8851",
+            trigger: "Executive digest generation due · financial period close",
+            reasoning: "Role-permission filters applied to rationale ledger · PII redacted",
+            action: "CEO / COO / CFO / Regional / Store digests generated and dispatched",
+            impact_usd: 0, impact_label: "Governance", status: "executed",
+        }],
     },
     {
         id: "autonomous",
-        section: "Scene 9 · Assisted and Autonomous Execution",
+        section: "Scene 9 · Assisted ↔ Autonomous Execution",
         focus: "autonomous",
-        fallback_ms: 45000,
+        fallback_ms: 36000,
         narration:
-            "CreatorBoostAI runs in two modes. In assisted mode, the system recommends actions and " +
-            "waits for human approval. In autonomous mode, the system creates tasks, sends alerts, " +
-            "drafts vendor emails, updates managers, triggers workflows, and logs results " +
-            "automatically. Companies choose how much control they want. The toggle is real-time " +
-            "and operator-level.",
+            "Two execution modes. In manual mode, every action waits for human approval. In auto " +
+            "mode, CreatorBoostAI creates tasks, sends alerts, drafts vendor emails, triggers " +
+            "workflows, and logs results — automatically. The toggle is real-time and operator-level. " +
+            "Control stays with the humans. Execution speed stays with the system.",
+        actions: [{
+            id: "#8861",
+            trigger: "Execution mode toggle requested · regional scope",
+            reasoning: "Role permissions verified; audit log initiated for mode change",
+            action: "Auto mode engaged · every decision still logged to the Sovereign Vault",
+            impact_usd: 0, impact_label: "Control", status: "executed",
+        }],
     },
     {
         id: "c-store",
-        section: "Scene 10 · C-Store + Fuel Operations",
+        section: "Scene 10 · Convenience + Fuel Operations",
         focus: "c-store",
-        fallback_ms: 55000,
+        fallback_ms: 42000,
         narration:
-            "Convenience stores and fuel forecourts come into focus. The systems shift to PDI " +
-            "Enterprise, NCR POS, Gilbarco Passport, FuelQuest, and Titan Cloud. CreatorBoostAI " +
-            "helps with fuel pricing, fuel inventory, tank monitoring, pump downtime, POS issues, " +
-            "food freshness, labor coverage, delivery timing, fleet card activity, forecourt " +
-            "maintenance, security incident follow-up, and vendor and repair accountability. In " +
-            "C-stores, speed matters. The system helps operators respond faster — before small " +
-            "issues become lost sales.",
+            "Convenience stores and fuel forecourts come into focus. POS systems, fuel monitoring, " +
+            "tank telemetry, food freshness, forecourt maintenance. In C-stores, speed matters. " +
+            "The engine detects, reasons, and executes faster than small issues can become lost " +
+            "sales. Every pump minute of downtime has a dollar attached.",
+        actions: [
+            {
+                id: "#8871",
+                trigger: "Fuel pump 4 downtime 12 minutes during peak · lost-sale exposure $340/hr",
+                reasoning: "Detected ↔ fuel monitoring signal; vendor response SLA breach flagged",
+                action: "Technician dispatched · backup pump pricing adjusted · loyalty push activated",
+                impact_usd: 680, impact_label: "Revenue recovered", status: "executed",
+            },
+            {
+                id: "#8872",
+                trigger: "Hot-food freshness window expiring on 38 items",
+                reasoning: "FRESHNESS REVENUE ENGINE · discount-vs-write-off model",
+                action: "Flash promotion pushed to forecourt signage and mobile app",
+                impact_usd: 420, impact_label: "Revenue recovered", status: "executed",
+            },
+        ],
     },
     {
         id: "fleet-supply",
-        section: "Scene 11 · Fleet and Supply Chain",
+        section: "Scene 11 · Fleet & Supply-Chain Execution",
         focus: "fleet-supply",
-        fallback_ms: 45000,
+        fallback_ms: 38000,
         narration:
-            "Trucks, warehouses, delivery routes, and store demand all feed into the same view. " +
-            "CreatorBoostAI helps with late delivery exceptions, route prioritization, backhaul " +
-            "opportunities, fuel cost visibility, warehouse-to-store coordination, real-time store " +
-            "demand changes, and delivery exception alerts. The supply chain becomes responsive — " +
-            "not reactive.",
+            "Trucks, warehouses, delivery routes, and store-level demand feed into one execution " +
+            "view. Late deliveries detected. Reasoned against regional demand. Routes re-prioritized " +
+            "automatically. Backhaul opportunities captured. The supply chain responds — it no " +
+            "longer reacts.",
+        actions: [{
+            id: "#8881",
+            trigger: "Delivery delay predicted on 6 routes · 41 stores affected",
+            reasoning: "Route re-optimization vs customer-facing stock-out impact",
+            action: "Routes re-prioritized · backhaul slots claimed · affected managers notified",
+            impact_usd: 3100, impact_label: "Savings", status: "executed",
+        }],
     },
     {
         id: "maintenance",
-        section: "Scene 12 · Maintenance and Facilities",
+        section: "Scene 12 · Maintenance as Execution Discipline",
         focus: "maintenance",
-        fallback_ms: 45000,
+        fallback_ms: 38000,
         narration:
-            "Work orders flow in from across the chain. CreatorBoostAI identifies which work orders " +
-            "are urgent, which vendors are slow, which repairs are costing too much, which stores " +
-            "have repeated failures, which equipment is hurting sales, and which preventive " +
-            "maintenance should be scheduled now. Maintenance becomes a measurable financial " +
-            "discipline — not a backlog.",
+            "Work orders flow in across the chain. The engine identifies what is urgent, which " +
+            "vendors are slow, which repairs are costing too much, which equipment is hurting " +
+            "sales, which preventive work pays for itself. Maintenance stops being a backlog. " +
+            "It becomes a measurable financial discipline.",
+        actions: [{
+            id: "#8891",
+            trigger: "Maintenance backlog analysis · 2,840 open work orders",
+            reasoning: "Urgency × revenue-exposure × vendor-reliability prioritization applied",
+            action: "Top-47 work orders re-sequenced · 3 vendors flagged for review",
+            impact_usd: 7200, impact_label: "Savings", status: "executed",
+        }],
     },
     {
         id: "cost-recovery",
-        section: "Scene 13 · Cost Recovery and Asset Intelligence",
+        section: "Scene 13 · Cost Recovery & Asset Intelligence · Purchase Vault",
         focus: "cost-recovery",
-        fallback_ms: 60000,
+        fallback_ms: 48000,
         narration:
-            "CreatorBoostAI goes beyond tracking maintenance — it actively recovers lost money. " +
-            "The system reads purchasing logs, maintenance histories, vendor invoices, and equipment " +
-            "records across every store. It flags repeated service calls on the same unit, rising " +
-            "maintenance cost curves, end-of-life equipment, lighting and refrigeration upgrade " +
-            "opportunities, and vendor overcharging or inconsistent pricing. For every flag, it " +
-            "recommends a clear action — replace versus repair, vendor review or escalation, capital " +
-            "upgrade with payback, or preventive maintenance prioritized by financial risk. Reactive " +
-            "operations become proactive cost control. Every dollar leaking out of the operation is " +
-            "found, ranked, and recovered.",
+            "The Purchase Vault reads purchasing logs, maintenance histories, vendor invoices, and " +
+            "equipment records chain-wide. It detects repeated service calls on the same unit, " +
+            "rising cost curves, end-of-life equipment, and vendor overcharging. For every flag it " +
+            "recommends a clear action — replace versus repair, vendor escalation, capital upgrade " +
+            "with payback. Every leak is found, ranked, and recovered.",
+        actions: [
+            {
+                id: "#8901",
+                trigger: "Same refrigeration unit · 7 service calls in 14 months",
+                reasoning: "Replace-vs-repair model · lifecycle-end confidence 89% · payback 14 months",
+                action: "Replacement proposal generated · warranty coverage applied to new unit",
+                impact_usd: 6200, impact_label: "Savings", status: "pending",
+            },
+            {
+                id: "#8902",
+                trigger: "Vendor invoicing deviation · 4.2% above contract rate on 22 invoices",
+                reasoning: "Purchase Vault cross-reference flagged overcharge pattern",
+                action: "Recovery claim drafted · accounts payable notified · contract review queued",
+                impact_usd: 4100, impact_label: "Savings", status: "executed",
+            },
+        ],
     },
     {
         id: "self-funding",
-        section: "Scene 14 · The Self-Funding Upgrade System",
+        section: "Scene 14 · Self-Funding Upgrade System",
         focus: "self-funding",
-        fallback_ms: 55000,
+        fallback_ms: 44000,
         narration:
-            "Most retailers know they need upgrades — better lighting, newer refrigeration, more " +
-            "efficient equipment — but the capital is never approved. CreatorBoostAI changes the " +
-            "equation. The system identifies the operational savings already being recovered every " +
-            "month — energy waste eliminated, repeat service calls avoided, vendor overcharges " +
-            "reclaimed, downtime sales preserved — and routes a portion of those savings into a " +
-            "modeled upgrade fund. The result is a self-funding upgrade pathway. Lighting, " +
-            "refrigeration, and equipment replacements happen using money the operation was already " +
-            "losing — without requiring upfront capital. The figures shown here are estimated " +
-            "values based on operational patterns. The principle is simple: the savings pay for " +
-            "the upgrade, and the upgrade compounds the savings.",
+            "Most retailers know they need upgrades — efficient lighting, newer refrigeration, " +
+            "smarter equipment — but the capital is never approved. CreatorBoostAI changes the " +
+            "equation. It routes a portion of the savings it is already recovering into a modeled " +
+            "upgrade fund. The savings pay for the upgrade. The upgrade compounds the savings. " +
+            "No upfront capital required.",
+        actions: [{
+            id: "#8911",
+            trigger: "Rolling 90-day savings exceed upgrade capital threshold",
+            reasoning: "Self-funding model · savings pool $48,400 → lighting + refrigeration tier-1 funded",
+            action: "Self-funded upgrade plan generated · capital committee notified",
+            impact_usd: 48400, impact_label: "Savings", status: "pending",
+        }],
     },
     {
         id: "warranty",
-        section: "Scene 15 · Warranty and Service Control",
+        section: "Scene 15 · Warranty Enforcement at Scale",
         focus: "warranty",
-        fallback_ms: 55000,
+        fallback_ms: 42000,
         narration:
-            "Every upgrade brought in through CreatorBoostAI is backed by a five to seven year " +
-            "third-party warranty covering parts, service, and replacements. CreatorBoostAI does " +
-            "not perform installation and is not a contractor. The system monitors warranty " +
-            "coverage across every store, tracks every service call against active warranties, " +
-            "identifies repeated failures, and ensures that equipment is replaced under warranty " +
-            "when it qualifies. Most organizations unknowingly pay for repairs that should be " +
-            "covered — invoices slip through, service tickets bypass warranty terms, and money " +
-            "leaks out month after month. CreatorBoostAI prevents that leakage. Every covered call " +
-            "is enforced. Every replacement obligation is tracked. This is not just warranty " +
-            "coverage. This is warranty enforcement at scale.",
+            "Every upgrade surfaces with a five to seven year third-party warranty covering parts, " +
+            "service, and replacements. The engine monitors warranty coverage on every asset, " +
+            "tracks every service call against the active warranty, and enforces replacement " +
+            "obligations automatically. Most organizations unknowingly pay for repairs that should " +
+            "be covered. CreatorBoostAI prevents that leakage.",
+        actions: [{
+            id: "#8921",
+            trigger: "Service call submitted · equipment under active warranty",
+            reasoning: "Warranty match · enforcement logic invoked · vendor obligation active",
+            action: "Warranty claim auto-filed · invoice intercepted before payment",
+            impact_usd: 1850, impact_label: "Savings", status: "executed",
+        }],
     },
     {
         id: "financial-impact",
         section: "Scene 16 · Financial Impact Dashboard",
         focus: "financial-impact",
-        fallback_ms: 50000,
+        fallback_ms: 38000,
         narration:
-            "Every action ties to a number. Estimated savings. Revenue recovered. Maintenance cost " +
-            "avoided. Labor savings. Energy savings. Inventory waste reduced. Out-of-stock recovery. " +
-            "Promotion lift. Store performance improvement. The figures shown here are sample demo " +
-            "values — but in real deployments, every recommendation is tagged with a measurable " +
-            "financial outcome the moment it executes.",
+            "Every action ties to a number. Estimated savings. Revenue recovered. Maintenance " +
+            "cost avoided. Labor efficiency. Energy reduction. Inventory waste prevented. Every " +
+            "recommendation is tagged with a measurable financial outcome the moment it executes. " +
+            "Not estimates — traceable dollars with Action IDs.",
+        actions: [{
+            id: "#8931",
+            trigger: "Period-close impact report due · executive distribution",
+            reasoning: "Aggregate ledger · per-Action-ID financial rollup · role-filtered views",
+            action: "Financial impact digest generated · every dollar tagged to originating Action ID",
+            impact_usd: 0, impact_label: "Reporting", status: "executed",
+        }],
     },
     {
         id: "closing",
-        section: "Scene 17 · The Execution Layer for Retail",
+        section: "Scene 17 · Portfolio Command Center · Execute Upgrade",
         focus: "closing",
-        fallback_ms: 56000,
+        fallback_ms: 42000,
         narration:
             "Your stores already generate the data. CreatorBoostAI turns that data into action. " +
-            "See every store. Prioritize every issue. Execute every action. Save money. Recover " +
-            "revenue. Scale performance. CreatorBoostAI is the execution layer for modern retail " +
-            "operations.",
+            "Detect every signal. Reason against financial impact. Execute every action. Measure " +
+            "every outcome. The Portfolio Command Center lets you run an upgrade across every " +
+            "location — rollout plan, vendor coordination, proposals, task scheduling — with one " +
+            "click. This is CreatorBoostAI. The execution layer for modern retail operations.",
+        actions: [{
+            id: "#8999",
+            trigger: "Portfolio upgrade requested · operator role verified",
+            reasoning: "Self-funding model + warranty coverage + vendor readiness = GO",
+            action: "Portfolio upgrade rollout initiated · every location sequenced",
+            impact_usd: 0, impact_label: "Execution", status: "executing",
+        }],
     },
 ];
 
@@ -302,6 +446,9 @@ export default function SupermarketDemoPage() {
     const mutedRef = useRefMirror(muted);
     const audioCacheRef = useRefMirror(audioCache);
     useDemoCleanup(audioRef, audioCacheRef);
+
+    // ─── Agentic Execution OS ──────────────────────────────────
+    const engine = useAgenticEngine({ initialMode: "auto" });
 
     const current = SCENES[scene];
     const total = SCENES.length;
@@ -433,6 +580,9 @@ export default function SupermarketDemoPage() {
     useEffect(() => {
         if (!started) return;
         speakScene(scene);
+        // Fire each scene's static Action IDs into the agentic engine.
+        const acts = (SCENES[scene] && SCENES[scene].actions) || [];
+        acts.forEach((a, i) => setTimeout(() => engine.fire(a), 300 + i * 900));
         return () => clearAllTimers();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [scene, started]);
@@ -442,6 +592,7 @@ export default function SupermarketDemoPage() {
     const handleStart = async () => {
         setStarted(true);
         setScene(0); setDone(false); setPaused(false);
+        engine.reset();
         const cache = await prefetchAll();
         setTimeout(() => speakScene(0, cache), 200);
     };
@@ -528,6 +679,16 @@ export default function SupermarketDemoPage() {
                         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
                             <div className="lg:col-span-8">
                                 <SceneStage scene={current} />
+                                {/* Portfolio Command Center — scene 17 only */}
+                                {current.focus === "closing" && (
+                                    <div className="mt-4">
+                                        <PortfolioCommandCenter totals={engine.totals} testId="supermarket-portfolio" />
+                                    </div>
+                                )}
+                                {/* Revenue / Savings Counter — always visible under the stage */}
+                                <div className="mt-4">
+                                    <RevenueSavingsCounter totals={engine.totals} testId="supermarket-counter" />
+                                </div>
                             </div>
                             <div className="space-y-4 lg:col-span-4">
                                 <NarrationPanel
@@ -538,6 +699,14 @@ export default function SupermarketDemoPage() {
                                         ? `Hello ${personalization.name}${personalization.company ? ` from ${personalization.company}` : ""} — this CreatorBoostAI retail walkthrough was prepared just for you.`
                                         : null}
                                 />
+                                {/* Agentic Execution OS overlay — Action Ledger · Reasoning Stream · Controls · Vault */}
+                                <ActionLedger ledger={engine.ledger} testId="supermarket-ledger" />
+                                <ReasoningStream stream={engine.stream} testId="supermarket-stream" />
+                                <ExecutionControlPanel mode={engine.mode} setMode={engine.setMode} role="Regional Operator" testId="supermarket-control" />
+                                <div className="flex items-center justify-between rounded-md border border-white/5 bg-ink-700/30 px-3 py-2">
+                                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Traceability</p>
+                                    <SovereignVault testId="supermarket-vault" />
+                                </div>
                                 <SceneIndex current={scene} total={total} />
                             </div>
                         </div>
@@ -594,10 +763,8 @@ const Hero = ({ personalization }) => (
         </h1>
         <p className="mt-5 max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base lg:text-lg">
             A 13-minute walkthrough of the execution layer for modern retail operations. CreatorBoostAI
-            sits on top of SAP, Microsoft Dynamics, Oracle Retail, Salesforce, Blue Yonder, UKG,
-            ServiceChannel, Accruent, Manhattan TMS, PDI Enterprise, NCR, Gilbarco Passport, FuelQuest,
-            Titan Cloud, OneStream, and your store-level POS — and helps operators see problems,
-            prioritize actions, reduce waste, save money, and recover revenue across every store.
+            sits on top of your existing ERP, retail, workforce, maintenance, CRM, fleet, fuel, and
+            store-level POS systems — and helps operators see problems, prioritize actions, reduce waste, save money, and recover revenue across every store.
         </p>
     </section>
 );
@@ -629,10 +796,10 @@ const StartScreen = ({ onStart, prefetching, progress, personalization }) => (
                 <ul className="mt-8 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
                     {[
                         "17 cinematic scenes",
-                        "SAP · Oracle · Salesforce · Blue Yonder",
-                        "ServiceChannel · Accruent · UKG",
-                        "Manhattan TMS · OneStream · POS",
-                        "PDI · NCR · Gilbarco · FuelQuest · Titan",
+                        "ERP · Retail · CRM",
+                        "Maintenance · Workforce",
+                        "Fleet · Supply Chain · POS",
+                        "C-Store · Fuel · Forecourt",
                         "CEO · COO · CFO · Regional · Store views",
                         "Money saving + revenue recovery scenarios",
                         "Cost recovery + asset intelligence",
@@ -771,7 +938,7 @@ const StageImage = ({ src, alt, badge }) => (
 // Per-stage badge labels for the StageImage strip
 const STAGE_BADGES = {
     "opening":          "Modern Retail Operation",
-    "existing-systems": "Enterprise Stack · SAP · Oracle · Salesforce",
+    "existing-systems": "Systems Layer · ERP · Retail · CRM",
     "command-center":   "Operations Command Center",
     "money-saving":     "Money-Saving Scenarios",
     "revenue-making":   "Revenue-Making Scenarios",
@@ -847,11 +1014,11 @@ const KPI = ({ Icon, label, value, trend }) => (
 const OpeningStage = () => {
     const stats = [
         { Icon: Building2,  label: "Active stores",        value: "2,415",    trend: "across U.S. + LATAM + EU + APAC" },
-        { Icon: Truck,      label: "Trucks · routes / day", value: "412 / 1,840", trend: "Manhattan TMS" },
-        { Icon: Fuel,       label: "Fuel locations",         value: "618",     trend: "PDI · Gilbarco · Titan" },
+        { Icon: Truck,      label: "Trucks · routes / day", value: "412 / 1,840", trend: "Fleet layer" },
+        { Icon: Fuel,       label: "Fuel locations",         value: "618",     trend: "Fuel systems" },
         { Icon: Users,      label: "Active employees",       value: "47,200",  trend: "across all banners" },
-        { Icon: Wrench,     label: "Open work orders",       value: "8,418",   trend: "ServiceChannel + Accruent" },
-        { Icon: Boxes,      label: "Inventory SKUs",         value: "1.4M",    trend: "Oracle Retail + SAP Retail" },
+        { Icon: Wrench,     label: "Open work orders",       value: "8,418",   trend: "Maintenance layer" },
+        { Icon: Boxes,      label: "Inventory SKUs",         value: "1.4M",    trend: "Retail / ERP layer" },
     ];
     return (
         <div className="rounded-md border border-white/10 bg-ink-700/40 p-5 fade-in-up" data-testid="stage-opening">
@@ -881,13 +1048,13 @@ const OpeningStage = () => {
 // ---- 2. Existing systems
 const ExistingSystemsStage = () => {
     const groups = [
-        { label: "ERP",          items: ["SAP", "Microsoft Dynamics", "OneStream"],            Icon: Cpu },
-        { label: "Retail",       items: ["Oracle Retail", "SAP Retail"],                       Icon: ShoppingCart },
-        { label: "Workforce",    items: ["UKG", "Blue Yonder"],                                Icon: Users },
-        { label: "Maintenance",  items: ["ServiceChannel", "Accruent"],                        Icon: Wrench },
-        { label: "CRM",          items: ["Salesforce"],                                        Icon: Sparkles },
-        { label: "Fleet",        items: ["Manhattan TMS", "Geotab"],                           Icon: Truck },
-        { label: "C-Store + Fuel", items: ["PDI Enterprise", "NCR POS", "Gilbarco Passport", "FuelQuest", "Titan Cloud"], Icon: Fuel },
+        { label: "ERP",          items: ["Enterprise resource planning", "Finance consolidation"],  Icon: Cpu },
+        { label: "Retail",       items: ["Merchandising", "Price & promotion"],                     Icon: ShoppingCart },
+        { label: "Workforce",    items: ["Scheduling", "Forecasted labor"],                         Icon: Users },
+        { label: "Maintenance",  items: ["Work-order routing", "Facilities systems"],               Icon: Wrench },
+        { label: "CRM",          items: ["Customer + loyalty"],                                     Icon: Sparkles },
+        { label: "Fleet",        items: ["Transportation mgmt", "Route + telematics"],              Icon: Truck },
+        { label: "C-Store + Fuel", items: ["Forecourt POS", "Tank monitoring", "Fuel pricing"],     Icon: Fuel },
         { label: "Store POS",    items: ["NCR", "Toshiba", "Verifone", "Banner POS"],          Icon: ScanLine },
     ];
     return (
@@ -1039,10 +1206,10 @@ const StoreExampleStage = () => {
         { Icon: AlertTriangle, label: "Customer complaints · +6 this week",  tone: "rose" },
     ];
     const actions = [
-        { Icon: Wrench,    label: "Dispatch maintenance · ServiceChannel",    status: "Sent" },
-        { Icon: Users,     label: "Adjust labor schedule · UKG · evening",   status: "Updated" },
+        { Icon: Wrench,    label: "Dispatch maintenance · work-order layer", status: "Sent" },
+        { Icon: Users,     label: "Adjust labor schedule · workforce · evening", status: "Updated" },
         { Icon: Target,    label: "Trigger manager task · cold chain check",   status: "Assigned" },
-        { Icon: Package,   label: "Reorder affected SKUs · SAP Retail",      status: "Reordered" },
+        { Icon: Package,   label: "Reorder affected SKUs · retail layer",    status: "Reordered" },
         { Icon: Sparkles,  label: "Update dairy promotion · loyalty app",     status: "Live" },
         { Icon: Send,      label: "Send regional alert · Region 04 lead",     status: "Notified" },
     ];
@@ -1206,8 +1373,8 @@ const AutonomousModeStage = () => (
 // ---- 10. C-Store + fuel
 const CStoreStage = () => {
     const tiles = [
-        { Icon: Fuel,         label: "Fuel pricing",          detail: "Real-time · Gilbarco + PDI" },
-        { Icon: Boxes,        label: "Fuel inventory + tank", detail: "Titan Cloud · variance alert" },
+        { Icon: Fuel,         label: "Fuel pricing",          detail: "Real-time · fuel systems" },
+        { Icon: Boxes,        label: "Fuel inventory + tank", detail: "Tank monitoring · variance alert" },
         { Icon: AlertTriangle,label: "Pump downtime",         detail: "Pump 4 · 18 min · vendor pinged" },
         { Icon: ScanLine,     label: "POS issues",            detail: "NCR · 2 lanes · auto ticket" },
         { Icon: Package,      label: "Food freshness",        detail: "Hot bar · expiring 38 min" },
@@ -1220,7 +1387,7 @@ const CStoreStage = () => {
             <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
                 <div className="flex items-center gap-2">
                     <Fuel size={13} className="text-cyan-400" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">C-Store + Forecourt · PDI · NCR · Gilbarco · FuelQuest · Titan</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">C-Store + Forecourt · fuel · POS · tank monitoring</span>
                 </div>
                 <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Speed matters</span>
             </div>
@@ -1252,7 +1419,7 @@ const FleetSupplyStage = () => {
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
                 <div className="flex items-center gap-2">
                     <Truck size={13} className="text-cyan-400" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Fleet + Supply Chain · Manhattan TMS</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Fleet + Supply Chain · transportation layer</span>
                 </div>
                 <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">412 active routes</span>
             </div>
@@ -1286,7 +1453,7 @@ const MaintenanceStage = () => {
             <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
                 <div className="flex items-center gap-2">
                     <Wrench size={13} className="text-amber-300" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Maintenance + Facilities · ServiceChannel + Accruent</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-300">Maintenance + Facilities · work-order + asset layer</span>
                 </div>
                 <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">8,418 open · ranked by impact</span>
             </div>
