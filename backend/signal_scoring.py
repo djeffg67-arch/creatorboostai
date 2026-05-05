@@ -103,24 +103,30 @@ async def touch_signal(
     }
     await db.leads_registry.update_one({"lead_id": lead_id}, update)
 
-    # SMS on first crossing of HOT (80) or URGENT (95)
+    # SMS on first crossing of HOT (80) and/or URGENT (95). Both fire if a
+    # single delta jumps past both thresholds (e.g. 75 → 100).
     fired = lead.get("signal_alerts_fired") or {}
-    crossed: Optional[str] = None
+    crossings: List[str] = []
     if prev < 80 <= new and not fired.get("hot"):
-        crossed = "hot"
+        crossings.append("hot")
     if prev < 95 <= new and not fired.get("urgent"):
-        crossed = "urgent"
+        crossings.append("urgent")
 
-    sms_result: Optional[Dict[str, Any]] = None
-    if crossed and sms and FOUNDER_PHONE:
-        sms_result = await _fire_signal_sms(lead, crossed, new, kind)
-        await db.leads_registry.update_one(
-            {"lead_id": lead_id},
-            {"$set": {f"signal_alerts_fired.{crossed}": _now_iso()}},
-        )
+    sms_results: List[Dict[str, Any]] = []
+    if crossings and sms and FOUNDER_PHONE:
+        for level in crossings:
+            r = await _fire_signal_sms(lead, level, new, kind)
+            sms_results.append({"level": level, **r})
+            await db.leads_registry.update_one(
+                {"lead_id": lead_id},
+                {"$set": {f"signal_alerts_fired.{level}": _now_iso()}},
+            )
     return {
-        "ok": True, "delta": delta, "score": new, "crossed_threshold": crossed,
-        "sms_result": sms_result,
+        "ok": True, "delta": delta, "score": new,
+        "crossed_thresholds": crossings,
+        "crossed_threshold": crossings[-1] if crossings else None,  # back-compat
+        "sms_result": sms_results[-1] if sms_results else None,
+        "sms_results": sms_results,
     }
 
 

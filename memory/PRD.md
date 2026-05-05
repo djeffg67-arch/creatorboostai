@@ -1,8 +1,135 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-05 (Iter 59 — Agentic Orchestrator MVP-1)
+**Last update:** 2026-05-05 (Iter 60 — Phase 1 MAS upgrades: Weak Signal Scoring + Correction Agent)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 60 — PHASE 1 MAS UPGRADES (Weak Signal + Correction · region tag baseline)
+
+Per Jeffrey's "Force Multiplier" letter, scoped down to two real working layers tonight
+(rest deferred — see "Honestly Deferred" list in Iter 59). Internal tone: honest
+engineering. External tone: keep marketing language for landing/demo/investor copy.
+
+### What runs autonomously now
+- Every lead has a rolling **`signal_score` 0-100** that updates on every touchpoint
+  with named deltas. Score is clamped, persisted, and history-tracked in
+  `leads_registry.signal_history[]` (last 200 entries).
+- **Founder SMS at 80 (hot) and 95 (urgent)** — both fire in the same delta if a
+  single jump crosses both thresholds. Idempotent: each level fires exactly once
+  per lead (tracked in `signal_alerts_fired`).
+- **Sentiment Drift detector** (`detect_topic_drift`) — Haiku 4.5 classifier compares
+  a new client message vs prior 3; if topic depth jumps from `general` to
+  `technical / regulatory / financial`, +15 boost to signal_score.
+- Every async agent step in the orchestrator is wrapped with
+  **`with_correction(coro_factory, kind, lead_id, ...)`** — 3 attempts at 0s/2s/8s
+  backoff, silent retries logged to `workflow_corrections`, founder SMS on final
+  failure with 60-min suppression per (kind, lead_id) pair.
+- All captures + agent_runs accept an optional **`region`** field (max 80 chars,
+  free-form). Persisted to `leads_registry.region`. **No compliance content
+  generated** — safe baseline until lawyer engaged (per Jeffrey's direction).
+
+### Signal delta table
+| Touchpoint | Δ | SMS-aware |
+|---|---|---|
+| capture_submitted | +25 | yes |
+| orchestrator_run_started | +10 | yes |
+| asset_generated | +5 | yes |
+| email_opened (Resend webhook) | +10 | yes |
+| email_clicked | +20 | yes |
+| email_replied | +35 | yes |
+| demo_viewed | +15 | yes |
+| builder_tool_run | +8 | no (low signal) |
+| multiple_sessions_24h | +12 | yes |
+| topic_depth_jump | +15 | yes |
+| client_portal_opened | +18 | yes |
+
+### Backend (NEW modules)
+- **`/app/backend/signal_scoring.py`** (~180 lines)
+  - `touch_signal(db, lead_id, kind, *, reason, sms=True)` — append to history,
+    clamp+persist score, fire SMS on threshold crossings.
+  - `detect_topic_drift(db, lead_id, new_message)` — Haiku JSON classifier; +15
+    on jump.
+  - `rebuild_score(db, lead_id)` — recompute from history (migration helper).
+  - `SIGNAL_DELTAS` and `SIGNAL_THRESHOLDS` exported.
+- **`/app/backend/correction_agent.py`** (~120 lines)
+  - `with_correction(coro_factory, kind, db, lead_id, context)` — generic retry
+    wrapper with exponential backoff. Returns success result; raises last
+    exception on permanent failure.
+  - Logs every attempt to `workflow_corrections` with status
+    `recovered | failed`. Founder SMS on `failed` with 60-min suppression.
+
+### Wiring
+- `orchestrator._orchestrate` — all 4 agent calls now wrapped in `with_correction`.
+  `lead_id` is locked BEFORE retries start, so any agent failure still leaves an
+  owned lead. Signal_score touchpoints fire at: orchestrator_run_started,
+  asset_generated, email_sent (when ok).
+- `business_activation.capture` — fires `capture_submitted` (+25) + one
+  `builder_tool_run` (+8) per included block. Region tag persisted when provided.
+  Auto-trigger to orchestrator preserved (Iter 59).
+
+### Verified live (testing agent iteration 37 · 14/14 backend pytest · 100% pass)
+```
+✓ Signal score increments correctly on capture (+25) + builder tools (+8 ea) + orchestrator
+  steps (+10/+5). Caps at 100.
+✓ Score recompute via rebuild_score matches history sum.
+✓ Threshold crossing 75→100 now fires BOTH 'hot' AND 'urgent' SMS (code-review fix applied).
+✓ Idempotent: re-trigger same kind after threshold fire → no duplicate SMS.
+✓ Region accepted up to 80 chars; 81+ rejected with 422.
+✓ Region persisted to leads_registry; agent_runs.region stamped when LeadSpec.region given.
+✓ Correction Agent: recovers on 2nd attempt → workflow_corrections.status='recovered'.
+✓ Correction Agent: 3-attempt exhaustion raises original exception, status='failed', 3 attempts.
+✓ Backoff timing measured at 10-14s for 3 failures (matches 0+2+8).
+✓ NO compliance content in any output (only Iter 57 'Draft document — not licensed advice'
+  disclaimer remains, by design).
+✓ Iter 56/59 regression preserved: business-builder/tools=17, orchestrator/list returns runs+kpi.
+```
+
+### Code-review fixes applied (from testing agent's iteration 37 review)
+- ✅ `signal_scoring`: prev<80 jumping to >=95 now correctly fires BOTH hot+urgent
+  (was only firing urgent, skipping hot).
+- ✅ `correction_agent`: removed redundant `update_one` followed by
+  `find_one_and_update`; consolidated to single sort-aware `find_one_and_update`.
+
+### Code-review notes deferred (acceptable for MVP)
+- Module-level `FOUNDER_PHONE` — fine because `dotenv` loads before module import.
+  Tests must `load_dotenv()` before importing `signal_scoring` (test file does).
+- Correction Agent suppression key `(kind, lead_id)` collapses to per-kind when
+  `lead_id=None`. Acceptable; tune later when system-level kinds appear.
+- `business_activation` reuses `touch_signal` per builder block (lookup+update per
+  block). Acceptable; could batch if hot-path latency becomes an issue.
+
+### Files touched
+- `/app/backend/signal_scoring.py` (NEW)
+- `/app/backend/correction_agent.py` (NEW)
+- `/app/backend/orchestrator.py` (4 agents wrapped + signal touchpoints + region field)
+- `/app/backend/business_activation.py` (signal touchpoints + region field)
+- `/app/backend/tests/test_iter60_signal_correction.py` (NEW · 14 pytest cases)
+
+### What's STILL deferred (per Jeffrey · "Force Multiplier" letter)
+Real, but each requires weeks or vendor decisions:
+- 🔴 Shadow Outreach Agent (option a in this iteration's plan — Jeffrey picked b+c)
+- 🔴 ROI / Efficiency dashboard card
+- 🔴 Frontend `<SignalScoreBadge>` + `<CorrectionsTab>` (founder dashboard surfaces)
+- 🔴 Real-time regulatory ingestion (DRE/FINRA/state boards) — 4-6 week scraper
+  project + lawyer review
+- 🔴 Anomaly Detection (volume drops, conversion anomalies) — needs 30+ days
+  baseline
+- 🔴 Self-healing workflows / agent negotiation / predictive modeling — multi-week
+- 🔴 Hyper-personalized video snippets — vendor (HeyGen / Synthesia)
+- 🔴 Dynamic landing pages per lead — 1-2 sessions
+- 🔴 Agentic RAG / Weaviate — Jeffrey explicitly deferred to "after revenue
+  validation"
+- 🔴 E2B / Modal sandboxing for agent code exec — bounded risk currently (agents
+  call Claude+Resend only)
+- 🔴 Crunchbase / Clearbit signal APIs — pending Jeffrey's vendor approval
+
+### Production readiness
+Set in production, missing in preview:
+- `RESEND_API_KEY` → live email send
+- `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` / `FOUNDER_PHONE`
+  → SMS hot-lead alerts AND Correction Agent failure alerts both fire on prod
 
 ---
 

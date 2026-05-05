@@ -117,12 +117,8 @@ async def _alert_founder_if_needed(
                 f"{' · lead ' + lead_id[:8] if lead_id else ''}"
                 f" · {error[:100]}")[:160]
         res = await asyncio.to_thread(_send_sync, FOUNDER_PHONE, body)
-        await db.workflow_corrections.update_one(
-            {"kind": kind, "lead_id": lead_id, "status": "failed"},
-            {"$set": {"alert_sent_at": _now_iso(), "alert_result": res}},
-            upsert=False,
-        )
-        # Also flag the most recent failure doc
+        # Stamp the most-recent failure doc with the alert send so
+        # _alert_founder_if_needed's "recent" lookup blocks duplicates within 60min.
         await db.workflow_corrections.find_one_and_update(
             {"kind": kind, "lead_id": lead_id, "status": "failed",
              "alert_sent_at": {"$exists": False}},
