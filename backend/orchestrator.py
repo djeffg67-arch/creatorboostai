@@ -48,6 +48,10 @@ try:
 except Exception:
     LlmChat = LlmUserMessage = None  # type: ignore
 
+# Iter 60 · Correction Agent + Signal Scoring
+from correction_agent import with_correction  # noqa: E402
+from signal_scoring import touch_signal       # noqa: E402
+
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "").strip()
 SITE_URL = (os.environ.get("SITE_URL") or "https://creatorboostai.com").rstrip("/")
 FOUNDER_EMAIL = (os.environ.get("FOUNDER_EMAIL") or "j.davidg67@gmail.com").strip().lower()
@@ -316,6 +320,7 @@ class LeadSpec(BaseModel):
     business_name: Optional[str] = Field(default=None, max_length=200)
     business_type: Optional[str] = Field(default=None, max_length=120)
     industry: Optional[str] = Field(default=None, max_length=120)
+    region: Optional[str] = Field(default=None, max_length=80)  # Iter 60 · safe baseline
     notes: Optional[str] = Field(default=None, max_length=4000)
     source: Optional[str] = Field(default="orchestrator_manual", max_length=80)
     wants_outbound_help: bool = True
@@ -391,40 +396,75 @@ async def _orchestrate(db, lead_input: Dict[str, Any], *, triggered_by: str) -> 
         reg = await upsert_lead(db, reg_payload)
         lead = dict(lead_input)
         lead["lead_id"] = reg["lead"]["lead_id"]
+        # Iter 60 · region tag (safe baseline)
+        region = (lead_input.get("region") or "").strip()
+        if region:
+            try:
+                await db.leads_registry.update_one(
+                    {"lead_id": lead["lead_id"]}, {"$set": {"region": region[:80]}},
+                )
+            except Exception:
+                pass
+            await db.agent_runs.update_one({"id": run_id},
+                                           {"$set": {"region": region[:80]}})
         await touch_activity(db, lead["lead_id"], type_="orchestrator_started",
                              by="system", note=f"run_id={run_id}")
         await db.agent_runs.update_one({"id": run_id},
                                        {"$set": {"lead_id": lead["lead_id"],
                                                  "lead_locked": True,
                                                  "is_new_lead": reg["is_new"]}})
+        # Iter 60 · signal score: orchestrator started
+        await touch_signal(db, lead["lead_id"], "orchestrator_run_started",
+                           reason=f"run {run_id[:8]}")
 
-        # Agent 1 · Researcher
+        # Agent 1 · Researcher (retry-wrapped)
         t0 = _now_dt()
-        research = await _agent_research(lead, session_id)
+        research = await with_correction(
+            lambda: _agent_research(lead, session_id),
+            kind="agent_research", db=db, lead_id=lead["lead_id"],
+            context={"run_id": run_id},
+        )
         await _log_step("research", True, int((_now_dt() - t0).total_seconds() * 1000),
                         {"asset_type": research["asset_type"],
                          "intent_score": research.get("intent_score"),
                          "industry": research.get("industry")})
 
-        # Agent 2 · Content
+        # Agent 2 · Content (retry-wrapped)
         t0 = _now_dt()
-        asset_md = await _agent_content(lead, research, session_id)
+        asset_md = await with_correction(
+            lambda: _agent_content(lead, research, session_id),
+            kind="agent_content", db=db, lead_id=lead["lead_id"],
+            context={"run_id": run_id, "asset_type": research["asset_type"]},
+        )
         await _log_step("content", True, int((_now_dt() - t0).total_seconds() * 1000),
                         {"asset_chars": len(asset_md),
                          "asset_first_line": asset_md.split("\n", 1)[0][:120]})
+        await touch_signal(db, lead["lead_id"], "asset_generated",
+                           reason=research["asset_type"])
 
-        # Agent 3 · Outreach
+        # Agent 3 · Outreach (retry-wrapped)
         t0 = _now_dt()
-        outreach = await _agent_outreach(lead, research, research["asset_type"], session_id)
+        outreach = await with_correction(
+            lambda: _agent_outreach(lead, research, research["asset_type"], session_id),
+            kind="agent_outreach", db=db, lead_id=lead["lead_id"],
+            context={"run_id": run_id},
+        )
         await _log_step("outreach", True, int((_now_dt() - t0).total_seconds() * 1000),
                         {"subject": outreach["subject"], "body_chars": len(outreach["body"])})
 
-        # Agent 4 · Execution
+        # Agent 4 · Execution (retry-wrapped)
         t0 = _now_dt()
-        exec_res = await _agent_execution(db, lead, research, outreach, asset_md, run_id)
+        exec_res = await with_correction(
+            lambda: _agent_execution(db, lead, research, outreach, asset_md, run_id),
+            kind="agent_execution", db=db, lead_id=lead["lead_id"],
+            context={"run_id": run_id},
+        )
         await _log_step("execution", exec_res["email_sent"],
                         int((_now_dt() - t0).total_seconds() * 1000), exec_res,
                         error=exec_res.get("email_error") if not exec_res["email_sent"] else None)
+        if exec_res.get("email_sent"):
+            await touch_signal(db, lead["lead_id"], "email_sent",
+                               reason="orchestrator email 1")
 
         # Final write
         finished = _now_dt()

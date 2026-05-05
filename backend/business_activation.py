@@ -322,6 +322,7 @@ class CaptureRequest(BaseModel):
     email: EmailStr
     business_type: Optional[str] = Field(default=None, max_length=120)
     business_name: Optional[str] = Field(default=None, max_length=160)
+    region: Optional[str] = Field(default=None, max_length=80)  # Iter 60 · safe baseline (no compliance content)
     blocks: List[BuilderBlock] = Field(default_factory=list, max_length=20)
     session_id: Optional[str] = Field(default=None, max_length=120)
     source: Optional[str] = Field(default="startup_builder", max_length=60)
@@ -383,6 +384,27 @@ def make_business_activation_router(db, require_founder=None) -> APIRouter:
                              by="system",
                              note=f"tools={','.join(b.tool for b in payload.blocks)}; "
                                   f"pdf_kb={pdf_size//1024}; help={payload.wants_outbound_help}")
+
+        # Iter 60 · weak-signal scoring on capture
+        try:
+            from signal_scoring import touch_signal as _ts  # type: ignore
+            await _ts(db, lead_id, "capture_submitted",
+                      reason=f"source={payload.source or 'startup_builder'}")
+            for blk in payload.blocks:
+                await _ts(db, lead_id, "builder_tool_run",
+                          reason=blk.tool, sms=False)
+        except Exception as e:
+            log.warning(f"signal_scoring on capture failed: {e}")
+
+        # Iter 60 · region tag on lead (safe baseline — NO compliance content)
+        if payload.region:
+            try:
+                await db.leads_registry.update_one(
+                    {"lead_id": lead_id},
+                    {"$set": {"region": payload.region.strip()[:80]}},
+                )
+            except Exception as e:
+                log.warning(f"region tag failed: {e}")
 
         # 3. Persist the capture record (full session) so we can re-send / replay later
         capture_id = str(uuid.uuid4())
