@@ -29,6 +29,7 @@ import {
     leadsAddManual, leadsList, leadsUpdateStatus, leadsTouch, leadsRelease,
     leadsStats, leadsImportCsv,
     avatarChat,
+    avatarEscalationsList, avatarEscalationsDetail, avatarEscalationsUpdate, avatarEscalationsNote,
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 
@@ -2640,6 +2641,252 @@ const SummaryTile = ({ label, value, tone = "white" }) => {
     );
 };
 
+
+// ---------- Avatar Escalations Triage (Iter 53) ----------
+const ESCALATION_STATUSES = [
+    { id: "open",       label: "Open",       cls: "border-cyan-500/40 bg-cyan-500/10 text-cyan-200" },
+    { id: "contacted",  label: "Contacted",  cls: "border-amber-500/40 bg-amber-500/10 text-amber-200" },
+    { id: "won",        label: "Won",        cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200" },
+    { id: "lost",       label: "Lost",       cls: "border-rose-500/40 bg-rose-500/10 text-rose-200" },
+];
+
+const EscalationsPanel = ({ auth }) => {
+    const [filter, setFilter] = useState("open");
+    const [data, setData] = useState({ escalations: [], counts: {} });
+    const [busyId, setBusyId] = useState(null);
+    const [openId, setOpenId] = useState(null);
+    const [detail, setDetail] = useState(null);
+
+    const refresh = async () => {
+        try { setData(await avatarEscalationsList({ ...auth, status: filter, limit: 200 })); }
+        catch { /* silent */ }
+    };
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filter, auth]);
+
+    const openDetail = async (id) => {
+        setOpenId(id); setDetail(null);
+        try { setDetail(await avatarEscalationsDetail({ ...auth, escalation_id: id })); }
+        catch { toast.error("Could not load detail"); }
+    };
+
+    const update = async (id, status, note) => {
+        setBusyId(id);
+        try {
+            const r = await avatarEscalationsUpdate({ ...auth, escalation_id: id, status, note });
+            toast.success(`Marked ${status}`);
+            refresh();
+            if (openId === id) setDetail((p) => p ? { ...p, escalation: r.escalation } : p);
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Update failed");
+        } finally { setBusyId(null); }
+    };
+
+    const counts = data.counts || {};
+    const fmt = (iso) => iso ? new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
+
+    return (
+        <section className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-4" data-testid="admin-escalations-panel">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Avatar escalations · lightweight pipeline</p>
+                    <p className="mt-1 text-xs text-slate-400">Every "Talk to founder" tap from the homepage avatar lands here. Triage, note, win/lose.</p>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <span><span className="text-emerald-300">{counts.won || 0}</span> won</span>
+                    <span>·</span>
+                    <span><span className="text-rose-300">{counts.lost || 0}</span> lost</span>
+                </div>
+            </div>
+
+            <div className="mb-3 flex flex-wrap gap-2">
+                {[
+                    { id: "open",      label: `Open (${counts.pipeline_open ?? 0})` },
+                    { id: "contacted", label: `Contacted (${counts.contacted ?? 0})` },
+                    { id: "closed",    label: `Closed (${(counts.won ?? 0) + (counts.lost ?? 0)})` },
+                    { id: "all",       label: `All (${counts.all ?? 0})` },
+                ].map((p) => (
+                    <button
+                        key={p.id}
+                        data-testid={`admin-esc-filter-${p.id}`}
+                        onClick={() => setFilter(p.id)}
+                        className={`rounded-md border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] transition-all ${
+                            filter === p.id ? "border-cyan-400 bg-cyan-500/20 text-cyan-100" : "border-white/10 bg-ink-900 text-slate-400 hover:border-cyan-500/30"
+                        }`}
+                    >
+                        {p.label}
+                    </button>
+                ))}
+                <button onClick={refresh} data-testid="admin-esc-refresh"
+                    className="ml-auto rounded-md border border-white/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400 hover:border-cyan-500/30 hover:text-cyan-300">
+                    Refresh
+                </button>
+            </div>
+
+            {data.escalations.length === 0 ? (
+                <p className="rounded-md border border-dashed border-white/10 bg-ink-900/40 p-6 text-center text-xs text-slate-400" data-testid="admin-esc-empty">
+                    No escalations in this bucket. The avatar logs one every time a user clicks "Talk to founder" or asks a question it can't confidently answer.
+                </p>
+            ) : (
+                <div className="space-y-2" data-testid="admin-esc-list">
+                    {data.escalations.map((e) => {
+                        const statusCfg = ESCALATION_STATUSES.find((s) => s.id === e.status) || ESCALATION_STATUSES[0];
+                        return (
+                            <div key={e.id} className="rounded-md border border-white/10 bg-ink-900/60 p-3" data-testid={`admin-esc-${e.id}`}>
+                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className={`rounded-sm border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] ${statusCfg.cls}`}>{statusCfg.label}</span>
+                                            <p className="text-sm font-medium text-white">{e.name || e.email || "anonymous"}</p>
+                                            {e.company && <p className="text-xs text-slate-400">· {e.company}</p>}
+                                            {e.sector && <span className="rounded-sm bg-ink-700 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300">{e.sector}</span>}
+                                        </div>
+                                        {e.email && <p className="mt-1 text-xs text-slate-400">{e.email}</p>}
+                                        <p className="mt-1 text-xs text-slate-300"><span className="text-slate-500">Asked:</span> {(e.last_message || e.reason || "—").slice(0, 220)}</p>
+                                        <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
+                                            {fmt(e.created_at)}
+                                            {e.demo_viewed && <span className="ml-2">· demo: {e.demo_viewed}</span>}
+                                            {e.surface && <span className="ml-2">· src: {e.surface}</span>}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <button onClick={() => openDetail(e.id)} data-testid={`admin-esc-detail-${e.id}`}
+                                            className="rounded-md border border-white/10 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                                            Detail
+                                        </button>
+                                        {e.status !== "contacted" && e.status !== "won" && e.status !== "lost" && (
+                                            <button onClick={() => update(e.id, "contacted")} disabled={busyId === e.id}
+                                                data-testid={`admin-esc-contacted-${e.id}`}
+                                                className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-amber-200 hover:bg-amber-500/20 disabled:opacity-50">
+                                                Mark contacted
+                                            </button>
+                                        )}
+                                        {e.status !== "won" && e.status !== "lost" && (
+                                            <>
+                                                <button onClick={() => update(e.id, "won")} disabled={busyId === e.id}
+                                                    data-testid={`admin-esc-won-${e.id}`}
+                                                    className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50">
+                                                    Won
+                                                </button>
+                                                <button onClick={() => update(e.id, "lost")} disabled={busyId === e.id}
+                                                    data-testid={`admin-esc-lost-${e.id}`}
+                                                    className="rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-rose-200 hover:bg-rose-500/20 disabled:opacity-50">
+                                                    Lost
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {openId && <EscalationDetailDrawer detail={detail} auth={auth} onClose={() => { setOpenId(null); setDetail(null); }} onUpdate={update} />}
+        </section>
+    );
+};
+
+const EscalationDetailDrawer = ({ detail, auth, onClose, onUpdate }) => {
+    const [note, setNote] = useState("");
+    const [busy, setBusy] = useState(false);
+    const e = detail?.escalation;
+    const transcript = detail?.transcript || [];
+    const addNote = async () => {
+        if (!note.trim() || !e) return;
+        setBusy(true);
+        try {
+            await avatarEscalationsNote({ ...auth, escalation_id: e.id, note });
+            toast.success("Note added");
+            setNote("");
+        } catch { toast.error("Could not save note"); }
+        finally { setBusy(false); }
+    };
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-cyan-500/30 bg-ink-900 p-5"
+                onClick={(e) => e.stopPropagation()} data-testid="admin-esc-drawer">
+                <div className="flex items-start justify-between gap-2">
+                    <div>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Escalation</p>
+                        <p className="mt-1 text-lg font-medium text-white">{e?.name || e?.email || "anonymous"}</p>
+                        {e?.company && <p className="text-xs text-slate-400">{e.company}</p>}
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-rose-300" data-testid="admin-esc-drawer-close"><X size={16} /></button>
+                </div>
+
+                {!detail ? (
+                    <p className="mt-6 text-center text-xs text-slate-400">Loading…</p>
+                ) : (
+                    <>
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                            <div><p className="text-slate-500">Status</p><p className="text-slate-200">{e.status}</p></div>
+                            <div><p className="text-slate-500">Sector</p><p className="text-slate-200">{e.sector || "—"}</p></div>
+                            <div><p className="text-slate-500">Email</p><p className="break-all text-slate-200">{e.email || "—"}</p></div>
+                            <div><p className="text-slate-500">Demo viewed</p><p className="text-slate-200">{e.demo_viewed || "—"}</p></div>
+                            <div><p className="text-slate-500">Surface</p><p className="text-slate-200">{e.surface || "—"}</p></div>
+                            <div><p className="text-slate-500">Created</p><p className="text-slate-200">{e.created_at ? new Date(e.created_at).toLocaleString() : "—"}</p></div>
+                        </div>
+
+                        <div className="mt-4">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300">Conversation transcript</p>
+                            <div className="mt-2 max-h-72 space-y-2 overflow-y-auto rounded-md border border-white/10 bg-ink-700/40 p-3" data-testid="admin-esc-drawer-transcript">
+                                {transcript.length === 0 ? (
+                                    <p className="text-xs text-slate-500">No prior turns recorded.</p>
+                                ) : transcript.map((t, i) => (
+                                    <div key={i} className="space-y-1">
+                                        <p className="text-xs"><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">user</span><br />{t.user}</p>
+                                        {t.assistant && <p className="text-xs text-cyan-200"><span className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">avatar · {t.role}</span><br />{t.assistant}</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {e.notes?.length > 0 && (
+                            <div className="mt-4">
+                                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300">Notes</p>
+                                <ul className="mt-2 space-y-1 text-xs text-slate-300">
+                                    {e.notes.map((n, i) => (
+                                        <li key={i} className="rounded-md border border-white/5 bg-ink-700/40 p-2">
+                                            <p>{n.text}</p>
+                                            <p className="mt-1 font-mono text-[9px] text-slate-500">{n.by} · {new Date(n.at).toLocaleString()}</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        <div className="mt-4 flex items-center gap-2">
+                            <input value={note} onChange={(ev) => setNote(ev.target.value)}
+                                placeholder="Add a note (no status change)…"
+                                data-testid="admin-esc-drawer-note-input"
+                                className="flex-1 rounded-md border border-white/10 bg-ink-700/40 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-500" />
+                            <button onClick={addNote} disabled={busy || !note.trim()}
+                                data-testid="admin-esc-drawer-note-save"
+                                className="rounded-md bg-cyan-500 px-3 py-2 text-[11px] font-semibold text-ink-900 hover:bg-cyan-400 disabled:opacity-50">
+                                Add note
+                            </button>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
+                            <button onClick={() => onUpdate(e.id, "contacted")} className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200 hover:bg-amber-500/20" data-testid="admin-esc-drawer-contacted">Mark contacted</button>
+                            <button onClick={() => onUpdate(e.id, "won")} className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20" data-testid="admin-esc-drawer-won">Won</button>
+                            <button onClick={() => onUpdate(e.id, "lost")} className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-200 hover:bg-rose-500/20" data-testid="admin-esc-drawer-lost">Lost</button>
+                            {e.email && (
+                                <a href={`mailto:${e.email}`} className="ml-auto rounded-md border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                                    Email {e.email.split("@")[0]}
+                                </a>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
+
+
 // ---------- Admin tab (founder only) ----------
 const AdminTab = ({ auth }) => {
     const [users, setUsers] = useState([]);
@@ -2706,6 +2953,9 @@ const AdminTab = ({ auth }) => {
     return (
         <div data-testid="tab-admin" className="space-y-6">
             <SectionHeader sub="Founder controls" title="Admin · Users & Login Audit" />
+
+            {/* Avatar Escalations triage (Iter 53) */}
+            <EscalationsPanel auth={auth} />
 
             {/* Delivery status row */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="admin-delivery-status">

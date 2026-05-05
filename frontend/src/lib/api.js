@@ -432,4 +432,17 @@ export const avatarQuickContext = ({ session_id, user_email }) =>
 export const avatarEscalate = ({ session_id, user_email, reason, last_message, contact }) =>
     api.post("/avatar/escalate", { session_id, user_email, reason, last_message, contact }).then((r) => r.data);
 
+// ---------- Avatar Escalations Triage (Iter 53 · founder-only) ----------
+export const avatarEscalationsList = ({ email, token, status, limit }) =>
+    api.post("/avatar/escalations/list", { email, token, status, limit }).then((r) => r.data);
+
+export const avatarEscalationsDetail = ({ email, token, escalation_id }) =>
+    api.post("/avatar/escalations/detail", { email, token, escalation_id }).then((r) => r.data);
+
+export const avatarEscalationsUpdate = ({ email, token, escalation_id, status, note }) =>
+    api.post("/avatar/escalations/update", { email, token, escalation_id, status, note }).then((r) => r.data);
+
+export const avatarEscalationsNote = ({ email, token, escalation_id, note }) =>
+    api.post("/avatar/escalations/note", { email, token, escalation_id, note }).then((r) => r.data);
+
 

@@ -1,6 +1,68 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-05 (Iter 52 — Avatar Intelligence Layer · multi-agent · live actions · Exclusive Lead Engine messaging)
+**Last update:** 2026-05-05 (Iter 53 — Avatar Escalations triage panel · lightweight deal pipeline)
+
+---
+
+## 🎯 ITER 53 — AVATAR ESCALATIONS TRIAGE (lightweight deal pipeline)
+
+Per Jeffrey: every "Talk to founder" tap from the homepage avatar must land in a triagable Admin panel with status pipeline (open → contacted → won/lost), captured fields (name, email, company/sector, what they asked, demo viewed, timestamp), quick-action buttons, and basic filtering.
+
+### Backend (extends Iter 52 `avatar.py`)
+- **Enriched `/api/avatar/escalate`** — auto-derives:
+  - `last_message` from session transcript when not explicitly passed
+  - `demo_viewed` from the most recent `route_to_demo` action emitted in session
+  - `sector` guess from contact.industry → demo_viewed → keyword classification of the last user message
+  - `surface` (homepage / portal / demo) from session record
+  - Top-level `name`, `email`, `company` fields lifted from `contact{}` for fast dashboard rendering
+  - Initial `status_history: [{status: open, at, by: avatar}]` + empty `notes: []` array
+  - Founder email payload now includes Sector + Company + Demo viewed
+- **4 new founder-only endpoints under `/api/avatar/escalations`:**
+  - `POST /list` — filter by `open` (default) / `contacted` / `closed` (won+lost) / `won` / `lost` / `all`. Returns `{escalations[], counts:{open,contacted,won,lost,all,pipeline_open}}`. Sorted newest-first, limit 200.
+  - `POST /detail` — returns the escalation + the **full conversation transcript** from `avatar_sessions` so founder can read what the user actually said before clicking "Talk to founder".
+  - `POST /update` — status transitions (open → contacted → won/lost). Sets `closed_at` on terminal states. Pushes a `status_history` entry and optional `notes` entry (when `note` field passed). Founder-gated.
+  - `POST /note` — append a free-form note without a status change.
+- All endpoints accept dict-style payloads + use a `_AdminAuth` shim that adapts dicts to the existing Pydantic-based `_require_outbound_founder` helper (avoids attribute errors).
+
+### Frontend (`/portal/ops` → Admin tab top-of-section)
+- **`<EscalationsPanel>`** — cyan-bordered card sitting at the very top of the Admin tab (before delivery status and user CRUD)
+- Filter pills with **live counts** in the labels: `Open (N)` / `Contacted (N)` / `Closed (N)` / `All (N)` + Refresh
+- Header strip: "X won · Y lost"
+- Per-row rendering:
+  - Status pill (cyan/amber/emerald/rose per state)
+  - Name (or email or "anonymous") + company + sector chip
+  - Email (greyed)
+  - "Asked: <last_message or reason>" (truncated 220 chars)
+  - Footer: timestamp + demo_viewed + surface
+  - **Quick-action buttons**: Detail · Mark contacted · Won · Lost (state-aware — Won/Lost rows show neither, contacted rows hide "Mark contacted")
+- **`<EscalationDetailDrawer>`** — full-screen modal (z-60) with:
+  - Header (name, company)
+  - 6-cell field grid: status · sector · email · demo viewed · surface · created
+  - **Conversation transcript** — full list of prior turns from `avatar_sessions` showing user message + avatar reply + role tag per turn
+  - **Notes list** — every prior note with author + timestamp
+  - Inline note input + "Add note" button
+  - Footer action row: Mark contacted · Won · Lost · `mailto:` shortcut to the prospect's email
+  - Esc-on-overlay-click + close button
+
+### API helpers (`/app/frontend/src/lib/api.js`)
+- `avatarEscalationsList`, `avatarEscalationsDetail`, `avatarEscalationsUpdate`, `avatarEscalationsNote`
+
+### Verified live
+```
+✓ POST /api/avatar/escalations/list (open) → counts {open:2,contacted:0,won:0,lost:0,all:2,pipeline_open:2}
+✓ POST /api/avatar/escalations/detail → full record + transcript
+✓ POST /api/avatar/escalations/update {status:contacted, note:"Phone call scheduled"}
+   → status:contacted · history:2 entries · notes array populated with author+timestamp
+✓ POST /api/avatar/escalations/update {status:won} → status:won, closed_at set
+✓ Founder Admin tab screenshot shows panel rendering with row, "Detail" drawer opens with all 6 metadata cells, transcript section, notes section with prior "Phone call scheduled" note, Mark contacted/Won/Lost buttons, Email mailto shortcut
+✓ Unauthorized (no token) → 401
+```
+
+### Files touched
+- `/app/backend/avatar.py` — `escalate` enriched + 4 new triage endpoints + `_AdminAuth` shim
+- `/app/backend/server.py` — passes `_require_outbound_founder` into `make_avatar_router`
+- `/app/frontend/src/lib/api.js` — 4 new helpers
+- `/app/frontend/src/pages/PortalOpsPage.jsx` — `<EscalationsPanel>` + `<EscalationDetailDrawer>` mounted at top of Admin tab
 
 ---
 

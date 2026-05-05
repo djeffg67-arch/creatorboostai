@@ -3524,7 +3524,11 @@ app.include_router(make_leads_router(db, _require_any_role))
 # ---------- Avatar Intelligence Layer (Iter 52) ----------
 from avatar import make_avatar_router  # noqa: E402
 
-app.include_router(make_avatar_router(db, send_founder_notification=send_founder_notification))
+app.include_router(make_avatar_router(
+    db,
+    send_founder_notification=send_founder_notification,
+    require_founder=_require_outbound_founder,
+))
 
 
 # ---------- CORS ----------

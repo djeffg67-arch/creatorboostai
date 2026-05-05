@@ -399,7 +399,7 @@ class QuickContextRequest(BaseModel):
 
 
 # ──────────────── ROUTER ────────────────
-def make_avatar_router(db, send_founder_notification=None) -> APIRouter:
+def make_avatar_router(db, send_founder_notification=None, require_founder=None) -> APIRouter:
     router = APIRouter(prefix="/api/avatar", tags=["avatar"])
 
     async def _handle_chat(req: ChatRequest) -> Dict[str, Any]:
@@ -515,33 +515,184 @@ def make_avatar_router(db, send_founder_notification=None) -> APIRouter:
     @router.post("/escalate")
     async def escalate(req: EscalateRequest):
         now_s = datetime.now(timezone.utc).isoformat()
+        # Iter 53 · auto-enrich from session context (latest user message,
+        # demo viewed, classified sector, recent CB context).
+        sector_guess: Optional[str] = None
+        demo_viewed: Optional[str] = None
+        last_user_msg: Optional[str] = req.last_message
+        try:
+            session_doc = await db.avatar_sessions.find_one(
+                {"session_id": req.session_id}, {"_id": 0, "turns": 1, "surface": 1},
+            )
+            turns = (session_doc or {}).get("turns") or []
+            # Newest user message wins
+            for t in reversed(turns):
+                if (t.get("user") or "").strip() and not last_user_msg:
+                    last_user_msg = t["user"]
+                # Pick up the most recent route_to_demo action emitted
+                for a in (t.get("actions") or []):
+                    if a.get("type") == "route_to_demo" and not demo_viewed:
+                        demo_viewed = a.get("demo")
+                        break
+            # Sector guess: read from contact.industry || classify last_user_msg
+            sector_guess = (req.contact or {}).get("industry") or demo_viewed
+            if not sector_guess and last_user_msg:
+                m = _DEMO_REGEX.search(last_user_msg)
+                if m:
+                    sector_guess = m.group(1).lower().replace("-", "_").replace(" ", "_")
+        except Exception as _e:
+            log.error(f"escalate enrichment failed: {_e}")
+
         rec = {
             "id": str(uuid.uuid4()),
             "session_id": req.session_id,
             "user_email": req.user_email,
             "reason": (req.reason or "")[:500],
-            "last_message": (req.last_message or "")[:2000],
+            "last_message": (last_user_msg or "")[:2000],
             "contact": req.contact or {},
+            "name": (req.contact or {}).get("name"),
+            "email": (req.contact or {}).get("email") or req.user_email,
+            "company": (req.contact or {}).get("company"),
+            "sector": sector_guess,
+            "demo_viewed": demo_viewed,
+            "surface": (session_doc or {}).get("surface") if 'session_doc' in dir() else "homepage",
             "status": "open",
+            "status_history": [
+                {"status": "open", "at": now_s, "by": "avatar"}
+            ],
+            "notes": [],
             "created_at": now_s,
+            "updated_at": now_s,
         }
         await db.avatar_escalations.insert_one(rec)
         # Notify founder (best-effort)
         try:
             if send_founder_notification:
                 await send_founder_notification(
-                    subject=f"[Avatar Escalation] {req.reason[:80]}",
+                    subject=f"[Avatar Escalation] {(req.reason or '')[:80]}",
                     body_html=(
                         f"<p>The CB avatar escalated a conversation.</p>"
                         f"<p><b>Reason:</b> {req.reason}</p>"
-                        f"<p><b>User:</b> {req.user_email or 'anonymous'}</p>"
-                        f"<p><b>Last message:</b> {req.last_message or '—'}</p>"
+                        f"<p><b>User:</b> {req.user_email or rec.get('email') or 'anonymous'}</p>"
+                        f"<p><b>Company:</b> {rec.get('company') or '—'}</p>"
+                        f"<p><b>Sector / demo:</b> {rec.get('sector') or rec.get('demo_viewed') or '—'}</p>"
+                        f"<p><b>Last message:</b> {rec.get('last_message') or '—'}</p>"
                         f"<p><b>Session:</b> {req.session_id}</p>"
                     ),
                 )
         except Exception as e:
             log.error(f"founder notify failed: {e}")
         return {"ok": True, "escalation_id": rec["id"]}
+
+    # ──────────────── ITER 53 · ESCALATION TRIAGE (founder-only) ────────────────
+
+    class _AdminAuth(BaseModel):
+        email: str
+        token: str
+
+    async def _admin_auth(payload: Dict[str, Any]):
+        if not require_founder:
+            return {"email": payload.get("email")}
+        try:
+            shim = _AdminAuth(email=payload.get("email") or "", token=payload.get("token") or "")
+        except Exception:
+            raise HTTPException(401, "email + token required")
+        return await require_founder(shim)
+
+    @router.post("/escalations/list")
+    async def escalations_list(payload: Dict[str, Any]):
+        """Founder-gated. Returns the escalation triage list with optional filter.
+
+        Body: { email, token, status?: 'open'|'contacted'|'won'|'lost'|'all'|'closed', limit?: 200 }
+        """
+        await _admin_auth(payload)
+        status = (payload.get("status") or "open").strip().lower()
+        limit = max(1, min(int(payload.get("limit") or 200), 500))
+        q: Dict[str, Any] = {}
+        if status == "open":
+            q["status"] = {"$in": ["open", "contacted"]}
+        elif status == "closed":
+            q["status"] = {"$in": ["won", "lost"]}
+        elif status in ("contacted", "won", "lost"):
+            q["status"] = status
+        # status == "all" → no filter
+        cursor = db.avatar_escalations.find(q, {"_id": 0}).sort("created_at", -1).limit(limit)
+        rows = await cursor.to_list(limit)
+        # Counts by bucket for the filter pills
+        counts: Dict[str, int] = {}
+        for s in ("open", "contacted", "won", "lost"):
+            counts[s] = await db.avatar_escalations.count_documents({"status": s})
+        counts["all"] = sum(counts.values())
+        counts["pipeline_open"] = counts["open"] + counts["contacted"]
+        return {"ok": True, "escalations": rows, "counts": counts}
+
+    @router.post("/escalations/detail")
+    async def escalations_detail(payload: Dict[str, Any]):
+        """Founder-gated. Returns a single escalation + the full session transcript."""
+        await _admin_auth(payload)
+        escalation_id = (payload.get("escalation_id") or "").strip()
+        if not escalation_id:
+            raise HTTPException(400, "escalation_id required")
+        rec = await db.avatar_escalations.find_one({"id": escalation_id}, {"_id": 0})
+        if not rec:
+            raise HTTPException(404, "Escalation not found")
+        transcript: List[Dict[str, Any]] = []
+        if rec.get("session_id"):
+            sess = await db.avatar_sessions.find_one(
+                {"session_id": rec["session_id"]},
+                {"_id": 0, "turns": 1, "user_email": 1, "surface": 1, "created_at": 1},
+            )
+            if sess and sess.get("turns"):
+                transcript = sess["turns"]
+        return {"ok": True, "escalation": rec, "transcript": transcript}
+
+    @router.post("/escalations/update")
+    async def escalations_update(payload: Dict[str, Any]):
+        """Founder-gated. Move status: open → contacted → won/lost."""
+        user = await _admin_auth(payload)
+        escalation_id = (payload.get("escalation_id") or "").strip()
+        new_status = (payload.get("status") or "").strip().lower()
+        note = (payload.get("note") or "").strip() or None
+        if new_status not in ("open", "contacted", "won", "lost"):
+            raise HTTPException(400, "status must be one of: open · contacted · won · lost")
+        if not escalation_id:
+            raise HTTPException(400, "escalation_id required")
+        existing = await db.avatar_escalations.find_one({"id": escalation_id}, {"_id": 0})
+        if not existing:
+            raise HTTPException(404, "Escalation not found")
+        now_s = datetime.now(timezone.utc).isoformat()
+        history_entry = {"status": new_status, "at": now_s, "by": user.get("email")}
+        push_ops: Dict[str, Any] = {"status_history": history_entry}
+        if note:
+            push_ops["notes"] = {"text": note, "at": now_s, "by": user.get("email")}
+        await db.avatar_escalations.update_one(
+            {"id": escalation_id},
+            {
+                "$set": {"status": new_status, "updated_at": now_s,
+                         **({"closed_at": now_s} if new_status in ("won", "lost") else {})},
+                "$push": push_ops,
+            },
+        )
+        updated = await db.avatar_escalations.find_one({"id": escalation_id}, {"_id": 0})
+        return {"ok": True, "escalation": updated}
+
+    @router.post("/escalations/note")
+    async def escalations_note(payload: Dict[str, Any]):
+        """Founder-gated. Append a free-form note (no status change)."""
+        user = await _admin_auth(payload)
+        escalation_id = (payload.get("escalation_id") or "").strip()
+        note = (payload.get("note") or "").strip()
+        if not (escalation_id and note):
+            raise HTTPException(400, "escalation_id + note required")
+        now_s = datetime.now(timezone.utc).isoformat()
+        await db.avatar_escalations.update_one(
+            {"id": escalation_id},
+            {
+                "$push": {"notes": {"text": note, "at": now_s, "by": user.get("email")}},
+                "$set": {"updated_at": now_s},
+            },
+        )
+        return {"ok": True}
 
     return router
 
