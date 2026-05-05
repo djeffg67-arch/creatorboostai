@@ -253,6 +253,17 @@ async def _agent_execution(
     # Email 1 — orchestrator-personalized first touch (no PDF attachment; the
     # asset markdown is rendered inline so the lead sees value in the inbox).
     body_text = outreach["body"]
+    # Iter 61 · Dark Funnel — wrap the CTA URL in a tracked redirect so clicks
+    # are recorded as engagement signals on this lead.
+    cta_dest = f"{SITE_URL}/portal/builder?orchestrator={run_id}"
+    try:
+        from dark_funnel import mint_tracked_url
+        cta_url = await mint_tracked_url(
+            db, lead_id=lead.get("lead_id"), dest_url=cta_dest,
+            kind="orchestrator_email_cta",
+        )
+    except Exception:
+        cta_url = cta_dest
     body_html = (
         f'<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;color:#0f172a">'
         f'<p style="white-space:pre-line;font-size:14px;line-height:1.6">{_html.escape(body_text)}</p>'
@@ -262,7 +273,7 @@ async def _agent_execution(
         f'<pre style="white-space:pre-wrap;font-family:Inter,Arial,sans-serif;margin:0">{_html.escape(asset_md[:3000])}{"…" if len(asset_md)>3000 else ""}</pre>'
         f'</div>'
         f'<p style="margin:24px 0">'
-        f'<a href="{SITE_URL}/portal/builder?orchestrator={run_id}" '
+        f'<a href="{cta_url}" '
         f'style="background:#10b981;color:#0c1117;padding:12px 22px;border-radius:6px;'
         f'text-decoration:none;font-weight:600;font-size:13px">Continue inside the system →</a>'
         f'</p>'

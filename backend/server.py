@@ -3632,6 +3632,30 @@ async def _ensure_orchestrator_indexes():
         logging.getLogger(__name__).warning(f"agent_runs index create failed: {e}")
 
 
+# ---------- CFO-Ready Business Case Generator (Iter 61) ----------
+from cfo_business_case import make_cfo_router  # noqa: E402
+
+app.include_router(make_cfo_router(db, _require_outbound_founder))
+
+
+# ---------- Dark Funnel Phase 1 · Engagement tracking (Iter 61) ----------
+from dark_funnel import make_dark_funnel_router, reengagement_loop  # noqa: E402
+
+app.include_router(make_dark_funnel_router(db, _require_outbound_founder))
+
+
+@app.on_event("startup")
+async def _start_dark_funnel_loops():
+    """Iter 61 · re-engagement scanner + engagement-data indexes."""
+    try:
+        await db.dark_funnel_tokens.create_index("token", unique=True)
+        await db.dark_funnel_email_events.create_index([("received_at", -1)])
+        await db.cfo_business_cases.create_index([("created_at", -1)])
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"dark_funnel indexes failed: {e}")
+    asyncio.create_task(reengagement_loop(db))
+
+
 # ---------- CORS ----------
 # Explicitly allow the production domains + any additional origins injected via
 # CORS_ORIGINS env var. "*" is used as a safety fallback so a misconfigured
