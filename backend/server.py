@@ -3499,6 +3499,28 @@ app.include_router(
 )
 
 
+# ---------- Universal Lead Intake (Iter 51) ----------
+from leads_router import make_leads_router  # noqa: E402
+
+
+async def _require_any_role(payload) -> Dict[str, Any]:
+    """Auth helper for /api/leads — accepts founder, executive, employee.
+    Visibility is scoped inside each handler based on `user['role']`."""
+    user = await db.users.find_one(
+        {"email": payload.email, "portal_token": payload.token}, {"_id": 0}
+    )
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or token")
+    role = (user.get("role") or "").lower()
+    allowed = {"founder", "executive", "president", "employee", "rep", "team_member"}
+    if role not in allowed:
+        raise HTTPException(status_code=403, detail="Role not permitted")
+    return user
+
+
+app.include_router(make_leads_router(db, _require_any_role))
+
+
 # ---------- CORS ----------
 # Explicitly allow the production domains + any additional origins injected via
 # CORS_ORIGINS env var. "*" is used as a safety fallback so a misconfigured

@@ -392,3 +392,34 @@ export const opsOutboundImapPollNow = (auth) =>
 export const opsOutboundPushHotLeads = (auth) =>
     api.post("/ops/outbound/push-hot-leads", auth).then((r) => r.data);
 
+// ---------- Universal Lead Intake (Iter 51) ----------
+export const leadsAddManual = ({ email, token, lead }) =>
+    api.post("/leads/add-manual", { email, token, lead }).then((r) => r.data);
+
+export const leadsList = ({ email, token, source, industry, status, assigned_to, limit }) =>
+    api.post("/leads/list", { email, token, source, industry, status, assigned_to, limit }).then((r) => r.data);
+
+export const leadsUpdateStatus = ({ email, token, lead_id, status }) =>
+    api.post("/leads/update-status", { email, token, lead_id, status }).then((r) => r.data);
+
+export const leadsTouch = ({ email, token, lead_id, type_, note }) =>
+    api.post("/leads/touch", { email, token, lead_id, type_, note }).then((r) => r.data);
+
+export const leadsRelease = ({ email, token, lead_id }) =>
+    api.post("/leads/release", { email, token, lead_id }).then((r) => r.data);
+
+export const leadsStats = ({ email, token }) =>
+    api.post("/leads/stats", { email, token }).then((r) => r.data);
+
+export const leadsImportCsv = ({ email, token, source, file }) => {
+    const fd = new FormData();
+    fd.append("email", email);
+    fd.append("token", token);
+    fd.append("source", source || "manual");
+    fd.append("file", file);
+    return api.post("/leads/import-csv", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+    }).then((r) => r.data);
+};
+
+

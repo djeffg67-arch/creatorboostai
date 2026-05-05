@@ -26,6 +26,8 @@ import {
     opsOutboundImapPollNow, opsOutboundAutopilotNow, opsOutboundPushHotLeads,
     opsOutboundArchiveInternal, opsOutboundResetDaily, opsOutboundDiagnostics,
     opsOutboundSetDailyLimit,
+    leadsAddManual, leadsList, leadsUpdateStatus, leadsTouch, leadsRelease,
+    leadsStats, leadsImportCsv,
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 
@@ -155,6 +157,7 @@ const Sidebar = ({ me, active, onNav, onSignOut }) => {
     const items = [
         { id: "performance", label: "Performance", Icon: BarChart3 },
         { id: "leads",       label: "Leads",       Icon: Inbox },
+        { id: "intake",      label: "Lead Intake", Icon: Upload },
         { id: "outreach",    label: "Outreach",    Icon: Send },
         { id: "demos",       label: "Demo Links",  Icon: Lightbulb },
         { id: "ai",          label: "AI Assistant",Icon: Bot },
@@ -588,6 +591,340 @@ const LeadCard = ({ lead, auth, me, onChange }) => {
         </div>
     );
 };
+
+// ---------- Lead Intake tab (Iter 51 · Universal Lead Intake) ----------
+const LEAD_PIPELINE = ["new", "contacted", "responded", "meeting_set", "closed"];
+const LEAD_PIPELINE_LABELS = {
+    new: "New",
+    contacted: "Contacted",
+    responded: "Responded",
+    meeting_set: "Meeting set",
+    closed: "Closed",
+};
+const SOURCE_OPTIONS = ["LinkedIn", "Lusha", "Hunter", "Snov", "manual", "demo_capture"];
+
+const LeadIntakeTab = ({ auth, me }) => {
+    const [stats, setStats] = useState(null);
+    const [leads, setLeads] = useState([]);
+    const [filters, setFilters] = useState({ source: "", industry: "", status: "" });
+    const [showAdd, setShowAdd] = useState(false);
+    const isAdmin = me.role === "founder" || me.role === "executive" || me.role === "president";
+
+    const refresh = async () => {
+        try {
+            const [s, l] = await Promise.all([
+                leadsStats(auth),
+                leadsList({ ...auth, source: filters.source || undefined, industry: filters.industry || undefined, status: filters.status || undefined, limit: 200 }),
+            ]);
+            setStats(s);
+            setLeads(l.leads || []);
+        } catch (e) { /* no-op */ }
+    };
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth, filters]);
+
+    return (
+        <div data-testid="tab-intake" className="space-y-6">
+            <SectionHeader
+                sub={isAdmin ? "Universal Lead Intake · all leads" : "Your assigned leads"}
+                title={`${stats?.total ?? 0} leads in your registry`}
+            >
+                <div className="flex flex-wrap gap-2">
+                    <button onClick={() => setShowAdd((p) => !p)} data-testid="intake-add-btn"
+                        className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 text-xs font-semibold text-ink-900 hover:bg-cyan-400">
+                        <Plus size={11} /> Add Lead
+                    </button>
+                </div>
+            </SectionHeader>
+
+            {/* Pipeline counters */}
+            {stats && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="intake-pipeline">
+                    {LEAD_PIPELINE.map((s) => (
+                        <button
+                            key={s}
+                            onClick={() => setFilters((p) => ({ ...p, status: p.status === s ? "" : s }))}
+                            data-testid={`intake-pipeline-${s}`}
+                            className={`rounded-md border px-4 py-3 text-left transition-all ${filters.status === s ? "border-cyan-500/60 bg-cyan-500/10" : "border-white/10 bg-ink-700/40 hover:border-cyan-500/40"}`}
+                        >
+                            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300">{LEAD_PIPELINE_LABELS[s]}</p>
+                            <p className="mt-1 font-heading text-xl font-semibold text-white">{stats.by_status[s] ?? 0}</p>
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* Import Center + Manual Entry */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <CsvImportCard auth={auth} onDone={refresh} />
+                {showAdd && <ManualAddCard auth={auth} onDone={() => { setShowAdd(false); refresh(); }} />}
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-white/10 bg-ink-700/30 p-3">
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300">Filters:</span>
+                <select
+                    value={filters.source}
+                    onChange={(e) => setFilters((p) => ({ ...p, source: e.target.value }))}
+                    data-testid="intake-filter-source"
+                    className="rounded-md border border-white/10 bg-ink-900 px-3 py-1.5 text-xs text-slate-200"
+                >
+                    <option value="">All sources</option>
+                    {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <input
+                    type="text"
+                    value={filters.industry}
+                    onChange={(e) => setFilters((p) => ({ ...p, industry: e.target.value }))}
+                    placeholder="Industry contains…"
+                    data-testid="intake-filter-industry"
+                    className="rounded-md border border-white/10 bg-ink-900 px-3 py-1.5 text-xs text-slate-200"
+                />
+                {(filters.source || filters.industry || filters.status) && (
+                    <button onClick={() => setFilters({ source: "", industry: "", status: "" })}
+                        data-testid="intake-filter-clear"
+                        className="text-xs text-slate-400 underline-offset-2 hover:underline">Clear</button>
+                )}
+            </div>
+
+            {/* Lead table */}
+            <div className="overflow-hidden rounded-md border border-white/10 bg-ink-700/30" data-testid="intake-table">
+                {leads.length === 0 ? (
+                    <p className="p-8 text-center text-sm text-slate-400">No leads yet. Upload a CSV or click <span className="text-cyan-300">Add Lead</span> above.</p>
+                ) : (
+                    <table className="w-full min-w-[800px] text-left text-sm">
+                        <thead className="border-b border-white/10 bg-ink-900">
+                            <tr className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300">
+                                <th className="px-3 py-2">Name / Company</th>
+                                <th className="px-3 py-2">Email</th>
+                                <th className="px-3 py-2">Source</th>
+                                <th className="px-3 py-2">Status</th>
+                                <th className="px-3 py-2">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {leads.map((l) => <LeadRow key={l.lead_id} lead={l} auth={auth} onChange={refresh} />)}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const CsvImportCard = ({ auth, onDone }) => {
+    const inputRef = useRef(null);
+    const [busy, setBusy] = useState(false);
+    const [source, setSource] = useState("LinkedIn");
+    const [last, setLast] = useState(null);
+    const onFile = async (file) => {
+        if (!file) return;
+        setBusy(true); setLast(null);
+        try {
+            const r = await leadsImportCsv({ ...auth, source, file });
+            setLast(r);
+            const dupOther = r.duplicates_owned_by_other || 0;
+            if (r.added > 0) toast.success(`${r.added} added · ${r.duplicates_owned_by_self} dup (yours) · ${dupOther} owned-by-other`);
+            else if (dupOther > 0) toast.error(`All ${dupOther} already owned by other users`);
+            else toast.message("No new leads added");
+            onDone?.();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "CSV import failed");
+        } finally {
+            setBusy(false);
+            if (inputRef.current) inputRef.current.value = "";
+        }
+    };
+    return (
+        <div className="rounded-md border border-dashed border-white/15 bg-ink-700/30 p-4" data-testid="intake-csv-card">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">CSV Import</p>
+            <p className="mt-1 text-xs text-slate-400">Drop a CSV from LinkedIn Sales Nav, Lusha, Hunter, or Snov. Headers auto-mapped.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+                <select value={source} onChange={(e) => setSource(e.target.value)}
+                    data-testid="intake-csv-source"
+                    className="rounded-md border border-white/10 bg-ink-900 px-2 py-1.5 text-xs text-slate-200">
+                    {["LinkedIn", "Lusha", "Hunter", "Snov", "manual"].map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden"
+                    data-testid="intake-csv-input"
+                    onChange={(e) => onFile(e.target.files?.[0])} />
+                <button onClick={() => inputRef.current?.click()} disabled={busy}
+                    data-testid="intake-csv-btn"
+                    className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-60">
+                    <Upload size={11} /> {busy ? "Importing…" : "Upload CSV"}
+                </button>
+            </div>
+            {last && (
+                <div className="mt-3 space-y-1 rounded-md border border-white/5 bg-ink-900/50 p-3 text-xs text-slate-300" data-testid="intake-csv-result">
+                    <p>Parsed: <span className="font-mono text-white">{last.total_parsed}</span> · Added: <span className="font-mono text-emerald-300">{last.added}</span></p>
+                    <p>Duplicates yours: <span className="font-mono text-slate-400">{last.duplicates_owned_by_self}</span> · Owned by others: <span className="font-mono text-amber-300">{last.duplicates_owned_by_other}</span></p>
+                    {last.duplicate_examples_other?.length > 0 && (
+                        <details className="mt-2 text-[11px]">
+                            <summary className="cursor-pointer text-amber-300">Owned-by-other examples</summary>
+                            <ul className="mt-1 space-y-0.5 text-slate-400">
+                                {last.duplicate_examples_other.map((d, i) => <li key={i}>{d.email || d.company} — owner: {d.owned_by}</li>)}
+                            </ul>
+                        </details>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const ManualAddCard = ({ auth, onDone }) => {
+    const [f, setF] = useState({
+        first_name: "", last_name: "", email: "", phone: "", company: "",
+        title: "", industry: "", location: "", linkedin_url: "", source: "manual",
+    });
+    const [busy, setBusy] = useState(false);
+    const [paste, setPaste] = useState("");
+    const submit = async () => {
+        setBusy(true);
+        try {
+            const r = await leadsAddManual({ ...auth, lead: f });
+            toast[r.is_new ? "success" : (r.owned_by_other ? "error" : "message")](r.message);
+            if (r.is_new) {
+                setF({ first_name: "", last_name: "", email: "", phone: "", company: "", title: "", industry: "", location: "", linkedin_url: "", source: f.source });
+                onDone?.();
+            }
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Add failed");
+        } finally { setBusy(false); }
+    };
+    const parsePaste = () => {
+        if (!paste.trim()) return;
+        const lines = paste.split("\n").map((l) => l.trim()).filter(Boolean);
+        const out = { ...f };
+        for (const line of lines) {
+            const lower = line.toLowerCase();
+            if (lower.includes("@") && !out.email) { out.email = line.match(/[^\s,;]+@[^\s,;]+/)?.[0] || line; continue; }
+            if (lower.includes("linkedin.com")) { out.linkedin_url = line.match(/https?:\/\/[^\s,;]+/)?.[0] || line; continue; }
+            if (/[\d\-\(\)\s]{7,}/.test(line) && !out.phone) { out.phone = line; continue; }
+            if (!out.name && /^[A-Z][a-z]+\s[A-Z][a-z]+/.test(line)) {
+                const [first, ...rest] = line.split(/\s+/);
+                out.first_name = first; out.last_name = rest.join(" ");
+                continue;
+            }
+            if (!out.company && /(LLC|Inc|Corp|Group|Ltd)/i.test(line)) { out.company = line; continue; }
+            if (!out.title) { out.title = line; }
+        }
+        setF(out);
+    };
+    return (
+        <div className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-4" data-testid="intake-manual-card">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Manual Entry</p>
+            <p className="mt-1 text-xs text-slate-400">Paste from Lusha/LinkedIn or fill by hand.</p>
+            <textarea
+                placeholder="Paste anything from Lusha (name, email, title, phone, LinkedIn URL — one per line)"
+                value={paste}
+                onChange={(e) => setPaste(e.target.value)}
+                onBlur={parsePaste}
+                rows={3}
+                data-testid="intake-manual-paste"
+                className="mt-3 w-full rounded-md border border-white/10 bg-ink-900 p-2 text-xs text-slate-200 placeholder:text-slate-500"
+            />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+                {[
+                    ["first_name", "First name"], ["last_name", "Last name"],
+                    ["email", "Email"], ["phone", "Phone"],
+                    ["company", "Company"], ["title", "Title"],
+                    ["industry", "Industry"], ["location", "Location"],
+                ].map(([k, label]) => (
+                    <input key={k} placeholder={label} value={f[k]}
+                        onChange={(e) => setF((p) => ({ ...p, [k]: e.target.value }))}
+                        data-testid={`intake-manual-${k}`}
+                        className="rounded-md border border-white/10 bg-ink-900 px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500" />
+                ))}
+                <input placeholder="LinkedIn URL" value={f.linkedin_url} onChange={(e) => setF((p) => ({ ...p, linkedin_url: e.target.value }))}
+                    data-testid="intake-manual-linkedin"
+                    className="col-span-2 rounded-md border border-white/10 bg-ink-900 px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500" />
+                <select value={f.source} onChange={(e) => setF((p) => ({ ...p, source: e.target.value }))}
+                    data-testid="intake-manual-source"
+                    className="rounded-md border border-white/10 bg-ink-900 px-2 py-1.5 text-xs text-slate-200">
+                    {["LinkedIn", "Lusha", "Hunter", "Snov", "manual"].map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <button onClick={submit} disabled={busy} data-testid="intake-manual-submit"
+                    className="rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-ink-900 hover:bg-cyan-400 disabled:opacity-60">
+                    {busy ? "Adding…" : "Add lead"}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const LeadRow = ({ lead, auth, onChange }) => {
+    const [busy, setBusy] = useState(false);
+    const move = async (status) => {
+        setBusy(true);
+        try {
+            await leadsUpdateStatus({ ...auth, lead_id: lead.lead_id, status });
+            toast.success(`Moved to ${LEAD_PIPELINE_LABELS[status]}`);
+            onChange?.();
+        } catch { toast.error("Status update failed"); }
+        finally { setBusy(false); }
+    };
+    const copyEmail = async () => {
+        if (!lead.email) return;
+        await navigator.clipboard.writeText(lead.email);
+        toast.success("Email copied");
+        await leadsTouch({ ...auth, lead_id: lead.lead_id, type_: "email_copied" }).catch(() => {});
+    };
+    const openLinkedin = async () => {
+        if (!lead.linkedin_url) return;
+        window.open(lead.linkedin_url, "_blank", "noopener");
+        await leadsTouch({ ...auth, lead_id: lead.lead_id, type_: "linkedin_opened" }).catch(() => {});
+    };
+    return (
+        <tr className="border-b border-white/5 hover:bg-ink-900/30" data-testid={`intake-row-${lead.lead_id}`}>
+            <td className="px-3 py-2">
+                <p className="font-medium text-white">{lead.name || "—"}</p>
+                <p className="text-xs text-slate-400">{lead.company || "—"} · {lead.title || ""}</p>
+            </td>
+            <td className="px-3 py-2 text-xs text-slate-300">
+                {lead.email || <span className="text-slate-500">—</span>}
+                {lead.linkedin_url && <span className="ml-1 text-slate-500">·</span>}
+                {lead.linkedin_url && <Linkedin size={11} className="ml-1 inline text-cyan-300" />}
+            </td>
+            <td className="px-3 py-2"><span className="rounded-sm bg-ink-900 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300">{lead.source}</span></td>
+            <td className="px-3 py-2">
+                <select value={lead.status} disabled={busy}
+                    onChange={(e) => move(e.target.value)}
+                    data-testid={`intake-row-status-${lead.lead_id}`}
+                    className="rounded-md border border-white/10 bg-ink-900 px-2 py-1 text-xs text-slate-200">
+                    {LEAD_PIPELINE.map((s) => <option key={s} value={s}>{LEAD_PIPELINE_LABELS[s]}</option>)}
+                    {!LEAD_PIPELINE.includes(lead.status) && <option value={lead.status}>{lead.status}</option>}
+                </select>
+            </td>
+            <td className="px-3 py-2">
+                <div className="flex items-center gap-1.5">
+                    {lead.email && (
+                        <button onClick={copyEmail} title="Copy email"
+                            data-testid={`intake-row-copyemail-${lead.lead_id}`}
+                            className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                            <FileText size={11} />
+                        </button>
+                    )}
+                    {lead.linkedin_url && (
+                        <button onClick={openLinkedin} title="Open LinkedIn"
+                            data-testid={`intake-row-linkedin-${lead.lead_id}`}
+                            className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                            <Linkedin size={11} />
+                        </button>
+                    )}
+                    <button onClick={() => move("contacted")} disabled={busy || lead.status !== "new"} title="Mark contacted"
+                        data-testid={`intake-row-contacted-${lead.lead_id}`}
+                        className="rounded-md border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-40">
+                        <Send size={11} />
+                    </button>
+                </div>
+            </td>
+        </tr>
+    );
+};
+
+
 
 // ---------- Outreach tab ----------
 const OutreachTab = ({ auth }) => {
@@ -2616,6 +2953,7 @@ export default function PortalOpsPage() {
         switch (active) {
             case "performance": return <PerformanceTab auth={auth} me={me} />;
             case "leads":       return <LeadsTab auth={auth} me={me} />;
+            case "intake":      return <LeadIntakeTab auth={auth} me={me} />;
             case "outreach":    return <OutreachTab auth={auth} />;
             case "demos":       return <DemosTab auth={auth} />;
             case "ai":          return <AITab auth={auth} />;

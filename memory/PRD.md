@@ -1,6 +1,74 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-05 (Iter 50 — Force-reply engine · multi-inbox · open tracking · Lead Registry foundation · Push Hot Leads)
+**Last update:** 2026-05-05 (Iter 51 — Universal Lead Intake · CSV import · manual paste · exclusive ownership UI)
+
+---
+
+## 🎯 ITER 51 — UNIVERSAL LEAD INTAKE (manual sourcing, no API keys)
+
+Per Jeffrey's "CreatorBoostAI — Multi-Source Lead Engine (No API Keys Required)" directive: build the foundation for LinkedIn / Lusha / Hunter / Snov manual ingestion with strict exclusive-ownership enforcement.
+
+### What shipped
+1. **Backend `lead_registry.py` extended (Iter 50 → Iter 51)**
+   - `fingerprint_hash` (sha1 of email | phone | normalized-company-name) — Jeffrey's exact spec
+   - Status pipeline: `new → contacted → responded → meeting_set → closed`
+   - Multi-format CSV ingestion: case-insensitive header auto-mapping for LinkedIn Sales Nav / Lusha / Hunter / Snov / generic exports (synonyms map covers `First Name`, `Full Name`, `Email`, `Email Address`, `Job Title`, `Position`, `Company Name`, `Organization`, `LinkedIn URL`, `Profile URL`, etc.)
+   - Sniffs CSV delimiter (comma / tab / semicolon / pipe), handles UTF-8/BOM/Latin-1
+   - Skips rows with no email AND no (company+name) — useless leads
+   - `import_batch_id` + `imported_by` tracked on every row
+   - `activity_log` array — appended on import / status change / email_copied / linkedin_opened / call_attempt
+   - `_norm_company()` strips LLC/Inc/Corp/Ltd/etc. suffixes for fuzzy company matching
+   - **Exclusive-ownership enforcement**: `upsert_lead()` returns `owned_by_other: True` when an existing lead is assigned to a different user → API returns "This lead is already owned by another user."
+
+2. **New `leads_router.py` — 7 endpoints under `/api/leads`**
+   - `POST /add-manual` — single-add (Lusha-paste workflow). Accepts nested `lead: {...}` payload (avoids auth.email shadowing lead.email)
+   - `POST /import-csv` — multipart upload, max 5 MB, returns `{batch_id, total_parsed, added, duplicates_owned_by_self, duplicates_owned_by_other, duplicate_examples_other}`
+   - `POST /list` — filtered (source / industry / status / assigned_to). Non-admin users only see leads assigned to them
+   - `POST /update-status` — pipeline transitions (ownership-checked)
+   - `POST /touch` — activity bump (used when user copies email or opens LinkedIn — keeps lock alive)
+   - `POST /release` — manual release back to AVAILABLE
+   - `POST /stats` — dashboard summary (total, by_status, by_source)
+   - All endpoints are auth-gated; founder/executive/president see all, employees see their own
+
+3. **Frontend `LeadIntakeTab` (new tab in `/portal/ops`)**
+   - Sidebar nav item "Lead Intake" with `Upload` icon — sits between Leads and Outreach
+   - Pipeline counter row: 5 clickable tiles (New / Contacted / Responded / Meeting set / Closed) — clicking filters the table
+   - **CSV Import card**: source dropdown (LinkedIn/Lusha/Hunter/Snov/manual) + Upload CSV button + result panel showing `parsed / added / duplicates yours / owned by others` with collapsible `Owned-by-other examples` list
+   - **Manual Entry card**: 9-field grid + smart paste-in textarea that auto-extracts email/phone/LinkedIn URL/name/title from pasted Lusha content on blur
+   - **Filter bar**: source dropdown + industry text filter + Clear button
+   - **Lead table**: Name/Company · Email (with LinkedIn icon when present) · Source pill · Status dropdown (live pipeline transitions) · per-row actions: Copy email · Open LinkedIn · Mark contacted (one-click `new → contacted`)
+   - All actions have `data-testid` attributes
+   - Toasts surface "added" / "owned-by-other" / "merged"
+
+### Supports
+- **Multi-source tracking**: every lead retains `source` (LinkedIn/Lusha/Hunter/Snov/manual/demo_capture), `import_method` (csv/manual), `imported_by`, `import_batch_id`
+- **Future-proofing**: schema designed to extend later with API integrations (Apollo/ZoomInfo) — adapters slot in via `source` field, no schema migration needed
+- **Performance**: 50–200 leads per CSV upload tested locally; instant dedup; no lag in assignment
+
+### Verified live (curl + screenshot)
+```
+✓ POST /api/leads/add-manual {lead:{...}}                       → ok, is_new:true, exclusive ownership locked
+✓ Re-add same email                                              → is_new:false, message "Already in your registry — merged"
+✓ POST /api/leads/import-csv (LinkedIn-format CSV, 5 rows)       → parsed:4, added:4 (1 row correctly skipped — no name)
+✓ POST /api/leads/import-csv (Lusha-format CSV, "Full Name" etc) → parsed:2, added:2 — header auto-mapping works
+✓ POST /api/leads/list (founder)                                 → 8 leads, all sources visible, sorted newest first
+✓ POST /api/leads/stats                                          → {total: 8, by_status: {new: 7, contacted: 0, ...}, by_source: {LinkedIn: 5, Lusha: 2, demo_capture: 1, ...}}
+✓ Frontend "Lead Intake" tab renders pipeline counters, import cards, filters, table with status dropdowns + per-row actions
+✓ All 7 leads visible in dashboard (Brian Lee, Anna Davis, Tom Reilly, Lisa Park, Sarah Johnson, Mike Chen, John Smith)
+```
+
+### Files touched
+- `/app/backend/lead_registry.py` — extended with fingerprint, CSV ingest, status pipeline, list/release/touch helpers, company-suffix normalization
+- `/app/backend/leads_router.py` — NEW · 7-endpoint router
+- `/app/backend/server.py` — wired `/api/leads/*` router with `_require_any_role` auth helper
+- `/app/frontend/src/lib/api.js` — 7 new helpers (`leadsAddManual`, `leadsList`, `leadsUpdateStatus`, `leadsTouch`, `leadsRelease`, `leadsStats`, `leadsImportCsv`)
+- `/app/frontend/src/pages/PortalOpsPage.jsx` — new `LeadIntakeTab` + `CsvImportCard` + `ManualAddCard` + `LeadRow` components, "Lead Intake" sidebar entry, route case in `Tab` useMemo
+
+### Future / not built per Jeffrey's "do not overbuild"
+- API integrations (Apollo, ZoomInfo, Outscraper) — **deferred**, schema ready
+- Automated lead ingestion / AI outreach loop — **already exists in outbound engine**, not coupled to manual intake
+- Lead expiration/recycling — `expire_stale_locks()` helper exists, no UI yet
+- Commission tracking / affiliate routing — **deferred**, schema ready (`assigned_to_company_id` slot reserved)
 
 ---
 
