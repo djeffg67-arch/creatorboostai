@@ -1,8 +1,107 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-05 (Iter 56 — New Startup Business positioning + Business Builder Module)
+**Last update:** 2026-05-05 (Iter 57 — Business Activation Capture System)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 57 — BUSINESS ACTIVATION CAPTURE SYSTEM (Top-of-funnel pipeline)
+
+Per Jeffrey's directive: replace the simple "save my draft" idea with a full activation
+pipeline. Every Business Builder output now becomes a captured + LOCKED lead inside the
+Exclusive Lead Engine, with a compiled PDF emailed to the founder and a 3-step nurture
+sequence triggered automatically.
+
+### Backend (`/app/backend/business_activation.py`, NEW · 570 lines)
+- `POST /api/business-activation/capture` (public) — full pipeline in one call:
+  1. **Compile PDF** server-side via `reportlab` (pure-python, no system deps). Cover
+     page + one section per builder block + closing activation page + legal disclaimer.
+     Markdown → branded PDF with bold/headings/bullets/separators/tables.
+  2. **Register lead** via `lead_registry.upsert_lead` with
+     `assigned_to_user_id=FOUNDER_EMAIL`. The Exclusive Lead Engine fingerprint hash
+     (email · phone · company+location · name) ensures the lead is LOCKED and globally
+     deduplicated. Idempotent: same email re-submission returns same `lead_id`.
+  3. **Persist capture record** to `business_activation_captures` collection (full
+     session, all blocks, wants_outbound_help flag).
+  4. **Send Email 1 immediately** — subject "Your Business Plan + AI System Access",
+     PDF attached, "Activate my system" CTA button, Continue Building deep link.
+     From `info@creatorboostai.com` (verified Resend sender; SENDER_EMAIL env var is
+     intentionally hardcoded — see email_service.py).
+  5. **Schedule Email 2 (T+24h)** — execution-focused: "Plans don't fail. Execution
+     does."
+  6. **Schedule Email 3 (T+72h)** — offer assistance with Loom/demo links: "Want me to
+     help you ship X?"
+  7. **Notify founder** of the new captured lead via existing
+     `email_service.send_founder_notification` — flagged with OUTBOUND HELP REQUESTED
+     when applicable.
+- `POST /api/business-activation/admin-list` (founder-auth) — captures sorted desc
+  with per-step nurture progress for each capture.
+- **Background nurture loop** `business_activation_nurture_loop(db, interval_sec=300)`
+  started from `server.py` on app startup. Polls for due step_2 / step_3, sends them,
+  marks complete. Disabled with `NURTURE_SCHEDULER=off`.
+- **Resend attachment support** via `_send_with_attachment` — extends
+  `email_service.send_with_result` with base64 PDF attachment param.
+
+### Frontend (`/app/frontend/src/pages/BusinessBuilderPage.jsx`)
+- New `<ActivationModal>` component. Triggered from a prominent emerald-bordered
+  CTA block ("Activate My Business System") above every generated output.
+- Modal collects: name, email, business_name (pre-filled from inputs), business_type
+  (pre-filled from inputs.industry), and an **opt-in checkbox**:
+  "I want CreatorBoostAI to help me get customers for this business" → flags
+  `wants_outbound_help` for future done-with-you outbound services.
+- On submit: bundles current output + last 5 saved workspace blocks → POST to
+  `/capture` with 60s timeout → success state shows lead_id, capture_id, PDF size,
+  nurture schedule + Continue Building link.
+
+### What this pipeline guarantees (per Jeffrey's spec)
+- ✓ Every captured lead has a unique `lead_id` (uuid4)
+- ✓ Locked + globally deduplicated via Exclusive Lead Engine fingerprint
+- ✓ Cannot be reassigned without explicit founder action (Iter 51 ownership rules)
+- ✓ Source tagged `startup_builder` (or override per call)
+- ✓ Activation email + 3-step nurture trigger automatically and atomically
+- ✓ Graceful degrade when RESEND_API_KEY is absent (preview env): lead still locked,
+  PDF still compiled, nurture still scheduled, email_error surfaced honestly
+
+### Verified live (testing agent iteration 35 · 100% pass · 6/6 backend + frontend e2e)
+```
+✓ /capture happy path → lead_id + capture_id + PDF (4-7KB) + nurture scheduled
+✓ Idempotency → same email → same lead_id, is_new_lead=false
+✓ Invalid email → 422
+✓ Email graceful degrade → email_delivered=false + email_error surfaced
+✓ /admin-list 401 on bogus token, returns enriched captures[] for founder
+✓ Lead created in leads_registry with status=new + lock_status=LOCKED + assigned_to_user_id=founder
+✓ Frontend: builder generate → activation-cta-block visible → modal opens
+✓ Frontend: empty fields → submit disabled
+✓ Frontend: full submit → success state with lead_id + continue link
+✓ Frontend: modal close (X + backdrop) cleanly resets state
+```
+
+### Observed behavior (per spec — not a bug)
+- Lead dedupe operates at the BUSINESS level (email OR phone OR company+location).
+  Two team members from the same business activating with different emails will
+  share the same `lead_id`. This is the Iter 51 Exclusive Lead Engine rule —
+  "no two users can ever get the same business as a lead". Founder can split via
+  manual reassignment if needed.
+
+### Files touched
+- `/app/backend/business_activation.py` (NEW · 570 lines)
+- `/app/backend/server.py` (router wired + nurture loop start)
+- `/app/backend/requirements.txt` (added `reportlab==4.5.0`)
+- `/app/frontend/src/pages/BusinessBuilderPage.jsx` (Activate CTA + Modal)
+- `/app/frontend/src/lib/api.js` (`businessActivationCapture` helper)
+- `/app/backend/tests/test_iter57_business_activation.py` (NEW · 6 pytest cases)
+- `/app/memory/test_credentials.md` (added 2-auth-paths note)
+
+### Production readiness checklist
+- ✓ Lead capture working
+- ✓ PDF generation working (server-side reportlab; no client dep)
+- ✓ Outbound nurture sequence triggering
+- ✓ Leads stored + locked properly via Exclusive Lead Engine
+- ⏸ Email delivery requires `RESEND_API_KEY` in production .env (already verified to
+  exist in production deployment per email_service log line)
+- ⏸ Founder-notification email also requires `FOUNDER_EMAIL` env (defaults to
+  j.davidg67@gmail.com)
 
 ---
 
