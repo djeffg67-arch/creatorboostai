@@ -4,7 +4,7 @@ import { Layout } from "@/components/site/Layout";
 import {
     Rocket, FileText, TrendingUp, Banknote, Users, Mail, Sparkles,
     ArrowRight, Play, Pause, RotateCcw, CheckCircle2, MessageSquare, Building2,
-    Volume2, VolumeX, Mic,
+    Volume2, VolumeX, Mic, Globe, Layout as LayoutIcon, Smartphone, Monitor,
 } from "lucide-react";
 
 // 10 scenes · ~18 seconds each · 3 minutes total narration
@@ -57,52 +57,62 @@ const SCENES = [
     },
     {
         id: "scene-6",
+        title: "Your business website, built automatically",
+        Icon: Globe,
+        kicker: "Scene 6 · The Website",
+        body: "Your business doesn't just need a plan — it needs a presence. The avatar builds a complete, industry-tuned website: home, about, services, contact. Copy written. Lead capture wired to your CRM. Mobile + desktop preview. Domain-ready to publish.",
+        chip: "Home · About · Services · Contact · Lead capture → CRM · Ready to publish",
+        voiceover: "Your business doesn't just need a plan — it needs a presence. CreatorBoostAI now builds your entire business website. Homepage, services, about, and contact pages — all written, designed, and connected to your lead system. Customers can find you, trust you, and take action immediately.",
+        kind: "website_builder",
+    },
+    {
+        id: "scene-7",
         title: "A targeted lead list — not a Lusha export",
         Icon: Users,
-        kicker: "Scene 6 · The Customers",
+        kicker: "Scene 7 · The Customers",
         body: "ICP locked. Lead-list filter spec generated. Each lead routes through the Exclusive Lead Engine — locked to you, never duplicated, never resold.",
         chip: "ICP defined · 47 prospects assembled · all locked to founder",
         voiceover: "Now the customers. Your ideal customer profile is locked, and a targeted prospect list is generated. Every lead runs through the Exclusive Lead Engine — locked to you, never duplicated, never resold.",
     },
     {
-        id: "scene-7",
+        id: "scene-8",
         title: "Value-first outreach the avatar writes for you",
         Icon: Mail,
-        kicker: "Scene 7 · The Outreach",
+        kicker: "Scene 8 · The Outreach",
         body: "5-touch cadence. Day 0 force-reply. Day 1 bump. Day 3 proof point. Day 5 Loom offer. Day 8 polite close. Personalized to each prospect's industry + city.",
         chip: "5 emails drafted per lead · all in voice · ready to send",
         voiceover: "The avatar writes your outreach. A five-touch cadence, personalized to each prospect's industry and city. Day zero, day one, day three, day five, day eight — every email crafted in your voice, ready to send.",
     },
     {
-        id: "scene-8",
+        id: "scene-9",
         title: "Demo or offer page launched",
         Icon: Sparkles,
-        kicker: "Scene 8 · The Conversion",
+        kicker: "Scene 9 · The Conversion",
         body: "Soft-gated demo page captures email + company. The intent score auto-bumps. The Hot Leads button surfaces them in the Ops portal in real time.",
         chip: "First demo viewed · soft-gate triggered · prospect score 85",
         voiceover: "Each prospect lands on a soft-gated demo page. Their intent score climbs with every click and open. Hot leads surface in the Ops portal in real time, so you know exactly who to call next.",
     },
     {
-        id: "scene-9",
+        id: "scene-10",
         title: "Replies tracked. Engagement scored. Hot leads pinged.",
         Icon: CheckCircle2,
-        kicker: "Scene 9 · The Signal",
+        kicker: "Scene 10 · The Signal",
         body: "Every reply gets AI-classified into interested / neutral / not-interested. Interested replies auto-create deals + send Calendly. Founder gets SMS within 60 seconds.",
         chip: "1 deal created · $2,800 pipeline · founder notified",
         voiceover: "Every reply is classified by AI — interested, neutral, or not interested. Interested replies automatically create a deal and send a Calendly link, and you receive a text message within sixty seconds. No reply gets missed.",
     },
     {
-        id: "scene-10",
+        id: "scene-11",
         title: "From win → client workspace · automatic",
         Icon: Building2,
-        kicker: "Scene 10 · The Delivery",
+        kicker: "Scene 11 · The Delivery",
         body: "Lead flips to won. Client account auto-created. 6-step checklist seeded. Magic link emailed. Delivery AI takes over. Zero manual handoff.",
         chip: "Client onboarded · workspace active · status: in_progress",
         voiceover: "Finally, when a deal closes, a client workspace is created automatically. A six-step delivery checklist is seeded, a magic link is emailed to your client, and Delivery AI takes over. Zero manual handoff. This is CreatorBoostAI — your business, fully operated.",
     },
 ];
 
-const SCENE_MS = 18000;  // 18s per scene × 10 scenes = 180s (3 min)
+const SCENE_MS = 16500;  // 16.5s × 11 scenes ≈ 181s (~3 min)
 
 // ─────────────── Voice picker (prefers English female voices) ───────────────
 const FEMALE_VOICE_HINTS = [
@@ -124,6 +134,144 @@ const pickFemaleVoice = (voices) => {
     }
     return pool[0] || null;
 };
+
+
+// ─────────────── Website Builder Panel (scene 6 visualization) ───────────────
+const BUILD_STEPS = [
+    "Generating homepage…",
+    "Drafting service pages…",
+    "Optimizing messaging for your industry…",
+    "Wiring lead capture form to CRM…",
+    "Building mobile + desktop layouts…",
+    "Preparing for domain deployment…",
+];
+
+const WebsiteBuilderPanel = ({ active, sceneIdx }) => {
+    const [stepIdx, setStepIdx] = useState(0);
+    const [showSite, setShowSite] = useState(false);
+    const [viewport, setViewport] = useState("desktop");
+    const timerRef = useRef(null);
+
+    // Reset whenever we enter / re-enter this scene.
+    useEffect(() => {
+        setStepIdx(0);
+        setShowSite(false);
+        return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    }, [sceneIdx]);
+
+    // Advance the build steps while the scene is active.
+    useEffect(() => {
+        if (!active) return;
+        if (stepIdx >= BUILD_STEPS.length) { setShowSite(true); return; }
+        timerRef.current = setTimeout(() => setStepIdx((i) => i + 1), 1400);
+        return () => clearTimeout(timerRef.current);
+    }, [active, stepIdx]);
+
+    return (
+        <div className="mt-8 grid gap-6 lg:grid-cols-2" data-testid="website-builder-panel">
+            {/* Build log */}
+            <div className="rounded-md border border-cyan-500/20 bg-ink-900/60 p-4">
+                <div className="flex items-center gap-2">
+                    <Globe size={13} className="text-cyan-300" />
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Build log</p>
+                </div>
+                <div className="mt-3 space-y-1.5" data-testid="website-builder-steps">
+                    {BUILD_STEPS.map((s, i) => {
+                        const done = i < stepIdx;
+                        const current = i === stepIdx;
+                        return (
+                            <div key={s}
+                                 data-testid={`website-build-step-${i}`}
+                                 className={`flex items-center gap-2 rounded-sm border px-2 py-1.5 font-mono text-[11px] ${
+                                     done ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-200"
+                                     : current ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-200"
+                                     : "border-white/5 bg-ink-700/30 text-slate-500"
+                                 }`}>
+                                {done ? <CheckCircle2 size={11} className="text-emerald-300" />
+                                    : current ? <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
+                                    : <span className="h-2 w-2 rounded-full bg-white/10" />}
+                                <span>{s}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Mini website preview */}
+            <div className="rounded-md border border-emerald-500/20 bg-ink-900/60 p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <LayoutIcon size={13} className="text-emerald-300" />
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Preview</p>
+                    </div>
+                    <div className="flex gap-1">
+                        <button onClick={() => setViewport("mobile")}
+                            data-testid="website-preview-mobile"
+                            className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] ${viewport === "mobile" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-white/10 text-slate-400 hover:text-emerald-300"}`}>
+                            <Smartphone size={10} /> Mobile
+                        </button>
+                        <button onClick={() => setViewport("desktop")}
+                            data-testid="website-preview-desktop"
+                            className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] ${viewport === "desktop" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-white/10 text-slate-400 hover:text-emerald-300"}`}>
+                            <Monitor size={10} /> Desktop
+                        </button>
+                    </div>
+                </div>
+                <div className={`mt-3 overflow-hidden rounded-md border border-white/10 bg-gradient-to-br from-slate-800 to-slate-900 transition-all duration-500 ${viewport === "mobile" ? "mx-auto max-w-[260px]" : "w-full"}`}
+                     data-testid="website-preview-frame">
+                    {!showSite ? (
+                        <div className="flex h-[280px] items-center justify-center">
+                            <div className="text-center">
+                                <span className="inline-block h-2 w-2 animate-ping rounded-full bg-cyan-400" />
+                                <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Composing layout…</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div data-testid="website-preview-rendered" className="h-[280px] overflow-hidden">
+                            <div className="flex items-center gap-1.5 border-b border-white/10 bg-black/30 px-2 py-1.5">
+                                <span className="h-2 w-2 rounded-full bg-rose-400/70" />
+                                <span className="h-2 w-2 rounded-full bg-amber-400/70" />
+                                <span className="h-2 w-2 rounded-full bg-emerald-400/70" />
+                                <span className="ml-2 truncate font-mono text-[9px] text-slate-400">austindoggrooming.com</span>
+                            </div>
+                            <div className="flex items-center justify-between bg-white/[0.03] px-3 py-2">
+                                <span className="font-heading text-[11px] font-semibold text-white">Austin Dog Grooming</span>
+                                <div className="flex gap-2 font-mono text-[8px] uppercase tracking-[0.18em] text-slate-400">
+                                    <span>Home</span><span>Services</span><span>About</span><span>Contact</span>
+                                </div>
+                            </div>
+                            <div className="px-3 py-4">
+                                <p className="font-mono text-[8px] uppercase tracking-[0.22em] text-emerald-300">Mobile · Austin TX</p>
+                                <p className="mt-1 font-heading text-[14px] font-semibold leading-tight text-white">
+                                    Stress-free dog grooming<br />delivered to your door.
+                                </p>
+                                <p className="mt-1.5 text-[10px] leading-snug text-slate-300">
+                                    Van-based grooming for busy Austin dog parents. $80 flat · same-week booking.
+                                </p>
+                                <div className="mt-2 flex gap-1.5">
+                                    <span className="rounded-sm bg-emerald-400 px-2 py-1 font-mono text-[8px] uppercase tracking-[0.18em] text-ink-900">Book a van</span>
+                                    <span className="rounded-sm border border-cyan-500/40 px-2 py-1 font-mono text-[8px] uppercase tracking-[0.18em] text-cyan-300">Get a quote</span>
+                                </div>
+                            </div>
+                            <div className="mx-3 mb-3 rounded-sm border border-emerald-500/30 bg-emerald-500/5 px-2 py-2">
+                                <p className="font-mono text-[8px] uppercase tracking-[0.22em] text-emerald-300">Lead capture → CRM</p>
+                                <div className="mt-1 grid grid-cols-2 gap-1">
+                                    <span className="rounded-sm bg-white/5 px-1.5 py-1 text-[8px] text-slate-400">Name</span>
+                                    <span className="rounded-sm bg-white/5 px-1.5 py-1 text-[8px] text-slate-400">Phone</span>
+                                </div>
+                                <span className="mt-1 block rounded-sm bg-emerald-400 px-1.5 py-1 text-center font-mono text-[8px] uppercase tracking-[0.18em] text-ink-900">Request a quote</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                <p className="mt-2 font-mono text-[10px] text-slate-400">
+                    {showSite ? "Domain-ready · lead capture wired to your CRM" : "Rendering your site…"}
+                </p>
+            </div>
+        </div>
+    );
+};
+
 
 export default function StartupDemoPage() {
     const [started, setStarted] = useState(false);
@@ -359,6 +507,11 @@ export default function StartupDemoPage() {
                         <div className="mt-6 inline-flex items-center gap-2 rounded-md border border-white/10 bg-ink-900 px-4 py-2.5 font-mono text-[11px] text-cyan-300">
                             <Sparkles size={12} /> {scene.chip}
                         </div>
+
+                        {/* Website Builder live visualization (Scene 6) */}
+                        {scene.kind === "website_builder" && (
+                            <WebsiteBuilderPanel active={started && playing} sceneIdx={idx} />
+                        )}
 
                         {/* Start-with-voice overlay — visible until user's first click. */}
                         {!started && (

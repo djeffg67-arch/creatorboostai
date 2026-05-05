@@ -3,18 +3,18 @@ import { Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import {
     Rocket, FileText, TrendingUp, Banknote, Users, Mail, Sparkles,
-    ArrowRight, CheckCircle2, ShieldCheck, Building2,
+    ArrowRight, CheckCircle2, ShieldCheck, Building2, Globe,
 } from "lucide-react";
 
 const TOOLS = [
     { Icon: FileText,   label: "Business plan generator" },
     { Icon: TrendingUp, label: "Financial projections" },
     { Icon: Banknote,   label: "Loan-ready documents" },
+    { Icon: Globe,      label: "Business website builder" },
     { Icon: CheckCircle2, label: "Startup checklist" },
     { Icon: Users,      label: "ICP + market research" },
     { Icon: Mail,       label: "Cold-email + outreach scripts" },
     { Icon: Sparkles,   label: "Pitch deck outline" },
-    { Icon: Building2,  label: "Pricing + offer ladder" },
 ];
 
 export default function StartupLandingPage() {
@@ -73,6 +73,53 @@ export default function StartupLandingPage() {
                                 </div>
                             ))}
                         </div>
+
+                        {/* Website Builder feature highlight */}
+                        <div
+                            data-testid="startup-website-feature"
+                            className="mt-10 overflow-hidden rounded-md border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-cyan-500/5 p-6 sm:p-8"
+                        >
+                            <div className="flex flex-wrap items-start gap-6">
+                                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-emerald-400/40 bg-emerald-400/10">
+                                    <Globe size={20} className="text-emerald-300" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">New · included in every plan</p>
+                                    <h3 className="font-heading mt-2 text-2xl font-semibold text-white sm:text-3xl">
+                                        Build Your Business Website Instantly
+                                    </h3>
+                                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
+                                        CreatorBoostAI creates your full website — pages, messaging, and lead capture —
+                                        so you can go live immediately. Homepage, services, about, and contact pages are
+                                        written for your industry, optimized for conversion, and wired to your CRM.
+                                    </p>
+                                    <div className="mt-5 flex flex-wrap items-center gap-2">
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-ink-900 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">Home</span>
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-ink-900 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">Services</span>
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-ink-900 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">About</span>
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-ink-900 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300">Contact</span>
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Lead capture → CRM</span>
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Mobile + Desktop</span>
+                                    </div>
+                                    <div className="mt-6 flex flex-wrap gap-3">
+                                        <Link
+                                            to="/demo/startup"
+                                            data-testid="cta-see-website-demo"
+                                            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-400 px-4 py-2.5 text-xs font-semibold text-ink-900 hover:bg-emerald-300"
+                                        >
+                                            See it in the demo <ArrowRight size={13} />
+                                        </Link>
+                                        <Link
+                                            to="/portal/builder"
+                                            data-testid="cta-build-website"
+                                            className="inline-flex items-center gap-1.5 rounded-md border border-cyan-500/40 bg-ink-900 px-4 py-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500 hover:text-ink-900"
+                                        >
+                                            Build my website
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -88,8 +135,9 @@ export default function StartupLandingPage() {
                                 ["1", "Tell the avatar your business idea", "Industry, location, goals, pricing — answer 6 questions."],
                                 ["2", "Get a business plan + financials", "Draft business plan, 12-month projection, startup budget — exportable to PDF/DOCX."],
                                 ["3", "Get loan-ready documents", "Loan summary, repayment schedule, use-of-funds — bank-ready in minutes."],
-                                ["4", "Build a targeted lead list", "Define your ICP, generate value-first outreach, launch a demo or offer page."],
-                                ["5", "Close + onboard clients", "Auto-onboarding workflow + delivery workspace + AI assistant per client."],
+                                ["4", "Your business website, built for you", "Homepage, services, about, contact + lead capture wired to your CRM. Mobile + desktop. Domain-ready."],
+                                ["5", "Build a targeted lead list", "Define your ICP, generate value-first outreach, launch a demo or offer page."],
+                                ["6", "Close + onboard clients", "Auto-onboarding workflow + delivery workspace + AI assistant per client."],
                             ].map(([n, t, b]) => (
                                 <li key={n} className="flex gap-4 rounded-md border border-white/10 bg-ink-700/30 p-5">
                                     <span className="font-heading flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-400/10 text-base font-semibold text-emerald-300">{n}</span>
