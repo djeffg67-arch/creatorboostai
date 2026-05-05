@@ -1,8 +1,110 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-05 (Iter 54 — Start Engine Onboarding + Startup Pricing System)
+**Last update:** 2026-05-05 (Iter 55 — Client Delivery System: Client Portal + Auto-Onboarding)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 55 — CLIENT DELIVERY SYSTEM (Client Portal + Auto-Onboarding)
+
+Per Jeffrey's "CLIENT DELIVERY SYSTEM" directive: convert CreatorBoostAI from a lead +
+sales engine into a full business operating system. Auto-onboard every closed-won deal
+into a magic-link-gated client workspace; founder manages the entire lifecycle inside Ops.
+
+### Backend
+- **`/app/backend/client_delivery.py`** (NEW · 566 lines · all 10 sections)
+  - `auto_onboard_from_lead(db, lead_id, trigger)` — idempotent helper. Creates
+    `client_accounts` row (uuid + magic token + plan_key + deal_value_usd), seeds 6
+    default `client_tasks` (intake_received → strategy_defined → setup_complete →
+    first_execution → review → optimization), seeds welcome `client_messages` from
+    "Delivery AI".
+  - **Founder/employee endpoints** (auth-gated): `POST /api/client/onboard-from-lead`,
+    `/list` (with status filter + counts pills), `/workspace`, `/set-status`,
+    `/task-toggle`, `/reply`, `/resend-magic`, `/inactive-flag-check`.
+  - **Public portal endpoints** (magic-token gated): `/portal/access`, `/portal/upload`
+    (5 MB cap, base64 storage in `client_uploads`), `/portal/message`.
+  - **Section 7 status auto-sync**: 0 done → onboarding · 1-2 → in_progress · 3-5 →
+    review · 6 → completed. Manual `inactive` flag respected.
+  - **Section 8 founder notifications** via `email_service.send_founder_notification`:
+    new client onboarded, client uploads file, client posts message, 48h-inactive flag.
+  - All founder-facing responses strip `client_token`; only the magic_link URL exposes
+    it (so founder can copy + manually share if Resend mail fails).
+- **`/app/backend/server.py`**
+  - Router wired after start_engine (line ~3565).
+  - **Stripe webhook hook** (line ~2375 inside `_log_demo_revenue_event`): on
+    `checkout.session.completed` for a lead with `lead_id` in metadata →
+    `auto_onboard_from_lead(db, lead_id, trigger="stripe_close_won")` → magic-link email
+    + founder alert.
+- **`/app/backend/ops_center.py`** · `/leads/status`: when an employee/founder flips a
+  lead to `won` manually → `auto_onboard_from_lead(...)` → `onboarded_client_id` echoed
+  in the API response. Wrapped in try/except so onboarding failure doesn't block status.
+- **`/app/backend/avatar.py`**
+  - New "delivery" role-tagged system prompt (line 165): operator focused on moving the
+    work forward, no upsell, can generate concrete deliverables (scripts, plans).
+  - `_pick_model` escalates `delivery` to Claude Sonnet 4.5 (deep model).
+  - `_handle_chat` (line 446): `surface == "client_portal"` forces role="delivery"
+    regardless of message keywords.
+
+### Frontend
+- **`/app/frontend/src/pages/ClientPortalPage.jsx`** (NEW · 350 lines · public
+  magic-token gated) — Welcome header, status pill, progress bar (% complete), 4 tabs:
+  - **Deliverables** — checklist with completed-date stamps
+  - **Messages** — conversation thread (client posts → founder/AI replies)
+  - **Uploads** — file picker (5 MB cap, base64) + uploads list
+  - **AI assistant** — calls `/api/avatar/chat` with `surface="client_portal"`
+- **`/app/frontend/src/pages/PortalOpsPage.jsx`**
+  - New `<ClientsTab>` between Demo Links and AI Assistant. Filter pills (all /
+    onboarding / in_progress / review / completed / inactive) with live counts.
+    "Onboard from lead" button for manual onboarding.
+  - `<ClientDrawer>` per client: status switcher · 6-task checklist (toggle done) ·
+    uploads list · messages thread + reply input · "Resend magic link" button · full
+    magic link displayed for copy-paste.
+- **`/app/frontend/src/App.js`** · `/portal/client/:client_id` route registered.
+- **`/app/frontend/src/lib/api.js`** · 11 new helpers (founder + public portal).
+
+### Verified live (testing agent iteration 33 · 16/16 pytest passing)
+```
+✓ Auto-onboard via /leads/status won → client_accounts created · 6 tasks · 1 welcome msg
+✓ Idempotent on re-flip won → same client_id, no duplicate tasks
+✓ /api/client/list (founder) → counts {all, onboarding, in_progress, review, completed, inactive}
+✓ /api/client/workspace → tasks + messages + uploads + magic_link
+✓ /api/client/task-toggle → status auto-syncs onboarding → in_progress → review → completed
+✓ /api/client/portal/access valid token → full workspace
+✓ /api/client/portal/access INVALID token → 401
+✓ /api/client/portal/message author=client + last_activity_at bumped
+✓ /api/client/portal/upload <5MB → ok · >5MB → 413
+✓ /api/client/reply (founder) → message author=founder
+✓ /api/client/inactive-flag-check (founder) → 48h cutoff scan + alerts
+✓ Avatar surface=client_portal → role=delivery, no upsell language
+✓ /portal/client/:id?token=valid → welcome + status pill + progress + 6 tasks rendered
+✓ /portal/client/:id?token=INVALID → ACCESS DENIED screen
+```
+
+### Bug fixed by testing agent (auto-applied)
+- `FounderReplyReq` was defined inside `make_client_delivery_router()` closure, causing
+  FastAPI's body-type resolver to fail and return 422 on `/api/client/reply`. Fixed by
+  hoisting to module-level alongside other Pydantic models. Pattern note: never define
+  Pydantic body models inside route-factory closures.
+
+### Files touched
+- `/app/backend/client_delivery.py` (NEW)
+- `/app/backend/server.py` (router wire + Stripe webhook auto-onboard hook)
+- `/app/backend/ops_center.py` (manual won → auto-onboard hook)
+- `/app/backend/avatar.py` (delivery role + surface gating)
+- `/app/frontend/src/App.js` (route registration)
+- `/app/frontend/src/pages/ClientPortalPage.jsx` (NEW)
+- `/app/frontend/src/pages/PortalOpsPage.jsx` (Clients tab + Drawer)
+- `/app/frontend/src/lib/api.js` (11 new helpers)
+- `/app/backend/tests/test_iter55_client_delivery.py` (NEW · 16 pytest assertions)
+
+### Outstanding / backlog
+- (P1) `RESEND_API_KEY` for actual magic-link delivery (currently logs to
+  `client_magic_link_log` with delivered_ok=false; founder can copy magic_link from
+  drawer manually).
+- (P2) Auto-cron for `/inactive-flag-check` every 6h (currently founder-triggered).
+- (P2) Real file storage backend (S3/disk) — base64-in-Mongo works for MVP <5MB.
+- (P2) Split client_delivery.py into public vs founder routers if Iter 56 extends.
 
 ---
 
