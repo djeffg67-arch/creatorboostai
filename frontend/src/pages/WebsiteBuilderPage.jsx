@@ -4,9 +4,9 @@ import { Layout } from "@/components/site/Layout";
 import { toast } from "sonner";
 import {
     Globe, Sparkles, Loader2, ArrowRight, ArrowLeft, RefreshCcw, CheckCircle2,
-    Copy, Rocket,
+    Copy, Rocket, Send, Mail,
 } from "lucide-react";
-import { websiteBuilderGenerate } from "@/lib/api";
+import { websiteBuilderGenerate, websiteBuilderIntent } from "@/lib/api";
 import { RenderedWebsitePreview } from "@/components/portal/RenderedWebsitePreview";
 
 const BUILD_STEPS = [
@@ -258,6 +258,7 @@ export default function WebsiteBuilderPage() {
                             {site && (
                                 <>
                                     <RenderedWebsitePreview site={site} testIdPrefix="builder-website" />
+                                    <DomainIntentCard site={site} inputs={inputs} />
                                     <div className="flex flex-wrap items-center gap-2" data-testid="builder-actions">
                                         <button onClick={copyJSON} data-testid="builder-copy-json"
                                             className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-ink-700/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300 hover:text-cyan-300">
@@ -280,3 +281,154 @@ export default function WebsiteBuilderPage() {
         </Layout>
     );
 }
+
+// ─────────── Domain Intent CTA · captures publish intent + bumps signal ───────────
+const DomainIntentCard = ({ site, inputs }) => {
+    const [open, setOpen] = useState(false);
+    const [intent, setIntent] = useState("domain_intent");
+    const [email, setEmail] = useState("");
+    const [domain, setDomain] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [done, setDone] = useState(false);
+
+    // Pre-fill domain from generated site (with .com fallback).
+    useEffect(() => {
+        if (site?.domain) {
+            const d = String(site.domain).replace(/^https?:\/\//, "").replace(/\/+$/, "");
+            setDomain(d.includes(".") ? d : `${d}.com`);
+        }
+    }, [site]);
+
+    // Reset on new site generation.
+    useEffect(() => {
+        setDone(false);
+        setOpen(false);
+    }, [site]);
+
+    const submit = async () => {
+        const cleanEmail = email.trim().toLowerCase();
+        if (!cleanEmail || !cleanEmail.includes("@")) {
+            toast.error("Add your email so we can reach you");
+            return;
+        }
+        setBusy(true);
+        try {
+            await websiteBuilderIntent({
+                intent,
+                email: cleanEmail,
+                name: inputs?.business_name || null,
+                desired_domain: domain || null,
+                business_name: inputs?.business_name || site?.brand || null,
+                business_idea: inputs?.business_idea || null,
+                industry: inputs?.industry || null,
+            });
+            setDone(true);
+            toast.success(intent === "publish_intent" ? "Publish request received" : "Domain request received");
+        } catch (e) {
+            const msg = e?.response?.data?.detail || e?.message || "Could not save your request";
+            toast.error(msg);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    if (done) {
+        return (
+            <div data-testid="domain-intent-done"
+                 className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-4">
+                <div className="flex items-center gap-2">
+                    <CheckCircle2 size={14} className="text-emerald-300" />
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Request received</p>
+                </div>
+                <p className="mt-2 text-sm text-slate-200">
+                    We've got your {intent === "publish_intent" ? "publish" : "domain"} request for{" "}
+                    <span className="font-mono text-emerald-300">{domain || "your site"}</span>.{" "}
+                    The CreatorBoostAI team will reach out shortly to wire it up.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div data-testid="domain-intent-card"
+             className="rounded-md border border-cyan-500/25 bg-gradient-to-br from-cyan-500/[0.06] to-emerald-500/[0.04] p-4">
+            <button onClick={() => setOpen((p) => !p)}
+                data-testid="domain-intent-toggle"
+                className="flex w-full items-center justify-between text-left">
+                <div className="flex items-center gap-2">
+                    <Globe size={13} className="text-cyan-300" />
+                    <div>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Connect a custom domain</p>
+                        <p className="font-mono text-[10px] text-slate-400">Take this site live on your own domain →</p>
+                    </div>
+                </div>
+                <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">
+                    {open ? "Close" : "Get it live"}
+                </span>
+            </button>
+
+            {open && (
+                <div className="mt-4 space-y-3" data-testid="domain-intent-body">
+                    <div className="flex flex-wrap gap-1.5">
+                        <button onClick={() => setIntent("domain_intent")}
+                            data-testid="intent-mode-domain"
+                            className={`rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.22em] ${intent === "domain_intent" ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300" : "border-white/10 bg-ink-900 text-slate-400 hover:text-cyan-300"}`}>
+                            Connect a domain
+                        </button>
+                        <button onClick={() => setIntent("publish_intent")}
+                            data-testid="intent-mode-publish"
+                            className={`rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.22em] ${intent === "publish_intent" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-ink-900 text-slate-400 hover:text-emerald-300"}`}>
+                            Publish on a CB subdomain
+                        </button>
+                    </div>
+
+                    <div>
+                        <label className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
+                            <Mail size={9} className="mr-1 inline" /> Your email <span className="text-rose-300">*</span>
+                        </label>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@business.com"
+                            data-testid="domain-intent-email"
+                            className="mt-1 w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+                        />
+                    </div>
+
+                    {intent === "domain_intent" && (
+                        <div>
+                            <label className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
+                                Desired domain
+                            </label>
+                            <input
+                                value={domain}
+                                onChange={(e) => setDomain(e.target.value)}
+                                placeholder="yourbusiness.com"
+                                data-testid="domain-intent-domain"
+                                className="mt-1 w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+                            />
+                        </div>
+                    )}
+
+                    <button
+                        onClick={submit}
+                        disabled={busy}
+                        data-testid="domain-intent-submit"
+                        className={`inline-flex w-full items-center justify-center gap-1.5 rounded-md px-4 py-2.5 font-semibold text-ink-900 ${
+                            intent === "publish_intent" ? "bg-emerald-400 hover:bg-emerald-300" : "bg-cyan-400 hover:bg-cyan-300"
+                        } disabled:opacity-60`}
+                    >
+                        {busy ? <><Loader2 size={13} className="animate-spin" /> Sending…</>
+                            : intent === "publish_intent" ? <><Send size={13} /> Request publish</>
+                            : <><Send size={13} /> Get this live on my domain</>}
+                    </button>
+                    <p className="font-mono text-[9px] text-slate-500">
+                        We'll reach out within 1 business day. No credit card. No commitment.
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+};
+

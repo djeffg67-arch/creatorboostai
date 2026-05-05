@@ -57,6 +57,8 @@ SIGNAL_DELTAS: Dict[str, int] = {
     "client_portal_opened": 18,
     "manual_boost": 10,
     "manual_decay": -10,
+    "domain_intent": 22,
+    "publish_intent": 28,
 }
 
 FOUNDER_PHONE = (os.environ.get("FOUNDER_PHONE") or "").strip()

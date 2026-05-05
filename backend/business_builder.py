@@ -288,6 +288,18 @@ class WebsiteGenReq(BaseModel):
     user_email: Optional[str] = None
 
 
+class WebsiteIntentReq(BaseModel):
+    """Payload from a 'connect a custom domain' or 'publish' click in the
+    website-builder preview. All fields optional except `intent`."""
+    intent: str = Field(default="domain_intent", max_length=40)
+    email: Optional[str] = Field(default=None, max_length=200)
+    name: Optional[str] = Field(default=None, max_length=160)
+    desired_domain: Optional[str] = Field(default=None, max_length=120)
+    business_name: Optional[str] = Field(default=None, max_length=120)
+    business_idea: Optional[str] = Field(default=None, max_length=600)
+    industry: Optional[str] = Field(default=None, max_length=80)
+
+
 def _build_website_user_message(p: "WebsiteGenReq") -> str:
     parts = [f"BUSINESS IDEA: {p.business_idea}"]
     if p.business_name:
@@ -447,6 +459,73 @@ def make_business_builder_router(db) -> APIRouter:
             pass
 
         return {"ok": True, "tool": "website_builder", "session_id": session_id, "site": site}
+
+    # ─────────── Iter 62 · Website intent capture (publish / domain) ──────────
+    @router.post("/website-intent")
+    async def website_intent(payload: WebsiteIntentReq):
+        """Capture a publish/domain intent click from the website-builder preview.
+
+        Lightweight conversion event:
+          - upsert lead in leads_registry (assigned to founder)
+          - log a dark_funnel_event row
+          - bump signal_score with touch_signal (+22 / +28)
+          - never raises — surface a stable {ok} response to the UI
+        """
+        from lead_registry import upsert_lead
+        from signal_scoring import touch_signal
+
+        kind = (payload.intent or "domain_intent").strip()
+        if kind not in ("domain_intent", "publish_intent"):
+            kind = "domain_intent"
+
+        # 1. Upsert lead (if email provided) — otherwise log anonymous event
+        lead_id: Optional[str] = None
+        if payload.email and "@" in payload.email:
+            try:
+                up = await upsert_lead(db, {
+                    "name": (payload.name or payload.business_name or "Website builder visitor")[:160],
+                    "email": payload.email.strip().lower()[:200],
+                    "company": (payload.business_name or "")[:160] or None,
+                    "industry": (payload.industry or "")[:80] or None,
+                    "source": "website_builder",
+                    "notes": (
+                        f"Intent: {kind}; desired_domain={payload.desired_domain or '—'}; "
+                        f"idea={(payload.business_idea or '')[:200]}"
+                    ),
+                })
+                lead_id = (up.get("lead") or {}).get("lead_id")
+            except Exception as e:
+                log.warning(f"website-intent upsert failed: {e}")
+
+        # 2. Dark funnel event row (always, anonymous OK)
+        try:
+            await db.dark_funnel_events.insert_one({
+                "id": str(uuid.uuid4()),
+                "lead_id": lead_id,
+                "kind": kind,
+                "source": "website_builder",
+                "email": payload.email,
+                "desired_domain": payload.desired_domain,
+                "business_name": payload.business_name,
+                "industry": payload.industry,
+                "ts": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception as e:
+            log.warning(f"website-intent funnel-event insert failed: {e}")
+
+        # 3. Bump signal score on the lead
+        if lead_id:
+            try:
+                await touch_signal(db, lead_id, kind, reason=payload.desired_domain or "website-builder")
+            except Exception as e:
+                log.warning(f"website-intent signal bump failed: {e}")
+
+        return {
+            "ok": True,
+            "lead_id": lead_id,
+            "intent": kind,
+            "queued": "Founder will reach out to wire up your domain shortly.",
+        }
 
     return router
 

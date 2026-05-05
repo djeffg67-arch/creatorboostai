@@ -537,3 +537,6 @@ export const auditList = (payload) =>
 export const websiteBuilderGenerate = (payload) =>
     api.post("/business-builder/website-generate", payload, { timeout: 90000 }).then((r) => r.data);
 
+export const websiteBuilderIntent = (payload) =>
+    api.post("/business-builder/website-intent", payload, { timeout: 15000 }).then((r) => r.data);
+
