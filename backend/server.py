@@ -2798,6 +2798,24 @@ async def demo_capture(payload: DemoCaptureIn, http_request: Request):
     except Exception as _e:
         logger.error(f"demo_capture · deal auto-create failed: {_e}")
 
+    # Iter 50 · Lead Registry mirror — single-tenant, dedup-aware
+    try:
+        from lead_registry import upsert_lead
+        await upsert_lead(db, {
+            "name": payload.name,
+            "company": payload.company or display_company,
+            "email": email,
+            "phone": None,
+            "industry_tag": segment,
+            "location": None,
+            "source": "demo_capture",
+            "status": "qualified",
+            "assigned_to_user_id": os.environ.get("FOUNDER_EMAIL", "").strip() or "founder@creatorboostai.com",
+            "source_outbound_prospect_id": result_id,
+        })
+    except Exception as _e:
+        logger.error(f"demo_capture · lead_registry mirror failed: {_e}")
+
     return {
         "ok": True,
         "prospect_id": result_id,

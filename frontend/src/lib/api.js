@@ -388,3 +388,7 @@ export const opsOutboundSeedFromDemos = (auth) =>
 
 export const opsOutboundImapPollNow = (auth) =>
     api.post("/ops/outbound/imap-poll-now", auth).then((r) => r.data);
+
+export const opsOutboundPushHotLeads = (auth) =>
+    api.post("/ops/outbound/push-hot-leads", auth).then((r) => r.data);
+

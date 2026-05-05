@@ -8,7 +8,7 @@ import {
     ArrowRight, Sparkles, UserPlus, ShieldCheck, ChevronDown, RefreshCcw,
     UserCog, AlertTriangle, PhoneCall, KeyRound, CheckCircle2, XCircle,
     Smartphone, Trash2, Radar, Upload, Play, Pause, Linkedin, Zap, ExternalLink,
-    FileText, ThumbsUp, ThumbsDown, X,
+    FileText, ThumbsUp, ThumbsDown, X, Calendar, Flame,
 } from "lucide-react";
 import {
     opsFounderAccess, opsExecutiveAccess, opsEmployeeAcceptInvite, opsMe,
@@ -23,7 +23,7 @@ import {
     opsOutboundScoreAll, opsOutboundLinkedinGenerate, opsOutboundLinkedinMarkSent,
     opsOutboundMarkReplied, opsOutboundDraftsList, opsOutboundDraftApprove,
     opsOutboundDraftReject, opsOutboundRunTick, opsOutboundSeedFromDemos,
-    opsOutboundImapPollNow, opsOutboundAutopilotNow,
+    opsOutboundImapPollNow, opsOutboundAutopilotNow, opsOutboundPushHotLeads,
     opsOutboundArchiveInternal, opsOutboundResetDaily, opsOutboundDiagnostics,
     opsOutboundSetDailyLimit,
 } from "@/lib/api";
@@ -240,8 +240,17 @@ const PerformanceTab = ({ auth, me }) => {
         { Icon: Lightbulb,  label: "Demos sent",      value: data.demos_sent, tone: "cyan" },
         { Icon: UserPlus,   label: "Inbound demo leads", value: data.inbound_demo_leads ?? 0, tone: "emerald" },
         { Icon: Activity,   label: "Demo conversion",    value: `${data.demo_conversion_rate ?? 0}%`, tone: "cyan" },
+        // Iter 50 · revenue engine KPIs
+        { Icon: Zap,        label: "Hot leads",          value: data.hot_leads_count ?? 0, tone: "rose" },
+        { Icon: Activity,   label: "Active sending rate",value: `${data.active_sending_rate ?? 0}/day`, tone: "cyan" },
+        { Icon: Calendar,   label: "Booked calls",       value: data.booked_calls ?? 0, tone: "emerald" },
     ];
-    const toneCls = { white: "border-white/10 bg-ink-700/40", cyan: "border-cyan-500/30 bg-cyan-500/5", emerald: "border-emerald-500/30 bg-emerald-500/5" };
+    const toneCls = {
+        white:   "border-white/10 bg-ink-700/40",
+        cyan:    "border-cyan-500/30 bg-cyan-500/5",
+        emerald: "border-emerald-500/30 bg-emerald-500/5",
+        rose:    "border-rose-500/40 bg-rose-500/10",
+    };
 
     const a = data.automation || {};
     const isFounder = me.role === "founder" || me.scopes?.can_see_settings;
@@ -1802,6 +1811,19 @@ const OutboundTab = ({ auth }) => {
         } finally { setBusy(false); }
     };
 
+    const pushHotLeads = async () => {
+        if (!window.confirm("Push re-engage email to all opens/clicks/demo-viewers who haven't replied?")) return;
+        setBusy(true);
+        try {
+            const r = await opsOutboundPushHotLeads(auth);
+            toast.success(`Hot leads pushed · ${r.sent}/${r.candidates} re-engaged`);
+            refresh();
+        } catch (e) {
+            const d = e?.response?.data?.detail;
+            toast.error(typeof d === "string" ? d : "Push hot leads failed");
+        } finally { setBusy(false); }
+    };
+
     const runTick = async () => {
         setBusy(true);
         try {
@@ -1907,6 +1929,15 @@ const OutboundTab = ({ auth }) => {
                         title="Manually scan IMAP inbox for replies"
                     >
                         <Inbox size={11} /> Scan replies
+                    </button>
+                    <button
+                        onClick={pushHotLeads}
+                        disabled={busy}
+                        data-testid="outbound-push-hot-leads"
+                        className="inline-flex items-center gap-2 rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-rose-300 hover:border-rose-400 hover:bg-rose-500/20 disabled:opacity-60"
+                        title="Re-engage prospects who opened/clicked/viewed but haven't replied"
+                    >
+                        <Flame size={11} /> Push Hot Leads
                     </button>
                     <button
                         onClick={runTick}

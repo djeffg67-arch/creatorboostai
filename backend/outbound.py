@@ -128,13 +128,50 @@ SEGMENT_PIPELINE_VALUES = {
 SEGMENT_PIPELINE_DEFAULT = 40_000        # fallback for unknown segments
 ENTERPRISE_PIPELINE_VALUE = 200_000      # explicit "enterprise" upgrade tier
 
+# ── Force-Reply Day 0 noun per segment (Iter 50)
+#  e.g., "Do you currently manage [locations / stores / teams / classrooms]?"
+SEGMENT_NOUN = {
+    "airport_enterprise":  "operations",
+    "supermarket_grocery": "stores",
+    "education_school":    "classrooms",
+    "insurance_agent":     "agents",
+    "realtor":             "listings",
+    "c_store":             "stores",
+    "retail_chain":        "locations",
+    "contractor_service":  "service teams",
+    "sales_team_agency":   "reps",
+    "creator_influencer":  "channels",
+}
+SEGMENT_NOUN_DEFAULT = "locations"
+
+# ── Sender pool for multi-inbox rotation (Iter 50)
+def _sender_pool() -> List[str]:
+    raw = os.environ.get("OUTBOUND_SENDER_POOL", "").strip()
+    if not raw:
+        return []
+    return [s.strip() for s in raw.split(",") if s.strip()]
+
+def _per_inbox_daily_cap() -> int:
+    try:
+        return max(1, int(os.environ.get("OUTBOUND_PER_INBOX_DAILY_CAP", "45")))
+    except Exception:
+        return 45
+
+def _ramp_schedule() -> List[int]:
+    raw = os.environ.get("OUTBOUND_RAMP_SCHEDULE", "25,50,100,150,200")
+    try:
+        return [max(1, int(x.strip())) for x in raw.split(",") if x.strip()]
+    except Exception:
+        return [25, 50, 100, 150, 200]
+
 DAILY_LIMIT_DEFAULT = int(os.environ.get("OUTBOUND_DAILY_LIMIT", "10"))   # Phase A · Low Credit Execution Mode
 SEND_WINDOW_HOURS = 14                 # spread sends across 14-hour workday
 MIN_SEND_SPACING_SEC = 60              # hard floor between two sends
 BOUNCE_RATE_PAUSE_THRESHOLD = 0.05     # auto-pause if ≥5 % over last 7 days
 COMPLAINT_RATE_PAUSE_THRESHOLD = 0.003  # auto-pause if ≥0.3 % over last 7 days
-FOLLOWUP_OFFSETS_DAYS = [1, 3, 7]       # cadence · Day0 initial + FU1(d1) / FU2(d3) / FU3(d7)  ·  Demo-First
-MAX_EMAILS_BEFORE_COLD = 4              # initial + 3 follow-ups → then cold
+FOLLOWUP_OFFSETS_DAYS = [1, 2, 5]       # Demo-First v2 · Day0 + +45min bump + FU1(d1) / FU2(d2 Loom) / FU3(d5 close)
+MAX_EMAILS_BEFORE_COLD = 5              # initial + bump + 3 follow-ups → then cold
+BUMP_AFTER_MINUTES = 45                 # +45min auto-bump for unopened/unclicked Day 0 sends
 DEMO_VIEWER_DELAY_MIN_HRS = 12          # warm demo viewer delay lower bound
 DEMO_VIEWER_DELAY_MAX_HRS = 24          # warm demo viewer delay upper bound
 DEMO_VIEWER_BASELINE_SCORE = 82         # pre-scored warm lead baseline
@@ -395,172 +432,115 @@ def make_outbound_router(
             }
 
     async def _draft_email(p: Dict[str, Any], include_teaser: bool) -> Dict[str, str]:
-        """Phase A · DEMO-FIRST initial email per Jeffrey's exact spec.
-        Always includes the demo link. AI lightly personalizes the opener
-        but the structure is locked to Jeffrey's template.
+        """Iter 50 · FORCE-REPLY Day 0 email. Revenue-correction framing.
+        Always includes the demo link + Calendly + a "reply 'no' and I'll close
+        the loop" exit so the prospect MUST respond either way. AI personalizes
+        the segment noun; structure is locked.
         """
         seg = p.get("target_segment") or "sales_team_agency"
         demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
         demo_url = f"{_public_base()}{demo['route']}"
         company = p.get("business_name") or "your team"
         first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
-        calendly = os.environ.get("CALENDLY_URL", "").strip()
-
-        system = (
-            "You are Jeffrey from CreatorBoostAI writing a DIRECT, demo-first cold email. "
-            "Your job: lightly tailor the opener to the prospect's industry · keep the rest of the structure verbatim. "
-            "Style: short, plain text, zero hype, zero ALL CAPS, zero exclamation marks. "
-            "Output STRICT JSON: {\"subject\": \"reducing operating costs at <COMPANY>\", \"body\": \"<full body>\"} "
-            f"Body MUST follow this template exactly with light tailoring of the second paragraph only:\n\n"
-            f"Hi {first_name},\n\n"
-            f"I'll keep this direct.\n\n"
-            f"<ONE personalized sentence here referencing their segment ({SEGMENT_DISPLAY.get(seg, seg)}) — e.g., the specific pain point ops directors at {company} face>\n\n"
-            f"We built a system that identifies hidden cost savings and revenue opportunities inside operations like yours — and then executes on them automatically.\n\n"
-            f"I recorded a short demo showing exactly how it works for companies like {company}:\n\n"
-            f"{demo_url}\n\n"
-            f"If it's relevant, I can walk you through what it would look like specifically for your locations.\n\n"
-            + (f"Or grab 15 min: {calendly}\n\n" if calendly else "")
-            + f"— Jeffrey"
-        )
-        user = (
-            f"Prospect first name: {first_name}\n"
-            f"Company: {company}\n"
-            f"Segment: {SEGMENT_DISPLAY.get(seg, seg)}\n"
-            f"Specific pain point hint: {p.get('estimated_pain') or 'operating cost inefficiency'}\n"
-            f"Output the email now."
-        )
-        raw = await _claude(system, user, session_id=f"email-{p['id']}")
-        import json as _json
-        m = re.search(r"\{.*\}", raw, flags=re.S)
-        if m:
-            try:
-                obj = _json.loads(m.group(0))
-                return {"subject": _strip_spammy(obj.get("subject", ""))[:120],
-                        "body": _strip_spammy(obj.get("body", ""))[:1500]}
-            except Exception:
-                pass
-        # Hard fallback — Jeffrey's exact template, no AI
-        body = (
-            f"Hi {first_name},\n\n"
-            f"I'll keep this direct.\n\n"
-            f"We built a system that identifies hidden cost savings and revenue opportunities inside operations like yours — and then executes on them automatically.\n\n"
-            f"I recorded a short demo showing exactly how it works for companies like {company}:\n\n"
-            f"{demo_url}\n\n"
-            f"If it's relevant, I can walk you through what it would look like specifically for your locations.\n\n"
-            f"— Jeffrey"
-        )
-        if calendly:
-            body += f"\n\nP.S. If easier, grab a 15-min slot here: {calendly}"
-        return {"subject": f"reducing operating costs at {company}", "body": body}
-
-    async def _last_sent_subjects(prospect_id: str, limit: int = 3) -> List[str]:
-        cursor = db.outbound_events.find(
-            {"prospect_id": prospect_id, "type": "sent"},
-            {"_id": 0, "subject": 1, "created_at": 1},
-        ).sort("created_at", -1).limit(limit)
-        out: List[str] = []
-        async for r in cursor:
-            if r.get("subject"):
-                out.append(r["subject"])
-        return out
-
-    async def _last_sent_subjects(prospect_id: str, limit: int = 3) -> List[str]:
-        cursor = db.outbound_events.find(
-            {"prospect_id": prospect_id, "type": "sent"},
-            {"_id": 0, "subject": 1, "created_at": 1},
-        ).sort("created_at", -1).limit(limit)
-        out: List[str] = []
-        async for r in cursor:
-            if r.get("subject"):
-                out.append(r["subject"])
-        return out
-
-    async def _draft_followup(p: Dict[str, Any], which: int) -> Dict[str, str]:
-        """Demo-First follow-up cadence per Jeffrey's spec.
-
-        which=1 → Day 1 · 35-50 words · short bump + demo link + Calendly
-        which=2 → Day 3 · 50-70 words · offer Loom for {company} + demo + Calendly
-        which=3 → Day 7 · 35-50 words · low-pressure close + demo only
-        """
-        tone = TONE_VARIATIONS[(which - 1) % len(TONE_VARIATIONS)]
-        prior_subjects = await _last_sent_subjects(p["id"], limit=3)
-        prior = "\n".join([f"  · \"{s}\"" for s in prior_subjects]) or "  (no prior subjects recorded)"
-
-        seg = p.get("target_segment") or "sales_team_agency"
-        demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
-        demo_url = f"{_public_base()}{demo['route']}"
-        seg_label = SEGMENT_DISPLAY.get(seg, seg)
-        company = p.get("business_name") or "your team"
-        first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
+        noun = SEGMENT_NOUN.get(seg, SEGMENT_NOUN_DEFAULT)
         calendly = os.environ.get("CALENDLY_URL", "").strip()
         calendly_line = (
-            f"Or grab 15 min: {calendly}" if calendly else "Or open to a quick 15-min call?"
+            f"If it's even slightly relevant, grab a quick slot:\n{calendly}\n\n"
+            if calendly else ""
         )
 
-        if which == 1:
-            stage = (
-                f"DAY 1 BUMP · 35-50 words. Quick check — did the demo make sense for {company}? "
-                f"Include ONE industry-specific stat for {seg_label}. "
-                f"End with the demo link on its own line: {demo_url}\n"
-                f"Then on the next line: {calendly_line}"
-            )
-        elif which == 2:
-            stage = (
-                f"DAY 3 LOOM OFFER · 50-70 words. Acknowledge they may be busy. "
-                f"Offer to record a 2-min Loom showing this with {company}'s public data. "
-                f"Include the demo link on its own line: {demo_url}\n"
-                f"Then on the next line: {calendly_line}"
-            )
-        else:
-            stage = (
-                f"DAY 7 SOFT CLOSE · 35-50 words. Low-pressure: 'wrapping up outreach on this — happy to leave the door open'. "
-                f"Respectful, no Calendly. End with the demo link on its own line: {demo_url}"
-            )
+        # Hard-locked force-reply template (Iter 50 spec).
+        # Subject is fixed: "quick question" — proven 2-3x reply lift vs branded subjects.
+        subject = "quick question"
+        body = (
+            f"Hi {first_name},\n\n"
+            f"Do you currently manage {noun} at {company}?\n\n"
+            f"I mapped something based on your industry — it shows where operations "
+            f"are losing money and how to correct it. Takes about 2 minutes to review.\n\n"
+            f"{demo_url}\n\n"
+            f"{calendly_line}"
+            f"If not, just reply \"no\" and I'll close the loop.\n\n"
+            f"— Jeffrey"
+        )
+        return {"subject": subject, "body": body}
 
-        system = (
-            f"You are Jeffrey from CreatorBoostAI writing a {tone} demo-first follow-up. "
-            f"{stage} "
-            "Plain text, no hype, no ALL CAPS, no exclamation marks, no markdown, no spam tokens. "
-            "IMPORTANT: Do NOT reuse any subject line from the prior-subjects list — pick a different angle. "
-            "Output STRICT JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
-        )
-        user = (
-            f"Prospect first name: {first_name}\n"
-            f"Company: {company}\n"
-            f"Segment: {seg_label}\n"
-            f"Lead score: {int(p.get('lead_score') or 0)}\n"
-            f"Follow-up #{which} of {len(FOLLOWUP_OFFSETS_DAYS)}\n"
-            f"Prior subjects to avoid repeating:\n{prior}\n"
-        )
-        raw = await _claude(system, user, session_id=f"fu{which}-{p['id']}")
-        import json as _json
-        m = re.search(r"\{.*\}", raw, flags=re.S)
-        if m:
-            try:
-                obj = _json.loads(m.group(0))
-                return {"subject": _strip_spammy(obj.get("subject", ""))[:120],
-                        "body": _strip_spammy(obj.get("body", ""))[:1500]}
-            except Exception:
-                pass
-        # Fallback — Demo-First template, no AI
+    async def _last_sent_subjects(prospect_id: str, limit: int = 3) -> List[str]:
+        cursor = db.outbound_events.find(
+            {"prospect_id": prospect_id, "type": "sent"},
+            {"_id": 0, "subject": 1, "created_at": 1},
+        ).sort("created_at", -1).limit(limit)
+        out: List[str] = []
+        async for r in cursor:
+            if r.get("subject"):
+                out.append(r["subject"])
+        return out
+
+    async def _draft_bump(p: Dict[str, Any]) -> Dict[str, str]:
+        """Iter 50 · +45min auto-bump email. Hard-locked, ultra-short, no AI.
+        Triggered when Day 0 hasn't been opened/clicked after 45 min."""
+        seg = p.get("target_segment") or "sales_team_agency"
+        demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
+        demo_url = f"{_public_base()}{demo['route']}"
+        first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
+        return {
+            "subject": "quick bump",
+            "body": (
+                f"Hi {first_name},\n\n"
+                f"Just bumping this — worth a quick look?\n\n"
+                f"{demo_url}\n\n"
+                f"— Jeffrey"
+            ),
+        }
+
+    async def _draft_followup(p: Dict[str, Any], which: int) -> Dict[str, str]:
+        """Iter 50 · Demo-First v2 follow-up cadence. Revenue-correction framing.
+
+        which=1 → Day 1 · 35-50 words · pressure bump
+        which=2 → Day 2 · 50-75 words · LOOM CUSTOM-BUILD OFFER (primary conversion driver)
+        which=3 → Day 5 · 35-50 words · soft close
+        """
+        seg = p.get("target_segment") or "sales_team_agency"
+        demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
+        demo_url = f"{_public_base()}{demo['route']}"
+        company = p.get("business_name") or "your team"
+        first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
+        calendly = os.environ.get("CALENDLY_URL", "").strip()
+
         if which == 1:
+            # Day 1 · pressure bump · revenue-correction framing
+            subject = "quick follow up"
             body = (
-                f"Hi {first_name},\n\nQuick check — did the demo make sense for {company}?\n\n"
-                f"{demo_url}\n\n{calendly_line}\n\n— Jeffrey"
+                f"Hi {first_name},\n\n"
+                f"Most operators in your space are leaking 15-25% on costs they can't see.\n\n"
+                f"This shows where {company} is losing money and how to correct it:\n{demo_url}\n\n"
+                + (f"Or grab 15 min: {calendly}\n\n" if calendly else "")
+                + f"— Jeffrey"
             )
-            subject = f"following up · {company}"
-        elif which == 2:
+            return {"subject": subject, "body": body}
+
+        if which == 2:
+            # Day 2 · LOOM CUSTOM-BUILD OFFER (primary conversion driver, Iter 50 spec)
+            subject = "want me to do this for you?"
             body = (
-                f"Hi {first_name},\n\nKnow you're busy. Want me to record a 2-min Loom showing this "
-                f"with {company}'s public data?\n\n{demo_url}\n\n{calendly_line}\n\n— Jeffrey"
+                f"Hi {first_name},\n\n"
+                f"If you want, I can record a quick 2-minute breakdown using {company}'s "
+                f"actual setup and data — show you exactly where the leakage is and how "
+                f"the correction works for your specific operation.\n\n"
+                f"Want me to do that?\n\n"
+                f"Or if you'd rather skim the demo first: {demo_url}\n\n"
+                + (f"{calendly}\n\n" if calendly else "")
+                + f"— Jeffrey"
             )
-            subject = f"2-min Loom for {company}?"
-        else:
-            body = (
-                f"Hi {first_name},\n\nWrapping up outreach on this — happy to leave the door open if "
-                f"timing is wrong.\n\n{demo_url}\n\n— Jeffrey"
-            )
-            subject = "leaving the door open"
+            return {"subject": subject, "body": body}
+
+        # Day 5 · soft close (Iter 50 spec)
+        subject = "should I close this out?"
+        body = (
+            f"Hi {first_name},\n\n"
+            f"If this isn't a priority right now, no problem.\n\n"
+            f"If it is, here's the demo:\n{demo_url}\n\n"
+            f"— Jeffrey"
+        )
         return {"subject": subject, "body": body}
 
     async def _draft_linkedin(p: Dict[str, Any], kind: str) -> str:
@@ -581,39 +561,26 @@ def make_outbound_router(
         return _strip_spammy(raw).strip()[:cap]
 
     async def _draft_positive_reply(p: Dict[str, Any], reply_body: str) -> Dict[str, str]:
-        seg = p.get("target_segment") or "sales_team_agency"
-        demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
-        full_demo = f"{_public_base()}{demo['route']}"
+        """Iter 50 · INSTANT CLOSE TRIGGER. When reply classifier returns
+        'interested', this fires immediately. Revenue-correction framing.
+        Hard-locked template — no AI variance to avoid stalls."""
         calendly = os.environ.get("CALENDLY_URL", "").strip()
-        booking_instruction = (
-            f"Include this Calendly booking URL as a direct call-to-action line: {calendly}"
-            if calendly else
-            "End with a question like 'does Tuesday or Wednesday work for a 15-min call?'"
-        )
-        system = (
-            "You are drafting a reply to a warm prospect who showed interest. "
-            "Style: warm, short (80-120 words), offer a concrete next step to book a meeting. "
-            f"{booking_instruction} "
-            "Also reference the best-fit demo URL if appropriate. "
-            "Output STRICT JSON: {\"subject\": \"...\", \"body\": \"...\"}"
-        )
-        user = (
-            f"Prospect: {p.get('contact_name') or p.get('business_name')}\n"
-            f"They replied: {reply_body[:1200]}\n"
-            f"Best-fit demo URL: {full_demo}\n"
-            f"Offer: {p.get('recommended_offer') or 'book a 20-min discovery call'}"
-        )
-        raw = await _claude(system, user, session_id=f"reply-{p['id']}")
-        import json as _json
-        m = re.search(r"\{.*\}", raw, flags=re.S)
-        if m:
-            try:
-                obj = _json.loads(m.group(0))
-                return {"subject": _strip_spammy(obj.get("subject", ""))[:120],
-                        "body": _strip_spammy(obj.get("body", ""))[:2000]}
-            except Exception:
-                pass
-        return {"subject": "Re: your reply", "body": _strip_spammy(raw)[:1000]}
+        first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
+        if calendly:
+            body = (
+                f"Hi {first_name},\n\n"
+                f"Perfect — I'll map this to your numbers and walk you through "
+                f"exactly where the leakage is and how the correction works.\n\n"
+                f"Grab a quick time here:\n{calendly}\n\n"
+                f"— Jeffrey"
+            )
+        else:
+            body = (
+                f"Hi {first_name},\n\n"
+                f"Perfect — I'll map this to your numbers. What times work this week "
+                f"for a 15-min call?\n\n— Jeffrey"
+            )
+        return {"subject": f"Re: {p.get('reply_subject') or 'your reply'}"[:120], "body": body}
 
     # ──────────────── DEAL AUTO-CREATION (Demo-First spec) ────────────────
     async def _segment_pipeline_value(seg: str, p: Dict[str, Any]) -> int:
@@ -798,33 +765,67 @@ def make_outbound_router(
                 except Exception:
                     pass
 
+    # ──────────────── SENDER POOL ROTATION (Iter 50) ────────────────
+    async def _pick_sender_email() -> str:
+        """Return the next available sender from the pool, respecting the per-inbox
+        daily cap. Falls back to the hard-coded `info@creatorboostai.com` when
+        no pool is configured."""
+        pool = _sender_pool()
+        if not pool:
+            return "info@creatorboostai.com"
+        cap = _per_inbox_daily_cap()
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        # Pick the inbox with lowest sends today that's still under cap
+        best = None
+        best_count = cap
+        for sender in pool:
+            cnt = await db.outbound_events.count_documents(
+                {"type": "sent", "day_key": today, "from_email": sender}
+            )
+            if cnt < best_count:
+                best_count = cnt
+                best = sender
+            if cnt == 0:
+                # zero-use inbox wins — round-robin friendly
+                return sender
+        return best or pool[0]
+
     # ──────────────── SEND PIPELINE ────────────────
     async def _send_one(prospect: Dict[str, Any], subject: str, body_plain: str, *, kind: str) -> bool:
         """Send one email with footer + unsub, log the event, bump counters.
 
-        Special case: when the recipient uses an RFC-2606 reserved test domain
-        (`.example.com` / `.example.org` / `.example.net` / `.example`), we
-        SIMULATE the send — log the event and bump counters without calling
-        Resend. This lets the autopilot demonstrate full execution against
-        synthetic internal seeds while real prospect emails still go through
-        the live Resend pipeline untouched."""
+        Iter 50: sender rotation across `OUTBOUND_SENDER_POOL` + tracking pixel
+        injection for open tracking. Simulated for `.example.com` test domains.
+        """
         email = prospect["email"]
         if await _is_suppressed(email):
             await _log_event(prospect["id"], "skipped_suppressed", kind=kind)
             return False
+        # Pick sender from rotation pool
+        from_email = await _pick_sender_email()
+        # Unique tracking id so the open/click webhook can correlate back
+        track_id = str(uuid.uuid4())
         html_footer, plain_footer = _unsub_footer(email)
+        # Open-tracking pixel (1x1 GIF served by /api/email-pixel/{id})
+        public_base = _public_base()
+        pixel = f"<img src='{public_base}/api/outbound-track/open/{track_id}' width='1' height='1' style='display:none' alt='' />"
         body_html = (
             "<div style='font-family:ui-sans-serif,system-ui;font-size:14px;line-height:1.6;color:#111;'>"
             + body_plain.replace("\n", "<br/>")
             + "</div>"
             + html_footer
+            + pixel
         )
         full_plain = body_plain + plain_footer
 
         # Simulation path for RFC-2606 reserved test domains
         is_simulated = bool(re.search(r"\.example(?:\.com|\.org|\.net)?$", email.lower()))
         if is_simulated:
-            await _log_event(prospect["id"], "sent", kind=kind, subject=subject[:200], simulated=True)
+            await _log_event(
+                prospect["id"], "sent", kind=kind, subject=subject[:200],
+                simulated=True, from_email=from_email, track_id=track_id,
+            )
+            cadence_set = _cadence_set_for_kind(kind, prospect)
             await db.outbound_prospects.update_one(
                 {"id": prospect["id"]},
                 {"$set": {
@@ -833,19 +834,30 @@ def make_outbound_router(
                     "email_status": f"{kind}_simulated",
                     "last_email_subject": subject[:200],
                     "last_email_simulated": True,
+                    "last_email_from": from_email,
+                    "last_email_track_id": track_id,
+                    **cadence_set,
                 }, "$inc": {"emails_sent": 1}},
             )
             return True
 
-        # Real send via Resend / configured sender
+        # Real send via Resend through the multi-inbox helper
         ok = False
+        resend_id: Optional[str] = None
         try:
-            ok = await send_outbound_email(email, subject, body_html, full_plain)
+            from email_service import send_from
+            res = await send_from(from_email, email, subject, body_html)
+            ok = bool(res.get("ok"))
+            resend_id = res.get("id")
         except Exception as e:
-            log.error(f"Outbound send failed: {e}")
+            log.error(f"Outbound send_from failed: {e}")
             ok = False
         if ok:
-            await _log_event(prospect["id"], "sent", kind=kind, subject=subject[:200])
+            await _log_event(
+                prospect["id"], "sent", kind=kind, subject=subject[:200],
+                from_email=from_email, track_id=track_id, resend_id=resend_id,
+            )
+            cadence_set = _cadence_set_for_kind(kind, prospect)
             await db.outbound_prospects.update_one(
                 {"id": prospect["id"]},
                 {"$set": {
@@ -853,11 +865,31 @@ def make_outbound_router(
                     "status": "contacted" if kind == "initial" else prospect.get("status", "contacted"),
                     "email_status": kind,
                     "last_email_subject": subject[:200],
+                    "last_email_from": from_email,
+                    "last_email_track_id": track_id,
+                    "last_email_resend_id": resend_id,
+                    **cadence_set,
                 }, "$inc": {"emails_sent": 1}},
             )
         else:
-            await _log_event(prospect["id"], "send_failed", kind=kind)
+            await _log_event(prospect["id"], "send_failed", kind=kind, from_email=from_email)
         return ok
+
+    def _cadence_set_for_kind(kind: str, prospect: Dict[str, Any]) -> Dict[str, Any]:
+        """Compute cadence_step + bump_sent_at updates based on which kind of
+        email was just sent. cadence_step = number of CADENCE positions completed
+        (initial=1, FU1=2, FU2=3, FU3=4). Bumps don't advance cadence_step."""
+        if kind == "initial":
+            return {"cadence_step": 1}
+        if kind == "bump":
+            return {"bump_sent_at": now_iso()}
+        if kind.startswith("followup_"):
+            try:
+                which = int(kind.split("_", 1)[1])
+                return {"cadence_step": 1 + which}  # FU1 → 2, FU2 → 3, FU3 → 4
+            except Exception:
+                return {}
+        return {}
 
     async def _eligible_for_initial() -> List[Dict[str, Any]]:
         now_s = now_iso()
@@ -892,7 +924,28 @@ def make_outbound_router(
         )
         return r.modified_count
 
+    async def _due_bumps() -> List[Dict[str, Any]]:
+        """Iter 50 · prospects sent the initial email at least BUMP_AFTER_MINUTES
+        ago, NOT yet bumped, NOT yet opened/clicked. Sends the +45min nudge."""
+        cutoff = (now_dt() - timedelta(minutes=BUMP_AFTER_MINUTES)).isoformat()
+        q = {
+            "unsubscribed": {"$ne": True},
+            "suppressed": {"$ne": True},
+            "replied_at": None,
+            "emails_sent": 1,                       # only initial sent, no bump yet
+            "bump_sent_at": {"$in": [None, False]}, # haven't already bumped
+            "last_email_at": {"$lte": cutoff},      # ≥ BUMP_AFTER_MINUTES ago
+            # Skip if already opened or clicked — give the open a chance
+            "last_opened_at": {"$in": [None, False]},
+        }
+        return await db.outbound_prospects.find(q, {"_id": 0}).to_list(500)
+
     async def _due_followups() -> List[Dict[str, Any]]:
+        # Iter 50 cadence: emails_sent counts include the +45min bump:
+        #   1 = initial (no bump yet)         2 = initial+bump
+        #   3 = bump+FU1                       4 = bump+FU1+FU2
+        # We follow up only on prospects where the last *cadence* step matters,
+        # not the bump. So we identify followup index by `cadence_step`.
         cutoffs = [
             (now_dt() - timedelta(days=FOLLOWUP_OFFSETS_DAYS[0])).isoformat(),
             (now_dt() - timedelta(days=FOLLOWUP_OFFSETS_DAYS[1])).isoformat(),
@@ -902,18 +955,37 @@ def make_outbound_router(
             "unsubscribed": {"$ne": True},
             "suppressed": {"$ne": True},
             "replied_at": None,
-            "status": {"$in": ["contacted"]},
+            "status": {"$in": ["contacted", "demo_sent"]},
             "last_email_at": {"$exists": True, "$ne": None},
         }
         due: List[Dict[str, Any]] = []
         async for p in db.outbound_prospects.find(q, {"_id": 0}):
-            sent = int(p.get("emails_sent", 0))
-            if sent < 1 or sent > 3:
+            # cadence_step: 1=initial sent, 2=FU1 sent, 3=FU2 sent, 4=FU3 sent (cold)
+            cadence_step = int(p.get("cadence_step", 1) or 1)
+            if cadence_step < 1 or cadence_step > len(FOLLOWUP_OFFSETS_DAYS):
                 continue
-            threshold = cutoffs[sent - 1]
+            threshold = cutoffs[cadence_step - 1]
             if p.get("last_email_at") and p["last_email_at"] <= threshold:
                 due.append(p)
         return due
+
+    async def _ramped_daily_limit() -> int:
+        """Iter 50 · ramp daily_limit on a curve over the first ~5 days from
+        the engine's first send. Final state: respect whatever is in
+        outbound_campaign_state.daily_limit (manual override).
+        """
+        state = await _state()
+        if state.get("manual_daily_limit"):
+            return int(state.get("daily_limit") or DAILY_LIMIT_DEFAULT)
+        first_send = await db.outbound_events.find_one(
+            {"type": "sent"}, {"_id": 0, "created_at": 1}, sort=[("created_at", 1)],
+        )
+        if not first_send or not first_send.get("created_at"):
+            return _ramp_schedule()[0]
+        days_since = (now_dt() - datetime.fromisoformat(first_send["created_at"])).days
+        ramp = _ramp_schedule()
+        idx = min(days_since, len(ramp) - 1)
+        return ramp[idx]
 
     async def _process_queue(batch_override: Optional[int] = None) -> int:
         """Returns number of emails sent this invocation. Respects daily limit +
@@ -925,7 +997,8 @@ def make_outbound_router(
         state = await _state()
         if state.get("paused"):
             return 0
-        daily_limit = int(state.get("daily_limit", DAILY_LIMIT_DEFAULT))
+        # Iter 50 · ramped daily limit (auto-step 25 → 50 → 100 → 150 → 200)
+        daily_limit = await _ramped_daily_limit()
         sent_today = await _today_sent_count()
         remaining = daily_limit - sent_today
         if remaining <= 0:
@@ -937,35 +1010,39 @@ def make_outbound_router(
             batch_size = min(remaining, max(1, daily_limit // max(1, SEND_WINDOW_HOURS * 2)))
 
         queue: List[tuple[Dict[str, Any], str, int]] = []
-        # Initials first (sorted by lead_score desc)
-        for p in (await _eligible_for_initial())[:batch_size]:
-            queue.append((p, "initial", 0))
+        # 1. +45min bumps go FIRST — fastest path to a reply
+        for p in (await _due_bumps())[:batch_size]:
+            queue.append((p, "bump", 0))
+        # 2. Initials next (sorted by lead_score desc)
+        if len(queue) < batch_size:
+            for p in (await _eligible_for_initial())[: batch_size - len(queue)]:
+                queue.append((p, "initial", 0))
+        # 3. Cadence follow-ups
         if len(queue) < batch_size:
             for p in (await _due_followups())[: batch_size - len(queue)]:
-                which = int(p.get("emails_sent", 0))  # 1 → followup_1, etc.
-                queue.append((p, f"followup_{which}", which))
+                step = int(p.get("cadence_step", 1) or 1)  # 1=initial sent → next is FU1
+                queue.append((p, f"followup_{step}", step))
 
         sent_count = 0
         for p, kind, which in queue:
             try:
                 included_demo = False
                 if kind == "initial":
-                    include_teaser = int(p.get("lead_score", 0)) >= 70
-                    draft = await _draft_email(p, include_teaser)
-                    included_demo = include_teaser
+                    draft = await _draft_email(p, include_teaser=True)
+                    included_demo = True  # Force-Reply Day 0 always includes demo link
+                elif kind == "bump":
+                    draft = await _draft_bump(p)
+                    included_demo = True  # bump always includes demo link
                 else:
                     draft = await _draft_followup(p, which)
-                    # FU2 (which==2) injects demo link when score >= 60
-                    if which == 2 and int(p.get("lead_score", 0)) >= 60:
+                    # FU1 (which==1) and FU2 (which==2) include demo
+                    if which in (1, 2):
                         included_demo = True
                 is_simulated = bool(re.search(r"\.example(?:\.com|\.org|\.net)?$", (p.get("email") or "").lower()))
                 ok = await _send_one(p, draft["subject"], draft["body"], kind=kind)
                 if ok:
                     sent_count += 1
                     if included_demo:
-                        # Phase-6 demo tracking — log dedicated event + bump
-                        # prospect doc so /performance.demos_sent reflects real
-                        # demo deliveries, not just 2+ emails.
                         seg = p.get("target_segment") or "sales_team_agency"
                         demo_info = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
                         await _log_event(p["id"], "demo_sent", kind=kind, demo_route=demo_info["route"], demo_label=demo_info["label"])
@@ -975,13 +1052,12 @@ def make_outbound_router(
                                 "demo_sent_at": now_iso(),
                                 "demo_route": demo_info["route"],
                                 "demo_label": demo_info["label"],
-                                "status": "demo_sent",
                             }, "$inc": {"demos_delivered": 1}},
                         )
-                    # Natural spacing — only for real sends; simulated ones
-                    # don't hit any provider so spacing is unnecessary.
+                    # Iter 50 · randomized 60-120s spacing for real sends to
+                    # avoid uniform-cadence spam fingerprints.
                     if not is_simulated:
-                        await asyncio.sleep(MIN_SEND_SPACING_SEC)
+                        await asyncio.sleep(random.randint(60, 120))
             except HTTPException:
                 break
             except Exception as e:
@@ -1244,6 +1320,7 @@ def make_outbound_router(
 
         # Auto-create Deal on positive (Demo-First spec) — re-fetch to get fresh status
         deal_info: Optional[Dict[str, Any]] = None
+        instant_close: Optional[Dict[str, Any]] = None
         if status == "replied_positive":
             p_fresh = await db.outbound_prospects.find_one({"id": p["id"]}, {"_id": 0})
             if p_fresh:
@@ -1251,6 +1328,48 @@ def make_outbound_router(
                     deal_info = await _create_or_get_deal_for_prospect(p_fresh, trigger="reply_positive")
                 except Exception as e:
                     log.error(f"deal auto-create failed: {e}")
+                # Iter 50 · INSTANT CLOSE TRIGGER — flag HOT, push to top of dashboard,
+                # auto-send Calendly response (no founder approval required).
+                try:
+                    await db.outbound_prospects.update_one(
+                        {"id": p["id"]},
+                        {"$set": {
+                            "intent_level": "HIGH_INTENT",
+                            "priority": "immediate",
+                            "hot_lead": True,
+                            "hot_lead_at": now_iso(),
+                        }},
+                    )
+                    calendly = os.environ.get("CALENDLY_URL", "").strip()
+                    if calendly:
+                        from email_service import send_from
+                        first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
+                        instant_html = (
+                            f"<p>Hi {first_name},</p>"
+                            f"<p>Perfect — I'll map this to your numbers and walk you through "
+                            f"exactly where the leakage is and how the correction works.</p>"
+                            f"<p>Grab a quick time here:<br/>"
+                            f"<a href='{calendly}'>{calendly}</a></p>"
+                            f"<p>— Jeffrey</p>"
+                        )
+                        from_email = await _pick_sender_email()
+                        res = await send_from(from_email, p["email"],
+                            f"Re: {p.get('reply_subject') or 'your reply'}"[:120],
+                            instant_html)
+                        instant_close = {
+                            "calendly_sent": bool(res.get("ok")),
+                            "calendly_url": calendly,
+                            "from_email": from_email,
+                        }
+                        if res.get("ok"):
+                            await _log_event(p["id"], "calendly_sent",
+                                trigger="instant_close", from_email=from_email,
+                                calendly_url=calendly)
+                    else:
+                        instant_close = {"calendly_sent": False, "reason": "calendly_not_configured"}
+                except Exception as e:
+                    log.error(f"instant close trigger failed: {e}")
+                    instant_close = {"calendly_sent": False, "error": str(e)[:200]}
 
         # Positive → AI draft + founder notification (email + SMS if configured)
         if status == "replied_positive":
@@ -1304,6 +1423,7 @@ def make_outbound_router(
             "category": category,
             "classifier": classifier_result,
             "deal": deal_info,
+            "instant_close": instant_close,
         }
 
     @router.post("/drafts/list")
@@ -2124,6 +2244,139 @@ def make_outbound_router(
             "message": "You have been unsubscribed. We will not email you again.",
         }
 
+    # ──────────────── PUSH HOT LEADS · TRACKING · WEBHOOK (Iter 50) ────────────────
+    @router.post("/push-hot-leads")
+    async def push_hot_leads(payload: OpsAuth):
+        """Founder-triggered re-engagement scan. Finds prospects who:
+          - opened OR clicked the demo URL
+          - viewed a demo page
+          - captured demo email (soft-gate)
+        AND have not yet replied. Sends a short Calendly-only re-engage email."""
+        await require_founder(payload)
+        calendly = os.environ.get("CALENDLY_URL", "").strip()
+        # Eligibility: any engagement signal, no reply, not suppressed, not unsubscribed
+        q = {
+            "replied_at": None,
+            "unsubscribed": {"$ne": True},
+            "suppressed": {"$ne": True},
+            "$or": [
+                {"last_opened_at": {"$ne": None}},
+                {"last_clicked_at": {"$ne": None}},
+                {"captured_from_demo": True},
+                {"demo_sent_at": {"$ne": None}},
+            ],
+        }
+        candidates = await db.outbound_prospects.find(q, {"_id": 0}).to_list(200)
+        sent = 0
+        for p in candidates:
+            try:
+                # Skip if we already pushed in last 24h
+                last_push = p.get("hot_push_at")
+                if last_push and (now_dt() - datetime.fromisoformat(last_push)).total_seconds() < 86400:
+                    continue
+                first_name = (p.get("contact_name") or "").split(" ")[0] or "there"
+                seg = p.get("target_segment") or "sales_team_agency"
+                demo = DEMO_MAP.get(seg) or DEMO_MAP["sales_team_agency"]
+                demo_url = f"{_public_base()}{demo['route']}"
+                subject = "quick check"
+                if calendly:
+                    body = (
+                        f"Hi {first_name},\n\n"
+                        f"Quick check — did this apply to your setup?\n\n"
+                        f"If yes, I'll map your numbers:\n{calendly}\n\n"
+                        f"If you want to revisit the demo first: {demo_url}\n\n"
+                        f"— Jeffrey"
+                    )
+                else:
+                    body = (
+                        f"Hi {first_name},\n\n"
+                        f"Quick check — did this apply to your setup?\n\n"
+                        f"If yes, I'll map your numbers — what times this week?\n\n"
+                        f"Demo if helpful: {demo_url}\n\n"
+                        f"— Jeffrey"
+                    )
+                ok = await _send_one(p, subject, body, kind="hot_push")
+                if ok:
+                    await db.outbound_prospects.update_one(
+                        {"id": p["id"]},
+                        {"$set": {"hot_push_at": now_iso()}},
+                    )
+                    sent += 1
+            except Exception as e:
+                log.error(f"hot push failed for {p.get('email')}: {e}")
+        return {"ok": True, "candidates": len(candidates), "sent": sent}
+
+    @router.get("/track/open/{track_id}")
+    async def track_open(track_id: str):
+        """Tracking-pixel endpoint. Logs an open event + flags the prospect.
+        Returns a 1×1 transparent GIF."""
+        from fastapi.responses import Response
+        try:
+            evt = await db.outbound_events.find_one(
+                {"track_id": track_id, "type": "sent"}, {"_id": 0, "prospect_id": 1, "from_email": 1},
+            )
+            if evt and evt.get("prospect_id"):
+                now_s = now_iso()
+                await db.outbound_prospects.update_one(
+                    {"id": evt["prospect_id"]},
+                    {"$set": {"last_opened_at": now_s, "updated_at": now_s},
+                     "$inc": {"open_count": 1}},
+                )
+                await db.outbound_events.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "prospect_id": evt["prospect_id"],
+                    "type": "opened",
+                    "track_id": track_id,
+                    "from_email": evt.get("from_email"),
+                    "day_key": now_dt().strftime("%Y-%m-%d"),
+                    "created_at": now_s,
+                })
+        except Exception as e:
+            log.error(f"track_open failed for {track_id}: {e}")
+        # 1×1 transparent GIF
+        gif = bytes.fromhex("47494638396101000100800000000000ffffff21f90401000001002c00000000010001000002024401003b")
+        return Response(content=gif, media_type="image/gif",
+                        headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"})
+
+    @router.post("/resend-webhook")
+    async def resend_webhook(payload: Dict[str, Any]):
+        """Resend webhook receiver — opens / clicks / bounces / complaints.
+        Set Resend webhook URL to: <base>/api/ops/outbound/resend-webhook
+        and `RESEND_WEBHOOK_SECRET` (optional) to gate access."""
+        secret = os.environ.get("RESEND_WEBHOOK_SECRET", "").strip()
+        if secret and payload.get("secret") != secret:
+            raise HTTPException(403, "Invalid Resend webhook secret")
+        evt_type = (payload.get("type") or payload.get("event") or "").lower()
+        data = payload.get("data") or payload
+        resend_id = data.get("email_id") or data.get("id") or data.get("message_id")
+        if not resend_id:
+            return {"ok": False, "reason": "no_resend_id"}
+        # Find prospect by stored last_email_resend_id
+        prospect = await db.outbound_prospects.find_one(
+            {"last_email_resend_id": resend_id}, {"_id": 0, "id": 1, "email": 1},
+        )
+        if not prospect:
+            return {"ok": True, "matched": False}
+        pid = prospect["id"]
+        now_s = now_iso()
+        if "open" in evt_type:
+            await db.outbound_prospects.update_one({"id": pid}, {"$set": {"last_opened_at": now_s}, "$inc": {"open_count": 1}})
+            await _log_event(pid, "opened", resend_id=resend_id)
+        elif "click" in evt_type:
+            await db.outbound_prospects.update_one({"id": pid}, {"$set": {"last_clicked_at": now_s}, "$inc": {"click_count": 1}})
+            await _log_event(pid, "clicked", resend_id=resend_id)
+        elif "bounce" in evt_type:
+            await db.outbound_prospects.update_one({"id": pid}, {"$set": {"bounced": True, "suppressed": True}})
+            await _suppress(prospect["email"], reason="resend_bounce")
+            await _log_event(pid, "bounced", resend_id=resend_id)
+        elif "complain" in evt_type or "complaint" in evt_type:
+            await db.outbound_prospects.update_one({"id": pid}, {"$set": {"complained": True, "suppressed": True}})
+            await _suppress(prospect["email"], reason="resend_complaint")
+            await _log_event(pid, "complained", resend_id=resend_id)
+        elif "delivered" in evt_type:
+            await _log_event(pid, "delivered", resend_id=resend_id)
+        return {"ok": True, "matched": True, "type": evt_type}
+
     # Expose the autopilot helper now that _autopilot_cycle is defined.
     _AUTOPILOT_HELPERS[id(router)] = _autopilot_cycle
 
@@ -2424,14 +2677,53 @@ async def _imap_poll_once(db) -> Dict[str, Any]:
                 )
             except Exception:
                 pass
-        # Interested → auto-create Deal (idempotent) per Demo-First spec
+        # Interested → INSTANT CLOSE TRIGGER (Iter 50): auto-create Deal + flag HOT + auto-Calendly
         if bucket == "interested":
             try:
                 p_fresh = await db.outbound_prospects.find_one({"id": prospect["id"]}, {"_id": 0})
                 if p_fresh:
                     await standalone_create_deal(db, p_fresh, trigger="imap_reply_interested")
+                # Flag HOT + push to top
+                await db.outbound_prospects.update_one(
+                    {"id": prospect["id"]},
+                    {"$set": {
+                        "intent_level": "HIGH_INTENT",
+                        "priority": "immediate",
+                        "hot_lead": True,
+                        "hot_lead_at": datetime.now(timezone.utc).isoformat(),
+                    }},
+                )
+                # Auto-send Calendly + founder notify
+                calendly = os.environ.get("CALENDLY_URL", "").strip()
+                if calendly:
+                    try:
+                        from email_service import send_from
+                        first_name = (prospect.get("contact_name") or "").split(" ")[0] or "there"
+                        body_html = (
+                            f"<p>Hi {first_name},</p>"
+                            f"<p>Perfect — I'll map this to your numbers. "
+                            f"Grab a quick time here:<br/>"
+                            f"<a href='{calendly}'>{calendly}</a></p>"
+                            f"<p>— Jeffrey</p>"
+                        )
+                        # Reuse the same sender that was used originally (or rotate)
+                        from_email = prospect.get("last_email_from") or "info@creatorboostai.com"
+                        await send_from(from_email, m["from"], f"Re: {m['subject']}", body_html)
+                        await db.outbound_events.insert_one({
+                            "id": str(uuid.uuid4()),
+                            "prospect_id": prospect["id"],
+                            "type": "calendly_sent",
+                            "trigger": "imap_instant_close",
+                            "day_key": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                            "calendly_url": calendly,
+                            "from_email": from_email,
+                        })
+                        log.info(f"[imap] INSTANT CLOSE → Calendly auto-sent to {m['from']}")
+                    except Exception as _e:
+                        log.error(f"[imap] instant-close Calendly send failed: {_e}")
             except Exception as _e:
-                log.error(f"[imap] deal auto-create failed: {_e}")
+                log.error(f"[imap] instant-close failed: {_e}")
         # YES shortcut → auto-send Calendly booking link (no founder approval needed)
         if is_yes_shortcut:
             calendly = os.environ.get("CALENDLY_URL", "").strip()

@@ -1,0 +1,48 @@
+{
+  "summary": "Iter 50 backend review — Revenue-Engine Upgrade. 27/27 pytest assertions pass in /app/backend/tests/test_iter50_revenue_engine.py. Verified: (1) Force-reply Day 0 subject='quick question' + per-segment noun mapping (education→classrooms, realtor→listings, supermarket→stores, airport→operations) + revenue-correction copy + demo URL + Calendly URL + 'reply no' exit; (2) /run-tick returns 200 with no IndexError, /admin/diagnostics returns 200, _due_bumps query doesn't crash; (3) FOLLOWUP_OFFSETS_DAYS=[1,2,5] + cadence_step logic is wired; (4) OUTBOUND_SENDER_POOL read correctly (all historical sends from @creatorboostai.com domain); (5) Tracking pixel endpoint returns 43-byte 1x1 GIF for both real and nonexistent track_ids AND correctly creates an 'opened' event + bumps last_opened_at/open_count on real track_ids; (6) Resend webhook returns {ok:true,matched:false} for unknown email_id; secret gating verified as no-op when env secret is empty string; (7) /push-hot-leads: 200 for founder, 403 for executive, 401/403 for unauth; (8) Instant-close trigger sets hot_lead=true, intent_level=HIGH_INTENT, priority=immediate, returns deal.deal_value_usd>0 + instant_close object; (9) Lead Registry mirror creates leads_registry row with lock_status=LOCKED, assigned_to_user_id=founder email, dedupe_keys containing email key — dedup verified (same email resubmit = 1 row only); (10) Performance endpoint exposes hot_leads_count/active_sending_rate/booked_calls/opens_total/clicks_total for founder AND executive (ELEVATED_ROLES gate); (11) _ramp_schedule() correctly returns [25,50,100,150,200] from env; (12) Regression — /demo/view, /demo/capture, /outbound/state, /outbound/dashboard, /outbound/prospects/list, /outbound/admin/diagnostics, /outbound/clay-webhook (503 'not configured' — secret intentionally unset), /outbound/imap-poll-now (ok:false reason:imap_not_configured) all pass.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/outbound-track/open/{track_id}",
+        "issue": "TRACKING-PIXEL URL MISMATCH. In /app/backend/outbound.py line 811, _send_one() embeds the pixel as '<img src=\"{public_base}/api/outbound-track/open/{track_id}\"...>' but the actual FastAPI endpoint is registered at '/api/ops/outbound/track/open/{track_id}' (outbound.py line 2309). Curl confirms: /api/outbound-track/open/x → 404, /api/ops/outbound/track/open/x → 200. This means every real email sent via Resend carries a pixel that 404s — all open-tracking via pixel is silently broken for real sends. Simulated .example.com sends are fine because they short-circuit without using the pixel URL. Fix: change line 811 to use `{public_base}/api/ops/outbound/track/open/{track_id}` OR register a path alias router at /api/outbound-track/open/{id} that forwards to the existing handler.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "/api/ops/outbound/run-tick",
+        "issue": "Live rate-limit observation: sent_today=76 vs ramped daily_limit=50 (days_since=1 → ramp[1]) → remaining<=0 → tick correctly produces 0 new sends. This is CORRECT behavior (deliverability protection) but means test harnesses cannot force a fresh send end-to-end via /run-tick once daily cap is hit. I rewrote the bump/rotation tests to validate the machinery via (a) historical corpus introspection + (b) confirming tick returns 200 without crashing. Code is correct; just flagging for next testing agent."
+      },
+      {
+        "endpoint": "/api/ops/outbound/clay-webhook",
+        "issue": "Returns 503 'Clay webhook not configured (set CLAY_WEBHOOK_SECRET)'. This is intentional per spec but the review request said 'secret-gated' — technically it's env-gated closed when CLAY_WEBHOOK_SECRET is unset. Minor wording nit only; behavior is safe."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter50_revenue_engine.py",
+    "/app/test_reports/pytest/iter50_results.xml"
+  ],
+  "action_items": [
+    "HIGH: Fix tracking-pixel URL mismatch in /app/backend/outbound.py line 811. Currently embeds `/api/outbound-track/open/{track_id}` which 404s; the endpoint lives at `/api/ops/outbound/track/open/{track_id}`. One-line fix: change the pixel src to `{public_base}/api/ops/outbound/track/open/{track_id}`. Without this fix, ALL open-tracking for real emails (once RESEND_API_KEY is set) is broken.",
+    "Optional: add a small server.py alias route @app.get('/api/outbound-track/open/{track_id}') that proxies to the existing handler, as a safety net if any historical emails carry the old URL.",
+    "Consider adding data-testid or explicit wiring test for the pixel URL so this regression is caught automatically next iteration."
+  ],
+  "critical_code_review_comments": [
+    "Tracking-pixel URL mismatch (above) is the only real functional bug found in Iter 50. Everything else is solid.",
+    "_due_bumps() uses `bump_sent_at: {$in:[None,False]}` — good defensive check but consider `$exists:false` OR None to also match never-written docs; current query works because cadence_set default writes bump_sent_at=None. Low-risk.",
+    "instant_close block in mark-replied correctly handles CALENDLY_URL absent case (returns calendly_sent:false, reason:calendly_not_configured). Good.",
+    "lead_registry upsert_lead is idempotent on email/phone/company-loc — dedup verified via test. Single-tenant assumption (all leads auto-locked to founder) is explicit in code comments.",
+    "Performance endpoint correctly gates the new KPIs behind ELEVATED_ROLES (founder+executive) per spec — employee role would see 0s.",
+    "Force-reply Day 0 body is hard-locked (no AI drift) with clean structure — good choice for a 'force a response either way' campaign."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter50_revenue_engine.py"],
+  "success_rate": {"backend": "100% (27/27 passing)", "frontend": "n/a (backend-only review)"},
+  "test_credentials": "Founder master key: jeffrey-2026-bodyiq-founder-master · Executive: erin-flanigan-2026-executive-president-master · Founder email: j.davidg67@gmail.com",
+  "seed_data_creation": "Each test seeds minimal simulated prospects on .test.example.com domains and cleans them up in-test. No permanent test data left behind. No modifications to seeded/production data.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test file: /app/backend/tests/test_iter50_revenue_engine.py (27 assertions). Live DB already has ~76 sends/day so daily_limit=50 is usually exhausted — tick-based tests that require a fresh send-to-inbox won't fire in env; I refactored those to validate the machinery via DB corpus introspection + tick-doesn't-crash. The single real bug found: tracking pixel URL in outbound.py L811 points to /api/outbound-track/... which 404s (real endpoint is /api/ops/outbound/track/...). Fix is trivial (string change). After the fix, re-run the full file and verify test_real_track_id_creates_opened_event still passes (it tests the ENDPOINT path, which is correct and unchanged).",
+  "rca of the issue": "Tracking-pixel URL bug RCA — outbound.py L811 was authored with the shorter path '/api/outbound-track/open/{id}' (perhaps planned as a dedicated mount) but the router in the same file (L2309) registers the handler under the ops outbound prefix as '/track/open/{track_id}', which with the '/api/ops/outbound' router prefix resolves to '/api/ops/outbound/track/open/{id}'. Two different URL conventions got merged. Reproduction: `curl -I https://bodyiq-training.preview.emergentagent.com/api/outbound-track/open/x` → 404; `curl -I https://bodyiq-training.preview.emergentagent.com/api/ops/outbound/track/open/x` → 200 with image/gif. Mitigation: 1-line change in outbound.py L811 — use the correct path. Impact in current preview: low (RESEND_API_KEY unset → emails simulated on .example.com domains, pixel URL not hit). Impact in production: HIGH — 100% of open tracking via pixel is silently lost."
+}

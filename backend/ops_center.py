@@ -1502,6 +1502,22 @@ def make_router(db, email_service=None) -> APIRouter:
         bounce_rate = (bounced_7d / sent_7d) if sent_7d else 0.0
         spam_risk = "high" if bounce_rate >= 0.05 else "medium" if bounce_rate >= 0.02 else "low"
 
+        # Iter 50 · live performance KPIs
+        ob_hot_leads = 0
+        ob_opens_total = ob_clicks_total = 0
+        booked_calls = 0
+        active_sending_rate = 0
+        if user["role"] in ELEVATED_ROLES:
+            ob_hot_leads = await db.outbound_prospects.count_documents({"hot_lead": True, "source": {"$ne": "internal_archived"}})
+            ob_opens_total = await db.outbound_events.count_documents({"type": "opened"})
+            ob_clicks_total = await db.outbound_events.count_documents({"type": "clicked"})
+            booked_calls = await db.outbound_events.count_documents({"type": "calendly_sent"})
+            # Active sending rate = sends over last 7d / 7
+            from datetime import datetime as _dt7, timezone as _tz7, timedelta as _td7
+            _since7 = (_dt7.now(_tz7.utc) - _td7(days=7)).isoformat()
+            sends_7d = await db.outbound_events.count_documents({"type": "sent", "created_at": {"$gte": _since7}})
+            active_sending_rate = round(sends_7d / 7, 1)
+
         return {
             "role": user["role"],
             "scope_email": None if user["role"] in ELEVATED_ROLES else user["email"],
@@ -1522,6 +1538,13 @@ def make_router(db, email_service=None) -> APIRouter:
             "demo_views_total": demo_views_total,
             "demo_captures_total": demo_captures_total,
             "demo_conversion_rate": demo_conversion_rate,
+            # Iter 50 · revenue engine KPIs
+            "hot_leads_count": ob_hot_leads,
+            "opens_total": ob_opens_total,
+            "clicks_total": ob_clicks_total,
+            "booked_calls": booked_calls,
+            "active_sending_rate": active_sending_rate,
+            "reply_rate_pct": round(((ob_qualified + (blended_by_status.get("contacted", 0) > 0 and 0 or 0)) / max(1, ob_total)) * 100, 1),
             # Automation status panel
             "automation": {
                 "engine_paused": bool((ob_state or {}).get("paused")),

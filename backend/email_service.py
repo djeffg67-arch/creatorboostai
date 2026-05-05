@@ -116,6 +116,50 @@ async def send_raw(to: str, subject: str, html: str) -> bool:
     return await _send(to, subject, html)
 
 
+async def send_from(from_email: str, to: str, subject: str, html: str) -> Dict[str, Any]:
+    """Multi-inbox sender — used by the outbound engine for sender-pool rotation.
+    Returns {ok, id, error, error_kind, status_code} so the caller can persist
+    the Resend message id for open/click/bounce webhook correlation.
+
+    `from_email` must be a verified address on the same Resend domain. Falls
+    back to the hard-coded SENDER_EMAIL if the override is empty.
+    """
+    live_key = _live_resend_key()
+    if not live_key:
+        return {"ok": False, "id": None,
+                "error": "RESEND_API_KEY not present", "error_kind": "no_api_key",
+                "status_code": None}
+    resend.api_key = live_key
+    sender = (from_email or "").strip() or SENDER_EMAIL
+    from_header = f"{SENDER_NAME} <{sender}>"
+    params = {
+        "from": from_header,
+        "to": [to],
+        "subject": subject,
+        "html": html,
+        "reply_to": REPLY_TO_EMAIL,
+    }
+    logger.info(f"[RESEND CALL] from={from_header} to={to} subject={subject!r}")
+    try:
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        if isinstance(result, dict) and result.get("id"):
+            return {"ok": True, "id": result["id"], "error": None,
+                    "error_kind": None, "status_code": 200}
+        if isinstance(result, dict) and result.get("error"):
+            err_obj = result["error"]
+            err_msg = err_obj.get("message") if isinstance(err_obj, dict) else str(err_obj)
+            err_status = err_obj.get("statusCode") if isinstance(err_obj, dict) else None
+            return {"ok": False, "id": None, "error": err_msg,
+                    "error_kind": "resend_api_error", "status_code": err_status}
+        return {"ok": False, "id": None,
+                "error": f"Unexpected Resend response: {result!r}",
+                "error_kind": "resend_api_error", "status_code": None}
+    except Exception as e:
+        logger.exception(f"[RESEND FAIL] from={from_header} to={to} exception={e!r}")
+        return {"ok": False, "id": None, "error": f"{type(e).__name__}: {e}",
+                "error_kind": "exception", "status_code": None}
+
+
 async def send_with_result(to: str, subject: str, html: str) -> Dict[str, Any]:
     """Same as `_send` but returns a structured result so the API route can
     surface the *real* Resend error to the client instead of a generic

@@ -1,6 +1,149 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-04 (Iter 49 — Demo-First sequence Day 0/1/3/7 · Auto-Deal creation · AI Reply Classifier)
+**Last update:** 2026-05-05 (Iter 50 — Force-reply engine · multi-inbox · open tracking · Lead Registry foundation · Push Hot Leads)
+
+---
+
+## 🎯 ITER 50 — REVENUE ENGINE UPGRADE (Phase A complete)
+
+Jeffrey's "FINAL SYSTEM UPGRADE — CONVERSION ENGINE + HIGH-VOLUME OUTBOUND" message — Phase A items shipped:
+
+### 1 · Force-Reply Day 0 + revenue-correction copy (Items #1, #6)
+- New hard-locked Day 0 template (subject `quick question`):
+  ```
+  Do you currently manage {locations|stores|teams|classrooms|...} at {company}?
+  I mapped something based on your industry — it shows where operations are
+  losing money and how to correct it. Takes about 2 minutes to review.
+  {demo_url}
+  If it's even slightly relevant, grab a quick slot:
+  {calendly_url}
+  If not, just reply "no" and I'll close the loop.
+  ```
+- Per-segment noun: airports→operations, supermarkets→stores, education→classrooms, realtor→listings, etc. (`SEGMENT_NOUN`)
+- All AI draft functions (`_draft_email`, `_draft_followup`, `_draft_positive_reply`) shifted from "demo" framing → "where operations are losing money and how to correct it"
+
+### 2 · +45-min auto-bump (Item #2)
+- New `_draft_bump()` — fixed copy: `quick bump`, `Just bumping this — worth a quick look?`, demo link
+- New `_due_bumps()` query: prospects sent the initial 45+ minutes ago, NOT opened/clicked, NOT replied, NOT yet bumped
+- Bumps sit at front of every queue tick — fastest path to a reply
+- Skipped when prospect has `last_opened_at` set (gives the open a chance)
+
+### 3 · New cadence: Day 0 → +45min → Day 1 → Day 2 (Loom) → Day 5 close (Items #2, #3)
+- `FOLLOWUP_OFFSETS_DAYS = [1, 2, 5]` · `MAX_EMAILS_BEFORE_COLD = 5`
+- New `cadence_step` field tracks cadence position separately from `emails_sent` (bumps don't advance cadence)
+- **Day 1 (FU1):** Pressure bump · "Most operators in your space are leaking 15-25% on costs they can't see"
+- **Day 2 (FU2):** Loom custom-build offer · "I can record a quick 2-minute breakdown using {company}'s actual setup and data — show you exactly where the leakage is"
+- **Day 5 (FU3):** Soft close · "should I close this out?"
+
+### 4 · Instant Close Trigger (Item #4)
+- When AI classifier returns `interested`:
+  - Auto-create Deal (Iter 49 logic — idempotent)
+  - Flag prospect: `intent_level=HIGH_INTENT`, `priority=immediate`, `hot_lead=true`, `hot_lead_at=now`
+  - Auto-send Calendly response from rotated sender (no founder approval needed)
+  - Founder email + SMS notifications
+- Wired into BOTH `mark-replied` and `_imap_poll_once`
+- Returns `instant_close: { calendly_sent, calendly_url, from_email }` in API response
+
+### 5 · Push Hot Leads button (Item #5)
+- New endpoint: `POST /api/ops/outbound/push-hot-leads` (founder-only)
+- Scans for prospects with engagement signals + no reply + not suppressed:
+  - `last_opened_at` set OR `last_clicked_at` set OR `captured_from_demo=True` OR `demo_sent_at` set
+- 24h cooldown via `hot_push_at` field (won't re-push same prospect for a day)
+- Sends short re-engage: "Quick check — did this apply to your setup? If yes, I'll map your numbers: {calendly}"
+- Verified live: `candidates: 53 · sent: 52` on first click
+- Frontend: rose-bordered "Push Hot Leads" button + `Flame` icon next to "Run autopilot now"
+
+### 7 · Volume ramping (Item #7)
+- `OUTBOUND_RAMP_SCHEDULE=25,50,100,150,200` env var
+- New `_ramped_daily_limit()`: auto-steps the cap based on days since first send
+- Manual override preserved: setting `manual_daily_limit=true` in campaign state pins to a fixed value (used by Low Credit Mode preset)
+- Randomized 60–120s spacing between sends (replaces fixed 60s) — anti-spam fingerprint
+
+### 8 · Multi-inbox sender-pool rotation (Item #8)
+- `OUTBOUND_SENDER_POOL=info@,jeffrey@,team@,outreach@,deals@,connect@creatorboostai.com` (6 senders)
+- `OUTBOUND_PER_INBOX_DAILY_CAP=45` per inbox
+- New `_pick_sender_email()`: round-robin with cap awareness — picks the inbox with lowest sends today that's still under cap
+- Tracks `from_email` on every `outbound_events.sent` row + on prospect doc (`last_email_from`)
+- New `email_service.send_from(from_email, to, subject, html)` — overrides hard-coded sender per request
+
+### 9 · Deliverability protection (already most of this; Item #9)
+- ✅ Auto-pause on bounce ≥5% / complaint ≥0.3% over 7 days (≥50 sends)
+- ✅ Hard-bounce + complaint suppression list
+- ✅ Unsubscribe endpoint with deterministic hash token
+- ✅ Spam-word filter on every AI draft
+- 🆕 Resend webhook + tracking pixel for live open/click/bounce/complaint events:
+  - `POST /api/ops/outbound/resend-webhook` (RESEND_WEBHOOK_SECRET-gated)
+  - `GET /api/ops/outbound/track/open/{track_id}` (1×1 transparent GIF)
+  - Updates `last_opened_at`, `open_count`, `last_clicked_at`, `click_count` on prospect
+
+### 12 · Reply classifier behavior (already done in Iter 49; Item #12)
+- 3-bucket classifier (interested/neutral/not_interested) via Claude with keyword fallback
+- Interested triggers everything in Item #4
+- Not_interested suppresses + flips ops_leads to lost
+- Neutral queues for founder review
+
+### 13 · Auto-Deal Creation (Iter 49; Item #13)
+- Idempotent (`deal_id` short-circuit)
+- Triggers: demo capture · positive reply · IMAP interested
+- Segment values: Airports $150K · Supermarkets $75K · C-Stores/Education/Retail $50K · Insurance/Sales $40K · Contractor $35K · Realtor $30K · Creator $15K · Enterprise $200K
+- Mirrors into `ops_leads` with `value_usd` for pipeline math
+
+### 14 · Live Performance KPIs (Item #14)
+- New tiles in `/api/ops/performance` and `/portal/ops` Performance tab:
+  - **Hot leads** (count of `hot_lead=true`)
+  - **Active sending rate** (sends over last 7 days / 7)
+  - **Booked calls** (count of `calendly_sent` events)
+  - **Opens total** + **Clicks total**
+
+### Lead Registry Foundation (Q3=a · single-tenant)
+New `/app/backend/lead_registry.py` module with:
+- Schema: `lead_id, name, company, email, phone, industry_tag, location, source, status, assigned_to_user_id, assigned_to_company_id, assigned_timestamp, lock_status (LOCKED|AVAILABLE|EXPIRED), last_activity_at, dedupe_keys, source_outbound_prospect_id, source_demo_capture_id, created_at, updated_at`
+- **Dedup engine**: matches on email | normalized phone (last-10 US-style) | normalized company+location. Returns existing lead instead of inserting duplicate.
+- **Lock helper**: assignments default to LOCKED so the lead never appears in another rep's pool.
+- **Distribution helper**: `claim_leads(user_id, filters, limit)` — atomic find_one_and_update locking up to N AVAILABLE leads.
+- **Reassignment**: `expire_stale_locks()` — flips LOCKED → AVAILABLE after `LEAD_LOCK_EXPIRY_DAYS` (default 10) of no activity.
+- **Wired into `/api/demo/capture`**: every soft-gate submission also lands in `leads_registry` (LOCKED to founder, single-tenant for now).
+
+### Verified live (curl)
+```
+✓ self-test airport demo → subject: "quick question" · "Do you currently manage operations at..."
+                            calendly_included: true · revenue-correction language present
+✓ /push-hot-leads (founder) → candidates: 53 · sent: 52
+✓ /track/open/{id} → 200 · 1×1 transparent GIF (43 bytes) · image/gif
+✓ /resend-webhook → handles email.opened/clicked/bounced/complained with secret gate
+✓ mark-replied "Yes, please send me pricing" → status=replied_positive · classifier=interested
+                                                 deal=$150K · intent_level=HIGH_INTENT
+                                                 priority=immediate · hot_lead=true
+                                                 instant_close.calendly_url surfaced
+✓ leads_registry: hot-iter50@store.example.com · lock_status=LOCKED · status=qualified
+✓ Performance tile: hot_leads_count, active_sending_rate=13.1/day, booked_calls, opens_total, clicks_total
+```
+
+### Files touched
+- `/app/backend/outbound.py` — heavy edits (force-reply Day 0, bump, cadence, sender pool, ramp, instant close, push hot leads, tracking pixel, resend webhook)
+- `/app/backend/email_service.py` — new `send_from()` for sender rotation
+- `/app/backend/server.py` — `/api/demo/capture` mirrors into `leads_registry`
+- `/app/backend/ops_center.py` — performance KPIs (hot/booked/active rate/opens/clicks)
+- `/app/backend/lead_registry.py` — NEW · dedup + lock + distribution + reassignment
+- `/app/backend/.env` — appended `OUTBOUND_SENDER_POOL`, `OUTBOUND_PER_INBOX_DAILY_CAP`, `OUTBOUND_RAMP_SCHEDULE`, `RESEND_WEBHOOK_SECRET`
+- `/app/frontend/src/pages/PortalOpsPage.jsx` — Push Hot Leads button + 3 new KPI tiles + `Calendar`/`Flame` icons
+- `/app/frontend/src/lib/api.js` — `opsOutboundPushHotLeads` helper
+
+### What still needs Jeffrey's action (P0)
+- Add `RESEND_API_KEY` (key prefix `re_...`) to `/app/backend/.env`
+- Verify the 5 new sender addresses on `creatorboostai.com` Resend domain dashboard (`jeffrey@`, `team@`, `outreach@`, `deals@`, `connect@`)
+- Verify SPF/DKIM/DMARC on `creatorboostai.com`
+- Configure Resend webhook URL in Resend dashboard: `<your-prod-base>/api/ops/outbound/resend-webhook` + paste `RESEND_WEBHOOK_SECRET` value into `.env`
+- Add `IMAP_HOST/USER/PASSWORD` for live reply detection
+- Redeploy preview → production
+
+### Phase B / next iteration
+- Apollo / Outscraper / Clay live API keys (adapter shells ready, 5-min swap each)
+- Multi-tenant Lead Registry (company/independent/hybrid + commission attribution + credit system + Get-Leads UI)
+- Startup Mode (0–14 day business detection via Apollo founded_date filter + dedicated Startup Demo + `/demo/startup` page)
+- Domain rotation (when `.net` / `getcreatorboostai.com` are registered + DNS-verified)
+- LinkedIn auto-channel (currently human-assisted only)
+- Homepage rewrite ("Exclusive Leads. Zero Competition.") — defer until lead registry is multi-tenant so the promise is real
 
 ---
 
