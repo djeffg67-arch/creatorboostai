@@ -1,8 +1,146 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-05 (Iter 60 — Phase 1 MAS upgrades: Weak Signal Scoring + Correction Agent)
+**Last update:** 2026-05-05 (Iter 61 — CFO Business Case Generator + Dark Funnel Phase 1 + Sovereign Audit Trail Phase 1)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 61 — CFO BUSINESS CASE + DARK FUNNEL P1 + SOVEREIGN AUDIT TRAIL P1
+
+Per Jeffrey: "Make the system close deals, then make it enterprise-ready. Ship fast."
+Three subsystems shipped tonight, internally instrumented, end-to-end verified.
+
+### 1. CFO-Ready Business Case Generator
+- `/app/backend/cfo_business_case.py` (~250 lines, NEW)
+- `POST /api/cfo-case/generate {lead_id?, industry?, inputs?, auth_email?, auth_token?}`
+- 3 industry-routed CFO prompts (Claude Sonnet 4.5):
+  • `koollite_energy` — investment, kWh savings, NPV/IRR, GO/WAIT/DECLINE
+  • `real_estate` — position snapshot, 3-scenario table, PROCEED/ADJUST/WAIT
+  • `general_business` — use of funds, 3-yr ROI, APPROVE/REVISE/DECLINE
+- Industry classifier accepts free-form `industry` + lead `notes` and routes
+  conservatively (defaults to general_business).
+- Wraps every generation in `correction_agent.with_correction` (3 retries, 0/2/8s).
+- Looks up lead context in `leads_registry` then falls back to `ops_leads`.
+- Auto-records a Sovereign Audit Trail decision on every generation.
+- Boosts `signal_score` by `asset_generated` (+5) when attached to a lead.
+- `POST /api/cfo-case/list` (founder) — recent cases sans markdown.
+- Output is forwardable as-is (no preamble, clean markdown, exec disclaimer).
+
+### 2. Dark Funnel · Phase 1 (light, tied to outbound)
+- `/app/backend/dark_funnel.py` (~310 lines, NEW)
+- `GET /api/dark-funnel/r?t=<token>` — tracked redirect → records click signal
+  (+20) + spike check + 302 to dest_url. Token TTL 90 days.
+- `POST /api/dark-funnel/webhook/resend` — ingests Resend events:
+  email.opened (+10) · email.clicked (+20) · delivered/bounced/complained logged-only.
+  Optional HMAC verification when RESEND_WEBHOOK_SECRET is set.
+- `mint_tracked_url(db, lead_id, dest_url, kind)` helper — used by orchestrator
+  to inject CB-hosted tracked CTAs into outbound emails.
+- `_detect_engagement_spike(db, lead_id)` — when 3+ engagement signals occur
+  within 60 minutes, sets `signal_alerts_fired.engagement_spike` (idempotent).
+- `reengagement_loop(db, interval_sec=600)` — background task launched at startup.
+  Every 10min: finds leads with `signal_score >= 30` AND
+  `signal_score_updated_at < now-48h` AND no prior `reengagement_sent_at`,
+  sends canned re-engagement HTML, sets `reengagement_sent_at`. Idempotent.
+  Disabled with `REENGAGEMENT_SCANNER=off`.
+- `POST /api/dark-funnel/scan-reengagement` — founder-triggered manual scan.
+- `POST /api/dark-funnel/lead-engagement` — founder feed for one lead:
+  signal_score, history (last 10), spike/re-engage flags, tracked_links[].
+- Orchestrator (`/app/backend/orchestrator.py`) updated to mint tracked CTA URLs
+  for the Email-1 footer, so every outbound click is captured.
+
+### 3. Sovereign Audit Trail · Phase 1 (internal traceability first)
+- `/app/backend/audit_trail.py` (~165 lines, NEW)
+- `record_decision(db, *, agent_id, action, reasoning_summary, data_sources,
+  confidence, lead_id, inputs_preview, output_preview, meta) → decision_id`
+  Best-effort (never raises). 800-char preview truncation, 600-char reasoning cap.
+- Storage: `sovereign_audit_trail` collection. Indexes:
+  unique on `decision_id`, compound on `(lead_id, timestamp desc)`,
+  `timestamp desc`.
+- Wired into:
+  • `cfo_business_case.generate` — emits {agent_id:"cfo_business_case",
+    action:"generate_cfo_case", confidence:85}
+  • `orchestrator._orchestrate` — emits 5 rows per run:
+    `{orchestrator, orchestrator.researcher, orchestrator.content,
+     orchestrator.outreach, orchestrator.execution}` with confidence reflecting
+    intent_score, send-success, etc.
+- Founder endpoints:
+  • `POST /api/audit/list {lead_id?, agent_id?, action?, limit}` — paginated feed
+  • `POST /api/audit/detail {decision_id}` — full record
+  • `POST /api/audit/lead-trail {lead_id}` — compact per-lead trail (no previews)
+
+### Frontend (founder lead drawer · `/app/frontend/src/pages/PortalOpsPage.jsx`)
+Inside the existing `<LeadCard>` expanded section, two new collapsible panels:
+- **`<CfoCasePanel>`** — emerald-bordered. Industry dropdown
+  (Auto-detect / Koollite / Real Estate / General-Insurance), optional context
+  input, "Generate CFO case" button → renders markdown in a scroll box with
+  `decision_id` chip + Copy-markdown action.
+- **`<EngagementPanel>`** — cyan-bordered. Signal score badge (cool/warm/hot
+  tone), spike flag, re-engage flag, recent signal history (last 10), tracked
+  links with click counts, sovereign audit trail (last 20 decisions per lead).
+- New `lib/api.js` helpers: `cfoCaseGenerate`, `darkFunnelLeadEngagement`,
+  `darkFunnelScanReengagement`, `auditLeadTrail`, `auditList`.
+- All elements have unique `data-testid="cfo-{toggle|generate|output|copy|industry|notes|decision|error}-{lead_id}"`
+  and `engagement-{toggle|score|history|refresh}-{lead_id}` + `audit-trail-{lead_id}`.
+
+### Verified live (testing agent iteration 38 · 16/16 backend pytest · 100%)
+```
+✓ CFO general_business, koollite_energy, real_estate, insurance fallback all generate >1500-char markdown
+✓ Decision_id returned + persisted in sovereign_audit_trail
+✓ Tracked redirect 302 + signal_score +20 + clicks counter incremented
+✓ Resend webhook email.opened (+10) + email.clicked (+20) ingested
+✓ Engagement spike fires after 3 signals/60min (idempotent on re-trigger)
+✓ Re-engagement scan finds 48h+ stale lead with score>=30, sends gracefully
+✓ Re-engagement idempotent — second scan does not double-send
+✓ /lead-engagement returns full engagement detail
+✓ /audit/list filters by lead_id + agent_id + action
+✓ /audit/lead-trail returns compact decisions for a lead
+✓ Audit auth: bad token → 401/403
+✓ Iter 60 weak-signal regression preserved
+✓ Iter 59 orchestrator emits 5 sovereign_audit_trail rows per run
+```
+
+### Frontend smoke (main agent · screenshot verified)
+```
+✓ Founder /portal/ops loads · 31 leads listed
+✓ Lead expanded → 'CFO Business Case' panel toggles open with industry select + Generate
+✓ Lead expanded → 'Engagement & Audit Trail' panel toggles open with score badge,
+  empty-state messaging for history/links/audit when no signals exist (graceful)
+✓ No regressions — Notes, Tasks, Status pills still render and function
+```
+
+### Files touched
+- `/app/backend/cfo_business_case.py` (NEW · 250 lines)
+- `/app/backend/dark_funnel.py` (NEW · 310 lines)
+- `/app/backend/audit_trail.py` (NEW · 165 lines)
+- `/app/backend/server.py` (3 routers wired + 3 startup index blocks)
+- `/app/backend/orchestrator.py` (mint_tracked_url integration + 5 audit hooks)
+- `/app/backend/tests/test_iter61_cfo_dark_audit.py` (NEW · 16 pytest cases)
+- `/app/frontend/src/pages/PortalOpsPage.jsx` (CfoCasePanel + EngagementPanel
+  inside LeadCard expanded section)
+- `/app/frontend/src/lib/api.js` (5 new helpers)
+
+### Operating constraints honored (per Jeffrey's directive)
+- ✓ "Lightweight, tied to outbound, no heatmaps/behavioral modeling" (Dark Funnel)
+- ✓ "Internal traceability first, not full compliance engine" (Audit Trail)
+- ✓ "Speed and clarity over design" (frontend ships compact dark/cyan/emerald
+  panels — no heavy styling, no separate routes)
+- ✓ "Make the system close deals first" — CFO case is the headline feature
+
+### Phase 2 — explicitly DEFERRED (per user direction)
+- 🔴 Full compliance automation, regulatory ingestion (DRE/FINRA/state boards)
+- 🔴 Government-grade deployment + explainability dashboards
+- 🔴 Human-in-the-loop approval layers
+- 🔴 Agentic RAG / Weaviate + advanced behavioral modeling + heatmaps
+- 🔴 Crunchbase / Clearbit / Apollo external signal APIs (vendor approval pending)
+
+### Code-review notes from testing agent (deferred · acceptable for MVP)
+- `/webhook/resend` skips HMAC verification when `RESEND_WEBHOOK_SECRET` is
+  unset — must be set in production to prevent forged engagement events.
+- `cfo_business_case` accepts auth_email/token but verifies silently — fine for
+  auth-optional surface, just be aware bad tokens silently no-op.
+- `audit_trail.record_decision` failures only log at WARNING — consider counter
+  metrics in production if audit volume becomes critical.
 
 ---
 
