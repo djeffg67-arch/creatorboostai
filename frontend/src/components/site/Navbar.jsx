@@ -21,9 +21,11 @@ export const Navbar = () => {
 
     const links = [
         { to: "/", label: t("nav.home"), testid: "nav-home" },
+        { to: "/startup", label: "New Startup Business", testid: "nav-startup", highlight: true },
         { to: "/products/signal-pack", label: "Signal Pack", testid: "nav-signal-pack" },
         { to: "/services/audit", label: "Audit", testid: "nav-audit" },
         { to: "/demo", label: t("nav.demo"), testid: "nav-demo" },
+        { to: "/demo/startup", label: "Startup Demo", testid: "nav-startup-demo", highlight: true },
         { to: "/demo/noldus", label: "Enterprise Demo", testid: "nav-noldus", highlight: true },
         { to: "/demo/airport", label: "Airport Demo", testid: "nav-airport", highlight: true },
         { to: "/demo/supermarket", label: "Retail Demo", testid: "nav-supermarket", highlight: true },

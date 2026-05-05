@@ -496,4 +496,11 @@ export const clientPortalUpload = ({ client_id, client_token, filename, mimetype
 export const clientPortalMessage = ({ client_id, client_token, body }) =>
     api.post("/client/portal/message", { client_id, client_token, body }).then((r) => r.data);
 
+// ---------- Business Builder (Iter 56) ----------
+export const builderListTools = () =>
+    api.get("/business-builder/tools").then((r) => r.data);
+
+export const builderGenerate = ({ tool, inputs, user_email, session_id }) =>
+    api.post("/business-builder/generate", { tool, inputs, user_email, session_id }, { timeout: 90000 }).then((r) => r.data);
+
 

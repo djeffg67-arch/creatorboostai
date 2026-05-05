@@ -3597,6 +3597,12 @@ app.include_router(make_client_delivery_router(
 ))
 
 
+# ---------- Business Builder Module (Iter 56) ----------
+from business_builder import make_business_builder_router  # noqa: E402
+
+app.include_router(make_business_builder_router(db))
+
+
 # ---------- CORS ----------
 # Explicitly allow the production domains + any additional origins injected via
 # CORS_ORIGINS env var. "*" is used as a safety fallback so a misconfigured

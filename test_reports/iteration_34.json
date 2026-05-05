@@ -1,0 +1,34 @@
+{
+  "summary": "Iter 56 Business Builder Module — backend (4/4) + frontend e2e tests passed. /api/business-builder/tools returns all 17 tools with correct schema. /generate works for startup_checklist (Texas LLC, Claude generated 6.7KB markdown with disclaimer) and break_even (numeric content). Unknown tool returns 400. Frontend /startup landing renders headline, 3 CTAs, 8 tool tiles, pricing CTA. /demo/startup renders with 10-scene pager, pause/play/replay all clickable. /portal/builder shows all 17 tool cards. ?tool=startup_checklist auto-selects, input form fills, generate produces output panel with 5 export buttons + disclaimer, export-save persists to localStorage cb_builder_workspace, builder-back-to-inputs works. Navbar nav-startup + nav-startup-demo present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Navbar (desktop)", "issues": ["'New Startup Business' label wraps to 3 lines in the desktop nav due to length — at 1920px viewport, the label visibly stacks 'New / Startup / Business'. Consider shortening to 'Start Business' or 'New Business' or applying whitespace-nowrap with a max-width handle. Same for some other multi-word items but this one is the worst offender."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter56_business_builder.py",
+    "/app/test_reports/pytest/iter56_results.xml"
+  ],
+  "action_items": [
+    "Optional polish: tighten navbar label 'New Startup Business' so it does not wrap on desktop (1920px) — consider whitespace-nowrap or shorter copy."
+  ],
+  "critical_code_review_comments": [
+    "FIXED by testing agent: builderGenerate() in /app/frontend/src/lib/api.js was using the default 30s axios timeout, but Claude generation regularly takes 25–45s for longer tools (startup_checklist hits 25-30s). The first test run hit AxiosError on a real generate call. Bumped to {timeout: 90000} matching the existing pattern used for /ops/outbound/autopilot-now (180000). Backend already uses asyncio.wait_for(timeout=45.0) and surfaces 504 on its own timeout, so 90s on the client is the right ceiling.",
+    "business_builder.py file header docstring still says '16 tool keys' on line 12 — the catalog has 17. Cosmetic only.",
+    "BusinessBuilderPage.jsx: the input <input type=\"text\"> ternary on line 268 always evaluates to 'text' regardless of branch — dead code. Could be removed or actually use type=\"number\" for cost/price fields, but current text-only is fine for MVP."
+  ],
+  "updated_files": [
+    "/app/frontend/src/lib/api.js (bumped builderGenerate axios timeout to 90s)",
+    "/app/backend/tests/test_iter56_business_builder.py (new test file)"
+  ],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% on tested flows"},
+  "test_credentials": "n/a — all routes are public",
+  "seed_data_creation": "None — generation persisted runs into business_builder_runs collection (best-effort) automatically.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests in test_iter56_business_builder.py make 2 real LLM calls (~25-30s each) so total runtime ~58s. The file auto-loads REACT_APP_BACKEND_URL from /app/frontend/.env if not in env. On the frontend, /generate frontend timeout is now 90s (was 30s). The Generate button is wired to builderGenerate() in /app/frontend/src/lib/api.js. localStorage key for saved docs is 'cb_builder_workspace'.",
+  "rca of the issue": "Frontend Generate button surfaced AxiosError on first test run because the shared axios client default timeout (30s, set in api.js line 22) was shorter than typical Claude Sonnet 4.5 latency for long-form generations (25-45s). Backend itself uses a 45s asyncio timeout. Fix: pass {timeout: 90000} on the builderGenerate POST call so it can outlast the backend 504 surface and complete normally. Verified end-to-end: form fill → generate → 6.7KB markdown rendered → export-save persisted to localStorage → back-to-inputs returned cleanly."
+}
