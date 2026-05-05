@@ -808,7 +808,7 @@ def make_outbound_router(
         html_footer, plain_footer = _unsub_footer(email)
         # Open-tracking pixel (1x1 GIF served by /api/email-pixel/{id})
         public_base = _public_base()
-        pixel = f"<img src='{public_base}/api/outbound-track/open/{track_id}' width='1' height='1' style='display:none' alt='' />"
+        pixel = f"<img src='{public_base}/api/ops/outbound/track/open/{track_id}' width='1' height='1' style='display:none' alt='' />"
         body_html = (
             "<div style='font-family:ui-sans-serif,system-ui;font-size:14px;line-height:1.6;color:#111;'>"
             + body_plain.replace("\n", "<br/>")
