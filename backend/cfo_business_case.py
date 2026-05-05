@@ -108,11 +108,13 @@ async def _generate(industry_key: str, lead_context: Dict[str, Any], inputs: Dic
     )
     user_lines = ["Lead context:"]
     for k, v in lead_context.items():
-        if v: user_lines.append(f"- **{k}**: {v}")
+        if v:
+            user_lines.append(f"- **{k}**: {v}")
     if inputs:
         user_lines.append("\nUser-supplied inputs:")
         for k, v in inputs.items():
-            if v: user_lines.append(f"- **{k}**: {v}")
+            if v:
+                user_lines.append(f"- **{k}**: {v}")
     user = "\n".join(user_lines)
 
     chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id, system_message=sys).with_model(
@@ -152,7 +154,7 @@ def make_cfo_router(db, require_founder=None) -> APIRouter:
             except Exception:
                 pass
 
-        # Load lead context if lead_id provided
+        # Load lead context if lead_id provided (best-effort — accept ops_leads as fallback)
         lead_context: Dict[str, Any] = {}
         lead = None
         if payload.lead_id:
@@ -162,14 +164,23 @@ def make_cfo_router(db, require_founder=None) -> APIRouter:
                  "industry_tag": 1, "region": 1, "notes": 1, "signal_score": 1},
             )
             if not lead:
-                raise HTTPException(404, "lead not found")
-            lead_context = {
-                "Name": lead.get("name"),
-                "Business": lead.get("company"),
-                "Industry": lead.get("industry") or lead.get("industry_tag"),
-                "Region": lead.get("region"),
-                "Signal score": lead.get("signal_score"),
-            }
+                # Iter 61 · also accept ops_leads (the founder lead drawer uses this collection)
+                lead = await db.ops_leads.find_one(
+                    {"lead_id": payload.lead_id},
+                    {"_id": 0, "name": 1, "email": 1, "company": 1, "value_usd": 1,
+                     "status": 1, "source": 1, "notes": 1},
+                )
+            if lead:
+                lead_context = {
+                    "Name": lead.get("name"),
+                    "Business": lead.get("company"),
+                    "Industry": lead.get("industry") or lead.get("industry_tag"),
+                    "Region": lead.get("region"),
+                    "Status": lead.get("status"),
+                    "Deal value (USD)": lead.get("value_usd"),
+                    "Signal score": lead.get("signal_score"),
+                }
+                lead_context = {k: v for k, v in lead_context.items() if v}
 
         # Pick industry route
         industry_key = _classify_industry(
@@ -201,6 +212,36 @@ def make_cfo_router(db, require_founder=None) -> APIRouter:
         }
         await db.cfo_business_cases.insert_one(dict(doc))
 
+        # Sovereign Audit Trail (Iter 61) — Rationale Package
+        try:
+            from audit_trail import record_decision
+            data_sources = []
+            if payload.lead_id:
+                data_sources.append(f"leads_registry/{payload.lead_id}")
+            if payload.inputs:
+                data_sources.append("user_inputs")
+            data_sources.append(f"prompt_template/{industry_key}")
+            data_sources.append(f"model/{DEEP_MODEL}")
+            decision_id = await record_decision(
+                db,
+                agent_id="cfo_business_case",
+                action="generate_cfo_case",
+                lead_id=payload.lead_id,
+                reasoning_summary=(
+                    f"Routed to '{industry_key}' template based on industry/notes "
+                    f"classifier. Generated CFO-grade business case with executive "
+                    f"summary, ROI breakdown, payback, and decision recommendation."
+                ),
+                confidence=85,
+                data_sources=data_sources,
+                inputs_preview={"industry": industry_key, "lead_context": lead_context,
+                                 "user_inputs": payload.inputs},
+                output_preview=markdown,
+                meta={"case_id": case_id, "model": DEEP_MODEL, "chars": len(markdown)},
+            )
+        except Exception:
+            decision_id = None
+
         # Boost signal_score if attached to a lead
         if payload.lead_id:
             try:
@@ -213,6 +254,7 @@ def make_cfo_router(db, require_founder=None) -> APIRouter:
         return {
             "ok": True,
             "case_id": case_id,
+            "decision_id": decision_id,
             "industry": industry_key,
             "markdown": markdown,
             "chars": len(markdown),

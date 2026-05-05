@@ -101,7 +101,7 @@ async def reengagement_scan_once(db) -> Dict[str, int]:
         "signal_score": {"$gte": 30},
         "signal_score_updated_at": {"$lt": cutoff, "$exists": True},
         "reengagement_sent_at": {"$exists": False},
-        "email": {"$exists": True, "$ne": None, "$ne": ""},
+        "email": {"$exists": True, "$nin": [None, ""]},
     }, {"_id": 0, "lead_id": 1, "name": 1, "email": 1, "company": 1,
         "signal_score": 1}).limit(20)
 

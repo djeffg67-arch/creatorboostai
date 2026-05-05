@@ -516,3 +516,19 @@ export const businessActivationCapture = ({
     }, { timeout: 60000 }).then((r) => r.data);
 
 
+
+// ---------- Iter 61 · CFO Business Case + Dark Funnel + Audit Trail ----------
+export const cfoCaseGenerate = (payload) =>
+    api.post("/cfo-case/generate", payload, { timeout: 90000 }).then((r) => r.data);
+
+export const darkFunnelLeadEngagement = (payload) =>
+    api.post("/dark-funnel/lead-engagement", payload).then((r) => r.data);
+
+export const darkFunnelScanReengagement = (payload) =>
+    api.post("/dark-funnel/scan-reengagement", payload).then((r) => r.data);
+
+export const auditLeadTrail = (payload) =>
+    api.post("/audit/lead-trail", payload).then((r) => r.data);
+
+export const auditList = (payload) =>
+    api.post("/audit/list", payload).then((r) => r.data);

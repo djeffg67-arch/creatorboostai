@@ -3644,15 +3644,24 @@ from dark_funnel import make_dark_funnel_router, reengagement_loop  # noqa: E402
 app.include_router(make_dark_funnel_router(db, _require_outbound_founder))
 
 
+# ---------- Sovereign Audit Trail · Phase 1 (Iter 61) ----------
+from audit_trail import make_audit_router  # noqa: E402
+
+app.include_router(make_audit_router(db, _require_outbound_founder))
+
+
 @app.on_event("startup")
 async def _start_dark_funnel_loops():
-    """Iter 61 · re-engagement scanner + engagement-data indexes."""
+    """Iter 61 · re-engagement scanner + engagement-data indexes + audit indexes."""
     try:
         await db.dark_funnel_tokens.create_index("token", unique=True)
         await db.dark_funnel_email_events.create_index([("received_at", -1)])
         await db.cfo_business_cases.create_index([("created_at", -1)])
+        await db.sovereign_audit_trail.create_index("decision_id", unique=True)
+        await db.sovereign_audit_trail.create_index([("lead_id", 1), ("timestamp", -1)])
+        await db.sovereign_audit_trail.create_index([("timestamp", -1)])
     except Exception as e:
-        logging.getLogger(__name__).warning(f"dark_funnel indexes failed: {e}")
+        logging.getLogger(__name__).warning(f"iter61 indexes failed: {e}")
     asyncio.create_task(reengagement_loop(db))
 
 

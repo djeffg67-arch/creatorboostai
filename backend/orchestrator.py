@@ -428,6 +428,19 @@ async def _orchestrate(db, lead_input: Dict[str, Any], *, triggered_by: str) -> 
         await touch_signal(db, lead["lead_id"], "orchestrator_run_started",
                            reason=f"run {run_id[:8]}")
 
+        # Iter 61 · Sovereign Audit Trail — record run start
+        from audit_trail import record_decision  # noqa: E402
+        await record_decision(
+            db, agent_id="orchestrator", action="run_started",
+            lead_id=lead["lead_id"],
+            reasoning_summary=f"Triggered 4-agent chain on lead {lead['lead_id']} (run={run_id}).",
+            confidence=100,
+            data_sources=[f"leads_registry/{lead['lead_id']}", "trigger:" + (triggered_by or 'manual')],
+            inputs_preview={"name": lead.get("name"), "email": lead.get("email"),
+                            "company": lead.get("company"), "industry": lead.get("industry")},
+            meta={"run_id": run_id, "triggered_by": triggered_by},
+        )
+
         # Agent 1 · Researcher (retry-wrapped)
         t0 = _now_dt()
         research = await with_correction(
@@ -439,6 +452,19 @@ async def _orchestrate(db, lead_input: Dict[str, Any], *, triggered_by: str) -> 
                         {"asset_type": research["asset_type"],
                          "intent_score": research.get("intent_score"),
                          "industry": research.get("industry")})
+        await record_decision(
+            db, agent_id="orchestrator.researcher", action="classify_lead",
+            lead_id=lead["lead_id"],
+            reasoning_summary=(
+                f"Classified industry='{research.get('industry')}' · pain='{research.get('pain_point','')[:80]}' "
+                f"· asset_type='{research['asset_type']}' · intent_score={research.get('intent_score')}."
+            ),
+            confidence=int((research.get("intent_score") or 50)),
+            data_sources=[f"leads_registry/{lead['lead_id']}", f"model/{FAST_MODEL}"],
+            inputs_preview={"lead_summary": {k: lead.get(k) for k in ("name","company","industry","notes","email")}},
+            output_preview=research,
+            meta={"run_id": run_id, "model": FAST_MODEL},
+        )
 
         # Agent 2 · Content (retry-wrapped)
         t0 = _now_dt()
@@ -452,6 +478,19 @@ async def _orchestrate(db, lead_input: Dict[str, Any], *, triggered_by: str) -> 
                          "asset_first_line": asset_md.split("\n", 1)[0][:120]})
         await touch_signal(db, lead["lead_id"], "asset_generated",
                            reason=research["asset_type"])
+        await record_decision(
+            db, agent_id="orchestrator.content", action="generate_asset",
+            lead_id=lead["lead_id"],
+            reasoning_summary=(
+                f"Generated '{research['asset_type']}' asset ({len(asset_md)} chars) tailored to "
+                f"researcher classification."
+            ),
+            confidence=80,
+            data_sources=["researcher_output", f"asset_template/{research['asset_type']}", f"model/{DEEP_MODEL}"],
+            inputs_preview=research,
+            output_preview=asset_md,
+            meta={"run_id": run_id, "model": DEEP_MODEL, "asset_type": research["asset_type"]},
+        )
 
         # Agent 3 · Outreach (retry-wrapped)
         t0 = _now_dt()
@@ -462,6 +501,19 @@ async def _orchestrate(db, lead_input: Dict[str, Any], *, triggered_by: str) -> 
         )
         await _log_step("outreach", True, int((_now_dt() - t0).total_seconds() * 1000),
                         {"subject": outreach["subject"], "body_chars": len(outreach["body"])})
+        await record_decision(
+            db, agent_id="orchestrator.outreach", action="compose_email",
+            lead_id=lead["lead_id"],
+            reasoning_summary=(
+                f"Composed personalized Email 1 — subject '{outreach['subject'][:60]}' · "
+                f"{len(outreach['body'].split())} words."
+            ),
+            confidence=80,
+            data_sources=["researcher_output", "content_output", f"model/{DEEP_MODEL}"],
+            inputs_preview={"subject_target": outreach["subject"]},
+            output_preview=outreach,
+            meta={"run_id": run_id, "model": DEEP_MODEL},
+        )
 
         # Agent 4 · Execution (retry-wrapped)
         t0 = _now_dt()
@@ -476,6 +528,20 @@ async def _orchestrate(db, lead_input: Dict[str, Any], *, triggered_by: str) -> 
         if exec_res.get("email_sent"):
             await touch_signal(db, lead["lead_id"], "email_sent",
                                reason="orchestrator email 1")
+        await record_decision(
+            db, agent_id="orchestrator.execution", action="send_outreach_email",
+            lead_id=lead["lead_id"],
+            reasoning_summary=(
+                f"{'Sent' if exec_res.get('email_sent') else 'Attempted'} Email 1 via Resend "
+                f"+ queued {exec_res.get('follow_ups_queued', 0)} follow-ups."
+                + (f" Error: {exec_res.get('email_error')}" if not exec_res.get('email_sent') else "")
+            ),
+            confidence=100 if exec_res.get("email_sent") else 40,
+            data_sources=["outreach_output", "service:resend", "service:nurture_loop"],
+            inputs_preview={"to": lead.get("email"), "subject": outreach["subject"]},
+            output_preview=exec_res,
+            meta={"run_id": run_id, "email_sent": bool(exec_res.get("email_sent"))},
+        )
 
         # Final write
         finished = _now_dt()

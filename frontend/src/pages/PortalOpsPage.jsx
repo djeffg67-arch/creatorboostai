@@ -33,6 +33,7 @@ import {
     startEngineAnalytics,
     clientList, clientWorkspace, clientSetStatus, clientTaskToggle,
     clientFounderReply, clientResendMagic, clientOnboardFromLead,
+    cfoCaseGenerate, darkFunnelLeadEngagement, auditLeadTrail,
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 
@@ -667,6 +668,229 @@ const LeadForm = ({ auth, me, onCreated }) => {
     );
 };
 
+// ---------- Iter 61 · CFO Business Case Panel (founder lead drawer) ----------
+const INDUSTRY_OPTIONS = [
+    { v: "", label: "Auto-detect" },
+    { v: "koollite_energy", label: "Koollite Energy / Lighting" },
+    { v: "real_estate", label: "Real Estate" },
+    { v: "general_business", label: "General / Insurance / Other" },
+];
+
+const CfoCasePanel = ({ lead, auth }) => {
+    const [open, setOpen] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [industry, setIndustry] = useState("");
+    const [extraNotes, setExtraNotes] = useState("");
+    const [output, setOutput] = useState(null);
+    const [err, setErr] = useState(null);
+
+    const generate = async () => {
+        setBusy(true); setErr(null); setOutput(null);
+        try {
+            const inputs = {};
+            if (lead.value_usd) inputs.deal_value = `$${Number(lead.value_usd).toLocaleString()}`;
+            if (lead.company) inputs.business = lead.company;
+            if (lead.source) inputs.source = lead.source;
+            if (extraNotes.trim()) inputs.context = extraNotes.trim();
+            const res = await cfoCaseGenerate({
+                lead_id: lead.lead_id,
+                industry: industry || lead.industry || lead.source || undefined,
+                inputs,
+                auth_email: auth.email,
+                auth_token: auth.token,
+            });
+            setOutput(res);
+            toast.success(`CFO case ready · ${res.industry}`);
+        } catch (e) {
+            setErr(e?.response?.data?.detail || e?.message || "generate failed");
+            toast.error("CFO case failed");
+        } finally { setBusy(false); }
+    };
+
+    const copyMd = async () => {
+        try { await navigator.clipboard.writeText(output?.markdown || ""); toast.success("Copied markdown"); }
+        catch { toast.error("Copy failed"); }
+    };
+
+    return (
+        <div data-testid={`cfo-panel-${lead.lead_id}`}
+             className="rounded-md border border-emerald-500/20 bg-emerald-500/[0.03] p-3">
+            <button onClick={() => setOpen((p) => !p)}
+                data-testid={`cfo-toggle-${lead.lead_id}`}
+                className="flex w-full items-center justify-between text-left">
+                <div className="flex items-center gap-2">
+                    <FileText size={12} className="text-emerald-400" />
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-300">CFO Business Case</p>
+                </div>
+                <ChevronDown size={11} className={`text-emerald-300 transition-transform ${open ? "rotate-180" : ""}`} />
+            </button>
+            {open && (
+                <div className="mt-3 space-y-2" data-testid={`cfo-body-${lead.lead_id}`}>
+                    <div className="flex flex-wrap gap-2">
+                        <select value={industry} onChange={(e) => setIndustry(e.target.value)}
+                            data-testid={`cfo-industry-${lead.lead_id}`}
+                            className="rounded-md border border-white/10 bg-ink-900 px-2 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none">
+                            {INDUSTRY_OPTIONS.map((o) => (<option key={o.v} value={o.v}>{o.label}</option>))}
+                        </select>
+                        <button onClick={generate} disabled={busy}
+                            data-testid={`cfo-generate-${lead.lead_id}`}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500 hover:text-ink-900 disabled:opacity-60">
+                            {busy ? <RefreshCcw size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                            {busy ? "Generating…" : "Generate CFO case"}
+                        </button>
+                    </div>
+                    <input value={extraNotes} onChange={(e) => setExtraNotes(e.target.value)}
+                        placeholder="Optional context (kWh, sqft, asking price, claims ratio, etc.)"
+                        data-testid={`cfo-notes-${lead.lead_id}`}
+                        className="w-full rounded-md border border-white/10 bg-ink-900 px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none" />
+                    {err && <p data-testid={`cfo-error-${lead.lead_id}`} className="font-mono text-[10px] text-rose-300">{err}</p>}
+                    {output && (
+                        <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400">
+                                <span className="rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-300">{output.industry}</span>
+                                <span>{output.chars} chars</span>
+                                <span data-testid={`cfo-decision-${lead.lead_id}`}>decision · {String(output.decision_id || "").slice(0, 8)}</span>
+                                <button onClick={copyMd} data-testid={`cfo-copy-${lead.lead_id}`}
+                                    className="ml-auto inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-0.5 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                                    <Copy size={10} /> Copy markdown
+                                </button>
+                            </div>
+                            <pre data-testid={`cfo-output-${lead.lead_id}`}
+                                className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md border border-white/5 bg-ink-900 p-3 font-mono text-[11px] leading-relaxed text-slate-200">
+{output.markdown}
+                            </pre>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ---------- Iter 61 · Engagement + Signal panel (founder lead drawer) ----------
+const EngagementPanel = ({ lead, auth }) => {
+    const [open, setOpen] = useState(false);
+    const [data, setData] = useState(null);
+    const [trail, setTrail] = useState([]);
+    const [busy, setBusy] = useState(false);
+
+    const load = async () => {
+        setBusy(true);
+        try {
+            const [eng, aud] = await Promise.allSettled([
+                darkFunnelLeadEngagement({ email: auth.email, token: auth.token, lead_id: lead.lead_id }),
+                auditLeadTrail({ email: auth.email, token: auth.token, lead_id: lead.lead_id, limit: 20 }),
+            ]);
+            if (eng.status === "fulfilled") setData(eng.value);
+            else setData({ lead: null, tracked_links: [] });
+            if (aud.status === "fulfilled") setTrail(aud.value.trail || []);
+            else setTrail([]);
+        } finally { setBusy(false); }
+    };
+
+    useEffect(() => { if (open && !data) load(); /* eslint-disable-next-line */ }, [open]);
+
+    const score = data?.lead?.signal_score ?? 0;
+    const scoreTone = score >= 80 ? "text-rose-300 border-rose-500/40 bg-rose-500/10"
+        : score >= 50 ? "text-amber-300 border-amber-500/40 bg-amber-500/10"
+        : "text-cyan-300 border-cyan-500/40 bg-cyan-500/10";
+
+    return (
+        <div data-testid={`engagement-panel-${lead.lead_id}`}
+             className="rounded-md border border-cyan-500/20 bg-cyan-500/[0.03] p-3">
+            <button onClick={() => setOpen((p) => !p)}
+                data-testid={`engagement-toggle-${lead.lead_id}`}
+                className="flex w-full items-center justify-between text-left">
+                <div className="flex items-center gap-2">
+                    <Activity size={12} className="text-cyan-300" />
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Engagement & Audit Trail</p>
+                </div>
+                <ChevronDown size={11} className={`text-cyan-300 transition-transform ${open ? "rotate-180" : ""}`} />
+            </button>
+            {open && (
+                <div className="mt-3 space-y-3" data-testid={`engagement-body-${lead.lead_id}`}>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span data-testid={`engagement-score-${lead.lead_id}`}
+                              className={`rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] ${scoreTone}`}>
+                            Signal {score}/100
+                        </span>
+                        {data?.lead?.signal_alerts_fired?.engagement_spike && (
+                            <span className="rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-rose-300">
+                                <Flame size={10} className="mr-1 inline" /> Spike
+                            </span>
+                        )}
+                        {data?.lead?.reengagement_sent_at && (
+                            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">
+                                Re-engage sent
+                            </span>
+                        )}
+                        <button onClick={load} disabled={busy}
+                            data-testid={`engagement-refresh-${lead.lead_id}`}
+                            className="ml-auto inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+                            <RefreshCcw size={10} className={busy ? "animate-spin" : ""} /> Refresh
+                        </button>
+                    </div>
+
+                    <div>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Recent signal history</p>
+                        <div className="mt-1 max-h-32 space-y-1 overflow-y-auto" data-testid={`engagement-history-${lead.lead_id}`}>
+                            {(data?.lead?.signal_history || []).slice().reverse().map((h, i) => (
+                                <div key={i} className="flex items-center justify-between rounded-sm border border-white/5 bg-ink-900 px-2 py-1 text-xs text-slate-300">
+                                    <span><span className="font-mono text-[10px] text-cyan-300">{h.kind}</span> · {h.reason || "—"}</span>
+                                    <span className="font-mono text-[10px] text-emerald-300">+{h.delta}</span>
+                                </div>
+                            ))}
+                            {(!data?.lead?.signal_history || data.lead.signal_history.length === 0) && (
+                                <p className="font-mono text-[10px] text-slate-500">No engagement signals yet.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Tracked links ({data?.tracked_links?.length || 0})</p>
+                        <div className="mt-1 space-y-1">
+                            {(data?.tracked_links || []).map((l, i) => (
+                                <div key={i} className="rounded-sm border border-white/5 bg-ink-900 px-2 py-1 text-xs text-slate-300">
+                                    <div className="flex items-center justify-between">
+                                        <span className="truncate font-mono text-[10px] text-slate-400">{l.kind} → {l.dest_url}</span>
+                                        <span className="font-mono text-[10px] text-emerald-300">{l.clicks || 0} click{(l.clicks || 0) === 1 ? "" : "s"}</span>
+                                    </div>
+                                </div>
+                            ))}
+                            {(!data?.tracked_links || data.tracked_links.length === 0) && (
+                                <p className="font-mono text-[10px] text-slate-500">No tracked links minted yet.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">Sovereign audit trail ({trail.length})</p>
+                        <div className="mt-1 max-h-48 space-y-1 overflow-y-auto" data-testid={`audit-trail-${lead.lead_id}`}>
+                            {trail.map((d) => (
+                                <div key={d.decision_id} className="rounded-sm border border-white/5 bg-ink-900 px-2 py-1.5 text-[11px] text-slate-300">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">{d.agent_id} · {d.action}</span>
+                                        {typeof d.confidence === "number" && (
+                                            <span className="font-mono text-[9px] text-emerald-300">{d.confidence}%</span>
+                                        )}
+                                    </div>
+                                    <p className="mt-0.5 leading-snug text-slate-300">{d.reasoning_summary}</p>
+                                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
+                                        {new Date(d.timestamp).toLocaleString()} · sources: {(d.data_sources || []).join(", ") || "—"}
+                                    </p>
+                                </div>
+                            ))}
+                            {trail.length === 0 && (
+                                <p className="font-mono text-[10px] text-slate-500">No audit decisions logged yet.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const LeadCard = ({ lead, auth, me, onChange }) => {
     const [expanded, setExpanded] = useState(false);
     const [note, setNote] = useState("");
@@ -763,6 +987,8 @@ const LeadCard = ({ lead, auth, me, onChange }) => {
                             <button onClick={addTask} data-testid={`lead-task-submit-${lead.lead_id}`} className="rounded-md border border-cyan-500/40 bg-cyan-500/5 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300 hover:bg-cyan-500 hover:text-ink-900">Save</button>
                         </div>
                     </div>
+                    <CfoCasePanel lead={lead} auth={auth} />
+                    <EngagementPanel lead={lead} auth={auth} />
                 </div>
             )}
         </div>
