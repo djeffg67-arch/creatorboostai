@@ -1302,6 +1302,20 @@ def make_router(db, email_service=None) -> APIRouter:
         )
         if not result:
             raise HTTPException(status_code=404, detail="Lead not found or not in scope")
+        # Iter 55 · Auto-onboard a client when a lead is manually flipped to won
+        if payload.status == "won":
+            try:
+                from client_delivery import auto_onboard_from_lead, _send_magic_link  # type: ignore
+                client_doc = await auto_onboard_from_lead(db, payload.lead_id, trigger="manual_won")
+                if client_doc:
+                    try:
+                        await _send_magic_link(db, client_doc)
+                    except Exception:
+                        pass
+                    result["onboarded_client_id"] = client_doc.get("client_id")
+            except Exception as e:
+                import logging as _logging
+                _logging.getLogger(__name__).warning(f"manual-won auto-onboard failed: {e}")
         return result
 
     @router.post("/leads/note")

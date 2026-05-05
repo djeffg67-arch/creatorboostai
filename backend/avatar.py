@@ -172,6 +172,21 @@ def _system_prompt(role: str, context: Dict[str, Any]) -> str:
             "Emit `open_pricing` with the matching plan key (startup_starter | startup_growth |\n"
             "startup_pro | starter | growth | pro) so the UI can scroll to that card.\n"
         ),
+        "delivery": (
+            "═══ ROLE: DELIVERY (CLIENT WORKSPACE) ═══\n"
+            "You are now operating inside a paying client's delivery workspace. The user\n"
+            "is the client (already paid). Your job is to MOVE THE WORK FORWARD — not sell.\n"
+            "  • Ask for any missing intake info (goals, audience, brand, current systems).\n"
+            "  • Suggest the next concrete step based on their checklist progress.\n"
+            "  • Answer their questions about deliverables, timelines, or process.\n"
+            "  • When asked, generate concrete deliverables in-line: outreach scripts,\n"
+            "    cold-email sequences, content plans, audit checklists, onboarding docs.\n"
+            "Tone: helpful operator, not a chatbot. No upsell. No marketing copy. No emoji.\n"
+            "If you genuinely cannot help (technical bug, billing question, scope dispute),\n"
+            "emit `escalate_to_founder` so the founder gets pinged — never leave the client\n"
+            "stuck. Keep replies tight (2-5 sentences) unless they specifically asked for\n"
+            "a long deliverable.\n"
+        ),
         "followup": (
             "═══ ROLE: FOLLOW-UP ═══\n"
             "User wants to be contacted later or scheduled. Emit `schedule_followup` or "
@@ -213,7 +228,7 @@ def _classify_role(user_msg: str) -> str:
 def _pick_model(user_msg: str, role: str) -> str:
     """Default fast; escalate to deep on heavy topics."""
     msg = (user_msg or "").lower()
-    if role in ("revenue", "research"):
+    if role in ("revenue", "research", "delivery"):
         return DEEP_MODEL
     if any(t in msg for t in DEEP_TRIGGERS):
         return DEEP_MODEL
@@ -427,6 +442,9 @@ def make_avatar_router(db, send_founder_notification=None, require_founder=None)
                     "actions": [{"type": "show_quick_replies", "chips": HOMEPAGE_QUICK_REPLIES}]}
 
         role = _classify_role(last_user_msg)
+        # Iter 55 · client portal forces "delivery" mode regardless of message keywords
+        if (req.surface or "").lower() == "client_portal":
+            role = "delivery"
         model = _pick_model(last_user_msg, role)
         ctx = await build_context(db, user_email=req.user_email, session_id=session_id)
 

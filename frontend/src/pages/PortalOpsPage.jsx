@@ -31,6 +31,8 @@ import {
     avatarChat,
     avatarEscalationsList, avatarEscalationsDetail, avatarEscalationsUpdate, avatarEscalationsNote,
     startEngineAnalytics,
+    clientList, clientWorkspace, clientSetStatus, clientTaskToggle,
+    clientFounderReply, clientResendMagic, clientOnboardFromLead,
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 
@@ -163,6 +165,7 @@ const Sidebar = ({ me, active, onNav, onSignOut }) => {
         { id: "intake",      label: "Lead Intake", Icon: Upload },
         { id: "outreach",    label: "Outreach",    Icon: Send },
         { id: "demos",       label: "Demo Links",  Icon: Lightbulb },
+        { id: "clients",     label: "Clients",     Icon: Crown },
         { id: "ai",          label: "AI Assistant",Icon: Bot },
     ];
     if (me.scopes.can_see_all_employees) items.push({ id: "employees", label: "Employees", Icon: Users });
@@ -3343,6 +3346,273 @@ const OutcomeBadge = ({ outcome }) => {
     );
 };
 
+// ======================================================================
+// Iter 55 · Clients Tab — full client lifecycle inside Ops Portal
+// ======================================================================
+const CLIENT_STATUS_TONES = {
+    onboarding: "border-cyan-400/40 bg-cyan-500/10 text-cyan-300",
+    in_progress: "border-amber-400/40 bg-amber-500/10 text-amber-300",
+    review: "border-violet-400/40 bg-violet-500/10 text-violet-300",
+    completed: "border-emerald-400/40 bg-emerald-500/10 text-emerald-300",
+    inactive: "border-rose-400/40 bg-rose-500/10 text-rose-300",
+};
+
+const ClientsTab = ({ auth, me }) => {
+    const [data, setData] = useState({ clients: [], counts: {} });
+    const [filter, setFilter] = useState("all");
+    const [openId, setOpenId] = useState(null);
+    const [busy, setBusy] = useState(false);
+
+    const refresh = () => {
+        clientList({ ...auth, status: filter === "all" ? undefined : filter })
+            .then(setData)
+            .catch((e) => toast.error(e?.response?.data?.detail || "Could not load clients"));
+    };
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filter]);
+
+    const onboardManual = async () => {
+        const lead_id = window.prompt("Paste the ops_leads.lead_id of the won deal to onboard:");
+        if (!lead_id) return;
+        setBusy(true);
+        try {
+            const r = await clientOnboardFromLead({ ...auth, lead_id });
+            toast.success(`Onboarded ${r.client.business_name}`);
+            refresh();
+        } catch (e) {
+            toast.error(e?.response?.data?.detail || "Could not onboard client");
+        } finally { setBusy(false); }
+    };
+
+    return (
+        <div data-testid="tab-clients" className="space-y-5">
+            <SectionHeader sub="Client lifecycle" title="Clients">
+                <button
+                    onClick={onboardManual}
+                    disabled={busy}
+                    data-testid="clients-manual-onboard"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-200 hover:bg-cyan-500/20"
+                >
+                    <Plus size={11} /> Onboard from lead
+                </button>
+            </SectionHeader>
+
+            {/* Filter pills */}
+            <div className="flex flex-wrap gap-2" data-testid="clients-filter-pills">
+                {["all", "onboarding", "in_progress", "review", "completed", "inactive"].map((s) => (
+                    <button
+                        key={s}
+                        onClick={() => setFilter(s)}
+                        data-testid={`client-filter-${s}`}
+                        className={`rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors ${
+                            filter === s
+                                ? "border-cyan-400 bg-cyan-500/15 text-cyan-200"
+                                : "border-white/10 bg-ink-700/40 text-slate-400 hover:text-slate-200"
+                        }`}
+                    >
+                        {s.replace("_", " ")} ({data.counts?.[s] ?? 0})
+                    </button>
+                ))}
+                <button
+                    onClick={refresh}
+                    className="ml-auto inline-flex items-center gap-1 rounded-full border border-white/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400 hover:text-slate-200"
+                    data-testid="clients-refresh"
+                >
+                    <RefreshCcw size={11} /> Refresh
+                </button>
+            </div>
+
+            {/* Client list */}
+            <div className="space-y-2" data-testid="clients-list">
+                {data.clients.length === 0 && (
+                    <p className="rounded-md border border-white/10 bg-ink-700/30 p-6 text-center text-sm text-slate-400">
+                        No clients yet. Close a lead as won (manual or via Stripe) and they'll auto-appear here.
+                    </p>
+                )}
+                {data.clients.map((c) => (
+                    <div
+                        key={c.client_id}
+                        data-testid={`client-row-${c.client_id}`}
+                        className="rounded-md border border-white/10 bg-ink-700/30 p-4 hover:border-cyan-500/30"
+                    >
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex-1">
+                                <p className="font-heading text-base font-semibold text-white">{c.business_name}</p>
+                                <p className="text-xs text-slate-400">
+                                    {c.contact_name} · {c.contact_email} ·{" "}
+                                    <span className="font-mono text-[10px] text-slate-500">owner: {c.owner_user_id}</span>
+                                </p>
+                            </div>
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] ${CLIENT_STATUS_TONES[c.status] || ""}`}>
+                                {c.status?.replace("_", " ")}
+                            </span>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                                {c.tasks_done}/{c.tasks_done + c.tasks_open} tasks · {c.uploads_count} files
+                            </span>
+                            <button
+                                onClick={() => setOpenId(c.client_id)}
+                                data-testid={`client-open-${c.client_id}`}
+                                className="rounded-md border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-200 hover:bg-cyan-500/20"
+                            >
+                                Open
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {openId && <ClientDrawer auth={auth} me={me} client_id={openId} onClose={() => { setOpenId(null); refresh(); }} />}
+        </div>
+    );
+};
+
+const ClientDrawer = ({ auth, client_id, onClose }) => {
+    const [data, setData] = useState(null);
+    const [reply, setReply] = useState("");
+    const [busy, setBusy] = useState(false);
+
+    const refresh = () => clientWorkspace({ ...auth, client_id }).then(setData).catch(() => {});
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [client_id]);
+
+    const toggleTask = async (task_key, currentDone) => {
+        await clientTaskToggle({ ...auth, client_id, task_key, done: !currentDone });
+        refresh();
+    };
+
+    const setStatus = async (status) => {
+        await clientSetStatus({ ...auth, client_id, status });
+        refresh();
+    };
+
+    const sendReply = async () => {
+        if (!reply.trim()) return;
+        setBusy(true);
+        try {
+            await clientFounderReply({ ...auth, client_id, body: reply });
+            setReply("");
+            refresh();
+        } catch (e) {
+            toast.error(e?.response?.data?.detail || "Could not send");
+        } finally { setBusy(false); }
+    };
+
+    const resendMagic = async () => {
+        try {
+            await clientResendMagic({ ...auth, client_id });
+            toast.success("Magic link re-sent");
+        } catch (e) {
+            toast.error(e?.response?.data?.detail || "Could not resend");
+        }
+    };
+
+    if (!data) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/80 p-4" onClick={onClose}>
+                <div className="rounded-md border border-white/10 bg-ink-800 p-8 text-slate-400">Loading…</div>
+            </div>
+        );
+    }
+    const { client, tasks, messages, uploads, magic_link } = data;
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-stretch justify-end bg-ink-900/80 p-0 sm:p-4" data-testid="client-drawer" onClick={onClose}>
+            <div className="ml-auto flex h-full w-full max-w-3xl flex-col overflow-y-auto rounded-md border border-white/10 bg-ink-800 p-5 sm:p-6" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <h3 className="font-heading text-xl font-semibold text-white">{client.business_name}</h3>
+                        <p className="text-xs text-slate-400">{client.contact_name} · {client.contact_email}</p>
+                        <p className="mt-1 break-all font-mono text-[10px] text-slate-500">Magic link: {magic_link}</p>
+                    </div>
+                    <button onClick={onClose} className="rounded-md border border-white/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400 hover:text-rose-300" data-testid="client-drawer-close">
+                        Close
+                    </button>
+                </div>
+
+                {/* Status switcher */}
+                <div className="mt-4 flex flex-wrap gap-2" data-testid="client-status-switcher">
+                    {["onboarding", "in_progress", "review", "completed", "inactive"].map((s) => (
+                        <button
+                            key={s}
+                            onClick={() => setStatus(s)}
+                            data-testid={`client-set-status-${s}`}
+                            className={`rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors ${
+                                client.status === s
+                                    ? CLIENT_STATUS_TONES[s]
+                                    : "border-white/10 bg-ink-700/40 text-slate-400 hover:text-slate-200"
+                            }`}
+                        >
+                            {s.replace("_", " ")}
+                        </button>
+                    ))}
+                    <button onClick={resendMagic} className="ml-auto rounded-md border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500/20" data-testid="client-resend-magic">
+                        Resend magic link
+                    </button>
+                </div>
+
+                {/* Tasks checklist */}
+                <div className="mt-5">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Deliverables</p>
+                    <ul className="mt-2 space-y-1.5" data-testid="client-tasks">
+                        {tasks.map((t) => (
+                            <li key={t.id} className="flex items-center gap-3 rounded-sm border border-white/5 bg-ink-900 p-2.5">
+                                <button
+                                    onClick={() => toggleTask(t.key, t.status === "done")}
+                                    data-testid={`client-task-${t.key}`}
+                                    className="flex items-center gap-2 text-left"
+                                >
+                                    {t.status === "done" ? <CheckCircle2 size={16} className="text-emerald-300" /> : <X size={16} className="text-slate-500" />}
+                                    <span className={`text-sm ${t.status === "done" ? "text-emerald-200 line-through" : "text-white"}`}>{t.title}</span>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                {/* Uploads */}
+                <div className="mt-5">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Uploads ({uploads.length})</p>
+                    <ul className="mt-2 space-y-1.5">
+                        {uploads.length === 0 && <li className="text-xs text-slate-500">No files yet.</li>}
+                        {uploads.map((u) => (
+                            <li key={u.id} className="flex items-center gap-2 rounded-sm border border-white/5 bg-ink-900 p-2.5 text-xs text-slate-300">
+                                <FileText size={13} className="text-cyan-300" />
+                                <span className="flex-1 truncate">{u.filename}</span>
+                                <span className="font-mono text-[9px] text-slate-500">{Math.round((u.size_bytes || 0) / 1024)} KB</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                {/* Messages */}
+                <div className="mt-5 flex-1">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Messages ({messages.length})</p>
+                    <div className="mt-2 max-h-72 space-y-2 overflow-y-auto rounded-sm border border-white/5 bg-ink-900 p-3" data-testid="client-messages">
+                        {messages.map((m) => (
+                            <div key={m.id} className={`max-w-[85%] rounded-md p-2 ${m.author === "client" ? "border border-cyan-500/30 bg-cyan-500/5" : "ml-auto border border-white/10 bg-ink-700/40"}`}>
+                                <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-400">{m.author_name}</p>
+                                <p className="mt-1 whitespace-pre-line text-xs text-slate-200">{m.body}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                        <input
+                            value={reply}
+                            onChange={(e) => setReply(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }}
+                            placeholder="Reply to client…"
+                            data-testid="client-reply-input"
+                            className="flex-1 rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+                        />
+                        <button onClick={sendReply} disabled={busy || !reply.trim()} data-testid="client-reply-send" className="inline-flex items-center gap-1 rounded-md bg-cyan-500 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-900 hover:bg-cyan-400 disabled:opacity-60">
+                            <Send size={11} /> Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 // ---------- Settings tab (founder only) ----------
 const SettingsTab = ({ auth, me }) => (
     <div data-testid="tab-settings" className="space-y-5">
@@ -3406,6 +3676,7 @@ export default function PortalOpsPage() {
             case "intake":      return <LeadIntakeTab auth={auth} me={me} />;
             case "outreach":    return <OutreachTab auth={auth} />;
             case "demos":       return <DemosTab auth={auth} />;
+            case "clients":     return <ClientsTab auth={auth} me={me} />;
             case "ai":          return <AITab auth={auth} me={me} />;
             case "employees":   return me.scopes.can_see_all_employees ? <EmployeesTab auth={auth} me={me} /> : null;
             case "outbound":    return me.scopes.can_see_settings ? <OutboundTab auth={auth} /> : null;

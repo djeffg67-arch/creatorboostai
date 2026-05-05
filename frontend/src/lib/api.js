@@ -461,4 +461,39 @@ export const startEnginePathExplore = ({ email, token }) =>
 export const startEngineAnalytics = ({ email, token }) =>
     api.post("/start-engine/analytics", { email, token }).then((r) => r.data);
 
+// ---------- Client Delivery System (Iter 55) ----------
+export const clientList = ({ email, token, status }) =>
+    api.post("/client/list", { email, token, status }).then((r) => r.data);
+
+export const clientWorkspace = ({ email, token, client_id }) =>
+    api.post("/client/workspace", { email, token, client_id }).then((r) => r.data);
+
+export const clientOnboardFromLead = ({ email, token, lead_id, override_email }) =>
+    api.post("/client/onboard-from-lead", { email, token, lead_id, override_email }).then((r) => r.data);
+
+export const clientSetStatus = ({ email, token, client_id, status }) =>
+    api.post("/client/set-status", { email, token, client_id, status }).then((r) => r.data);
+
+export const clientTaskToggle = ({ email, token, client_id, task_key, done }) =>
+    api.post("/client/task-toggle", { email, token, client_id, task_key, done }).then((r) => r.data);
+
+export const clientFounderReply = ({ email, token, client_id, body }) =>
+    api.post("/client/reply", { email, token, client_id, body }).then((r) => r.data);
+
+export const clientResendMagic = ({ email, token, client_id }) =>
+    api.post("/client/resend-magic", { email, token, client_id }).then((r) => r.data);
+
+export const clientInactiveCheck = ({ email, token }) =>
+    api.post("/client/inactive-flag-check", { email, token }).then((r) => r.data);
+
+// Public (magic-token) — used by /portal/client/:client_id
+export const clientPortalAccess = ({ client_id, client_token }) =>
+    api.post("/client/portal/access", { client_id, client_token }).then((r) => r.data);
+
+export const clientPortalUpload = ({ client_id, client_token, filename, mimetype, content_b64, note }) =>
+    api.post("/client/portal/upload", { client_id, client_token, filename, mimetype, content_b64, note }).then((r) => r.data);
+
+export const clientPortalMessage = ({ client_id, client_token, body }) =>
+    api.post("/client/portal/message", { client_id, client_token, body }).then((r) => r.data);
+
 

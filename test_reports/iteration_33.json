@@ -1,0 +1,47 @@
+{
+  "summary": "Iter 55 · Client Delivery System — full backend contract suite (16 pytest tests) + frontend ClientPortalPage smoke test. 16/16 backend tests pass after one bug fix. Public portal renders all data-testids (welcome/status/progress/tabs/deliverables-list, 6 task-row-*), tabs clickable, invalid-token shows ACCESS DENIED screen. Auto-onboard from lead-won creates client + 6 default tasks + welcome message + magic link. Idempotent on second won flip. Task-toggle auto-syncs status (onboarding → in_progress → completed). /api/client/list returns proper counts{all,onboarding,in_progress,review,completed,inactive}. Avatar chat with surface='client_portal' replies in delivery mode with no upsell words (pricing/subscribe/plan ).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/client/reply",
+        "issue": "FIXED by T1 — FounderReplyReq was defined inside make_client_delivery_router() local scope, causing FastAPI to fail to resolve the Pydantic body type and return 422 {loc:[query,payload]}. Moved the class to module level in /app/backend/client_delivery.py.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter55_client_delivery.py",
+    "/app/test_reports/pytest/iter55_results.xml"
+  ],
+  "action_items": [
+    "Please retest /api/client/reply on your side to confirm the fix works in your dev flow (T1 has already restarted backend and all 16 tests pass).",
+    "Authenticated founder-side ClientsTab + ClientDrawer UI was NOT driven via Playwright (requires UI master-key sign-in flow which per iteration_32 does not persist auth in headless). Backend contracts that power those components all pass; main agent can self-verify visually."
+  ],
+  "critical_code_review_comments": [
+    "BUG (now fixed): /app/backend/client_delivery.py previously defined `class FounderReplyReq(_Auth)` inside the `make_client_delivery_router` factory function. FastAPI's dependency/body resolver only recognises Pydantic models referenced from module-level scope when wiring POST bodies — a locally-defined class was treated as an unknown type and FastAPI fell back to treating `payload` as a query-string parameter, so every /api/client/reply POST returned 422. Fix: moved FounderReplyReq to module level beside the other request models.",
+    "/app/backend/client_delivery.py _sync_status_from_tasks uses `done < total // 2` for in_progress and `done < total` for review — with 6 tasks that means 1–2 done → in_progress, 3–5 done → review, 6 → completed. Matches spec.",
+    "client_token is correctly stripped from all founder-facing responses via _strip_token; public portal responses only return the client fields (no token leak).",
+    "Magic link URL uses SITE_URL env correctly; falls back to https://creatorboostai.com if unset.",
+    "Upload endpoint enforces 5 MB cap via raw-bytes length check on decoded base64 — correct. Returns 413 with a clear message. /api/client/portal/upload correctly omits content_b64 from the echoed response.",
+    "Avatar surface='client_portal' correctly forces role='delivery' in /app/backend/avatar.py line 446-447 regardless of user-message keywords — prevents accidental upsell in the client portal.",
+    "ops_center.py /leads/status correctly wraps the auto_onboard call in try/except so a client-onboarding failure does NOT block the lead-status update. Good defensive pattern.",
+    "client_delivery.py is 566 lines — single file is borderline. If Iter 56 extends this module, consider splitting public vs founder endpoints into two routers."
+  ],
+  "updated_files": [
+    "/app/backend/client_delivery.py",
+    "/app/backend/tests/test_iter55_client_delivery.py"
+  ],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "Public /portal/client/:id valid+invalid token flows verified. Founder ClientsTab+Drawer NOT visually verified (auth flow gating documented in iteration_32)."},
+  "test_credentials": "Founder master key: jeffrey-2026-bodyiq-founder-master · /api/ops/founder-access → token; test client created with reusable id b7973824-73d3-42a9-a036-5c56a63dd246 (token printed in test run logs). Also used disposable fresh leads per test module run.",
+  "seed_data_creation": "One fresh ops_leads row per pytest run (contact_email qa55-<uuid>@iter55.example.com, value_usd 50000) then flipped to won to create a fresh client_accounts row + 6 client_tasks + welcome client_message + client_uploads entries. Test-data email domain is *.iter55.example.com for easy cleanup.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 55 fully passing. Test file /app/backend/tests/test_iter55_client_delivery.py has a BASE_URL resolver that reads /app/frontend/.env when REACT_APP_BACKEND_URL is not in os.environ — reuse that helper if backend tests need to run outside the frontend shell. Magic token can be parsed from the workspace response (w['magic_link'].split('token=')[-1]) — this is the ONLY way founder/tests can recover the token since client_token is stripped from list/workspace doc fields. /api/client/reply was broken on arrival due to local-scoped Pydantic class; fix applied. Avatar /chat payload must use history=[{role:'user',content:'...'}] — top-level role is ignored.",
+  "rca of the issue": "Root cause for the /api/client/reply 422: In FastAPI, when a path-operation function's body parameter is annotated with a Pydantic BaseModel that is defined inside a closure (here, inside make_client_delivery_router), FastAPI's body detection (which uses get_type_hints and isinstance checks against pydantic.BaseModel at route-registration time) can succeed BUT the signature's annotation is looked up via typing.get_type_hints with the module's globalns, and a locally-scoped class that happens to share a name with no global binding is sometimes unresolved, causing FastAPI to fall back to query-param treatment. The fix — hoisting FounderReplyReq to module scope alongside the other request models — makes the class resolvable from client_delivery's module globals and FastAPI correctly treats `payload` as a request body. Reproduction: POST /api/client/reply with full JSON body → 422 `missing query.payload`. Mitigation (permanent): module-level Pydantic models only."
+}

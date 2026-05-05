@@ -2396,6 +2396,28 @@ async def _record_demo_revenue_event(txn: Dict[str, Any], event) -> None:
         except Exception as e:
             logging.getLogger(__name__).warning(f"leads close-won update failed: {e}")
 
+        # Iter 55 · Auto-onboard the client into delivery workspace.
+        try:
+            from client_delivery import auto_onboard_from_lead as _cd_onboard  # noqa
+            client_doc = await _cd_onboard(db, row["lead_id"], trigger="stripe_close_won")
+            if client_doc:
+                # Best-effort magic-link email + founder alert
+                try:
+                    from client_delivery import _send_magic_link  # type: ignore
+                    await _send_magic_link(db, client_doc)
+                except Exception as e:
+                    logging.getLogger(__name__).warning(f"client magic-link send failed: {e}")
+                try:
+                    await _client_notify_founder(
+                        subject=f"New client onboarded · {client_doc.get('business_name')}",
+                        body=f"Stripe close-won triggered onboarding for "
+                             f"{client_doc.get('contact_email')}. Open Clients tab.",
+                    )
+                except Exception:
+                    pass
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"client auto-onboard failed: {e}")
+
 
 
 async def _upsert_subscription_record_from_txn(txn: Dict[str, Any]) -> None:
@@ -3553,6 +3575,25 @@ from start_engine import make_start_engine_router  # noqa: E402
 app.include_router(make_start_engine_router(
     db, _require_any_role,
     require_founder=_require_outbound_founder,
+))
+
+
+# ---------- Client Delivery System (Iter 55) ----------
+from client_delivery import make_client_delivery_router, auto_onboard_from_lead  # noqa: E402
+
+async def _client_notify_founder(*, subject: str, body: str) -> None:
+    """Thin adapter so client_delivery can use the existing founder-notification
+    helper without depending on its exact signature."""
+    try:
+        from email_service import send_founder_notification as _sfn  # noqa
+        founder_email = os.environ.get("FOUNDER_EMAIL", "").strip() or "j.davidg67@gmail.com"
+        await _sfn(to_email=founder_email, subject=subject, body_html=f"<p>{body}</p>")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"client notify_founder failed: {e}")
+
+app.include_router(make_client_delivery_router(
+    db, _require_any_role, _require_outbound_founder,
+    notify_founder=_client_notify_founder,
 ))
 
 

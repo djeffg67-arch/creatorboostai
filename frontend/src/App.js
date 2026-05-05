@@ -38,6 +38,7 @@ import LightingUpgradeEnginePage from "@/pages/LightingUpgradeEnginePage";
 import PortalLightingPage from "@/pages/PortalLightingPage";
 import PortalOpsPage from "@/pages/PortalOpsPage";
 import StartEnginePage from "@/pages/StartEnginePage";
+import ClientPortalPage from "@/pages/ClientPortalPage";
 import AccessLinkPage from "@/pages/AccessLinkPage";
 import TeamAccessPage from "@/pages/TeamAccessPage";
 import PortalMagicPage from "@/pages/PortalMagicPage";
@@ -88,6 +89,7 @@ function App() {
                     <Route path="/portal/lighting" element={<PortalLightingPage />} />
                     <Route path="/portal/ops" element={<PortalOpsPage />} />
                     <Route path="/start-engine" element={<StartEnginePage />} />
+                    <Route path="/portal/client/:client_id" element={<ClientPortalPage />} />
                     <Route path="/founder-access" element={<AccessLinkPage mode="founder" />} />
                     <Route path="/executive-access" element={<AccessLinkPage mode="executive" />} />
                     <Route path="/employee-access" element={<AccessLinkPage mode="employee" />} />
