@@ -3622,6 +3622,16 @@ from orchestrator import make_orchestrator_router  # noqa: E402
 app.include_router(make_orchestrator_router(db, _require_outbound_founder))
 
 
+@app.on_event("startup")
+async def _ensure_orchestrator_indexes():
+    """Iter 59 · index agent_runs.started_at desc for fast /list under load."""
+    try:
+        await db.agent_runs.create_index([("started_at", -1)])
+        await db.agent_runs.create_index("id", unique=True, sparse=True)
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"agent_runs index create failed: {e}")
+
+
 # ---------- CORS ----------
 # Explicitly allow the production domains + any additional origins injected via
 # CORS_ORIGINS env var. "*" is used as a safety fallback so a misconfigured

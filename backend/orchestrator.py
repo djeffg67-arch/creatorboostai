@@ -244,17 +244,18 @@ async def _agent_execution(
     """Send Email 1 immediately + queue 2 follow-ups in business_activation_nurture
     so the existing nurture scheduler picks them up. Re-uses Iter 57 infra."""
     from email_service import send_with_result  # type: ignore
+    import html as _html  # noqa: PLC0415
 
     # Email 1 — orchestrator-personalized first touch (no PDF attachment; the
     # asset markdown is rendered inline so the lead sees value in the inbox).
     body_text = outreach["body"]
     body_html = (
         f'<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;color:#0f172a">'
-        f'<p style="white-space:pre-line;font-size:14px;line-height:1.6">{body_text}</p>'
+        f'<p style="white-space:pre-line;font-size:14px;line-height:1.6">{_html.escape(body_text)}</p>'
         f'<hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0">'
-        f'<p style="font-family:\'Courier New\',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#06b6d4">Tailored asset · {research["asset_type"].replace("_"," ")}</p>'
+        f'<p style="font-family:\'Courier New\',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#06b6d4">Tailored asset · {_html.escape(research["asset_type"].replace("_"," "))}</p>'
         f'<div style="font-size:13px;line-height:1.55;color:#334155;border-left:2px solid #06b6d4;padding-left:14px;margin:12px 0">'
-        f'<pre style="white-space:pre-wrap;font-family:Inter,Arial,sans-serif;margin:0">{asset_md[:3000]}{"…" if len(asset_md)>3000 else ""}</pre>'
+        f'<pre style="white-space:pre-wrap;font-family:Inter,Arial,sans-serif;margin:0">{_html.escape(asset_md[:3000])}{"…" if len(asset_md)>3000 else ""}</pre>'
         f'</div>'
         f'<p style="margin:24px 0">'
         f'<a href="{SITE_URL}/portal/builder?orchestrator={run_id}" '

@@ -1,8 +1,123 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-05 (Iter 58 — Activation polish: outbound bridge + system-activation copy)
+**Last update:** 2026-05-05 (Iter 59 — Agentic Orchestrator MVP-1)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 59 — AGENTIC ORCHESTRATOR (Sovereign Intelligence Engine MVP-1)
+
+Per Jeffrey's "Sovereign Intelligence Engine" blueprint, scoped tonight to ONE
+deeply-working layer instead of stub-everything: the autonomous 4-agent execution
+chain. All other blueprint items (RAG, sandboxing, signal APIs, governance-as-code)
+are documented as Phase 2/3 with explicit vendor requirements. Real execution. Real
+emails. Real lead locking.
+
+### What runs autonomously now (no human in the loop)
+A high-intent lead enters the system → 30-50 seconds later:
+1. **Researcher Agent** classifies industry + pain point + asset_type + intent_score
+2. **Content Agent** generates a tailored 1-page asset (markdown) — picks from 5
+   asset templates based on the researcher's classification
+3. **Outreach Agent** writes a personalized 60-110 word first email with the
+   researcher's hook + asset-by-name reference + 1 specific question + signature
+4. **Execution Agent** sends Email 1 immediately + queues T+24h and T+72h
+   follow-ups in the existing `business_activation_nurture` loop
+Throughout: lead is locked into the Exclusive Lead Engine before agent 1 runs;
+every step is persisted to `agent_runs` with duration_ms + output_preview for audit.
+
+### Routing matrix (Researcher's industry → asset_type)
+| Industry signal in lead | Asset type |
+|---|---|
+| real estate / listing / agent / broker | `real_estate_correction` |
+| lighting / energy / kWh / fluorescent / utility | `energy_savings` |
+| brand-new / pre-revenue / launching | `business_plan_lite` |
+| has revenue / wants more customers | `roi_report` or `icp_brief` |
+| anything else with revenue context | `roi_report` |
+
+### Backend (`/app/backend/orchestrator.py`, NEW · 510 lines)
+- 4 specialized Claude agents (3× Sonnet 4.5 for content/outreach quality, 1× Haiku
+  4.5 for fast classification). All use Emergent LLM Key.
+- `_orchestrate(db, lead_input, triggered_by)` — top-level chain function. Used by:
+  - `POST /api/orchestrator/run` (manual trigger w/ optional founder auth)
+  - `POST /api/orchestrator/run-on-lead` (founder · re-runs the chain on an existing
+    `leads_registry` row)
+  - **Auto-trigger from `business_activation.capture`** when `wants_outbound_help=true`
+    via `asyncio.create_task(_orchestrate(...))` — non-blocking, the user already has
+    their PDF + Iter 57 Email 1; the orchestrator adds a second tailored email.
+- `POST /api/orchestrator/list` (founder) — returns runs[] + KPI {total, completed,
+  emails_sent, avg_duration_ms} for the dashboard card.
+- `POST /api/orchestrator/detail` (founder) — full step-by-step trace for one run.
+- MongoDB index `agent_runs.started_at desc` + unique index on `id` for fast /list
+  under concurrent load (added per Iter 59 testing agent code-review).
+- HTML escape on outreach body before email render (XSS-prevention; per Iter 59
+  testing agent code-review).
+
+### Verified live (testing agent iteration 36 · 100% pass · 14/14 backend assertions)
+```
+✓ Cross-industry routing: real_estate, energy_savings, icp_brief, business_plan_lite all picked correctly
+✓ Lead locked to founder before any agent runs (lock_status=LOCKED)
+✓ agent_runs persists 4-step trace + asset_markdown + outreach JSON + duration_ms
+✓ /list KPI returns total/completed/emails_sent/avg_duration_ms
+✓ /detail returns full run; 404 on unknown run_id
+✓ /run-on-lead reuses existing leads_registry context correctly
+✓ Auto-trigger from /business-activation/capture wants_outbound_help=true → completed run
+✓ wants_outbound_help=false → orchestrator_triggered=false, no agent_runs created
+✓ Email graceful degrade (preview): email_sent=false + email_error mentions RESEND_API_KEY,
+  but run still status='completed' because lock + asset + nurture all succeeded
+✓ Outreach constraints honored: 60-110 words, no "I noticed you" phrasing, signed Jeffrey · CreatorBoostAI
+```
+
+### Output quality sample (real run, real-estate vertical)
+```
+Subject: Your expired Austin listing + pricing strategy
+Body:
+Your suburban Austin listing just expired—relisting at the same price without a
+strategy change is likely to repeat the same stalled result.
+
+I put together a real estate correction analysis that maps out three positioning
+shifts that could get buyer activity moving in the first 14 days.
+
+Are you planning to adjust your approach before relisting, or testing the market as-is?
+
+Jeffrey · CreatorBoostAI
+```
+
+### What's explicitly DEFERRED (per Jeffrey's "hybrid approach" direction)
+The blueprint mentions these — they are real, but they need vendor decisions or weeks:
+- **Agentic RAG / Weaviate vector DB** — Phase 1 light ingestion only after revenue
+  validation, per Jeffrey's reply: "RAG will support accuracy and scale after initial
+  revenue validation"
+- **E2B / Modal sandbox isolation for agent execution** — agents currently call
+  Claude + Resend only (no arbitrary code exec, so the risk profile is bounded)
+- **Crunchbase / Clearbit signal ingestion** — pending Jeffrey's vendor approval
+  ($50-100/mo)
+- **MLS / RETS for real-estate signals** — licensing problem, not a code problem
+  (broker partnership required)
+- **Permit / utility data APIs** — state-by-state public datasets, no unified API
+- **Governance-as-Code policy engine (OPA / Cedar)** — 2-4 week build with
+  ephemeral creds + audit logging
+- **Frontend dashboard for `agent_runs`** — deferred to next iteration; founder can
+  curl `/list` + `/detail` for now
+- **LinkedIn ingestion** — Jeffrey's earlier "skip" decision still stands
+
+### Files touched
+- `/app/backend/orchestrator.py` (NEW · 510 lines)
+- `/app/backend/server.py` (router wired + agent_runs index)
+- `/app/backend/business_activation.py` (auto-trigger block on wants_outbound_help=true)
+- `/app/backend/tests/test_iter59_orchestrator.py` (NEW · 14 pytest cases)
+
+### Code-review items addressed
+- ✅ HTML-escaped outreach body in email render (XSS prevention)
+- ✅ MongoDB index on `agent_runs.started_at desc` + unique on `id`
+
+### Code-review items deferred (acceptable for MVP)
+- `/api/orchestrator/run` is auth-optional. Acceptable while the endpoint is internal.
+  Lock down before any public surface.
+- Fire-and-forget `asyncio.create_task` has no retry/dead-letter. MVP risk acceptable;
+  consider a `done_callback` logger before scaling.
+- Researcher non-JSON fallback only logs a warning, doesn't persist parse failure to
+  the run trace. Cosmetic.
 
 ---
 
