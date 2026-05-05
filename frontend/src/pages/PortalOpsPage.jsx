@@ -30,6 +30,7 @@ import {
     leadsStats, leadsImportCsv,
     avatarChat,
     avatarEscalationsList, avatarEscalationsDetail, avatarEscalationsUpdate, avatarEscalationsNote,
+    startEngineAnalytics,
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 
@@ -208,6 +209,171 @@ const SectionHeader = ({ title, sub, children }) => (
 );
 
 // ---------- Performance tab ----------
+// ======================================================================
+// Iter 54 · Startup → Standard upgrade banner
+// Trigger logic: hybrid — show when ANY of these are true:
+//   (1) sent_today >= 80% of plan daily limit, OR
+//   (2) days since onboarding_completed_at >= 7, OR
+//   (3) user clicks the global "Scale / Upgrade" trigger (forced=true)
+// Hidden when: not on a startup tier, dismissed in this session,
+// or never onboarded yet (day-0 trust rule).
+// ======================================================================
+const STARTUP_TIERS_SET = new Set(["startup_starter", "startup_growth", "startup_pro"]);
+const TIER_NEXT_STEP = {
+    startup_starter: { label: "Growth Launch ($79)", anchor: "startup-tier-startup_growth" },
+    startup_growth:  { label: "Pro Launch ($149)",   anchor: "startup-tier-startup_pro" },
+    startup_pro:     { label: "Standard Starter ($97)", anchor: "tier-starter" },
+};
+const PLAN_DAILY_LIMIT = {
+    startup_starter: 10, startup_growth: 25, startup_pro: 50,
+};
+
+const UpgradeBanner = ({ me, dash, forced, onDismiss, onForce }) => {
+    const tier = me?.plan_tier;
+    const onStartupTier = STARTUP_TIERS_SET.has(tier);
+    if (!onStartupTier) return null;
+    const dismissed = (() => {
+        try { return sessionStorage.getItem("cb_upgrade_banner_dismissed") === "1"; }
+        catch { return false; }
+    })();
+    if (dismissed && !forced) return null;
+
+    // Trigger 1 — usage threshold (sent_today vs plan daily limit)
+    const a = dash?.automation || {};
+    const cap = PLAN_DAILY_LIMIT[tier] || a.daily_limit || 0;
+    const usagePct = cap > 0 ? Math.round(100 * (a.sent_today || 0) / cap) : 0;
+    const usageHit = usagePct >= 80;
+
+    // Trigger 2 — 7+ days on plan (uses onboarding_completed_at as proxy)
+    const ts = me?.onboarding_completed_at;
+    let dayHit = false;
+    if (ts) {
+        const days = (Date.now() - new Date(ts).getTime()) / (1000 * 60 * 60 * 24);
+        dayHit = days >= 7;
+    }
+
+    if (!usageHit && !dayHit && !forced) return null;
+
+    const next = TIER_NEXT_STEP[tier] || { label: "Standard plans", anchor: "pricing-tiers" };
+    const reason = forced
+        ? "You requested a scale check"
+        : usageHit
+        ? `You've used ${usagePct}% of your daily limit today`
+        : `You've been on ${tier.replace("startup_", "")} for 7+ days`;
+
+    return (
+        <div
+            data-testid="upgrade-banner"
+            className="rounded-md border border-emerald-400/40 bg-gradient-to-r from-emerald-500/10 to-cyan-500/5 p-4 sm:p-5"
+        >
+            <div className="flex flex-wrap items-center gap-4">
+                <div className="flex-1 min-w-[240px]">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">
+                        Ready to scale? · Upgrade your engine
+                    </p>
+                    <p className="mt-1 text-sm text-slate-200">
+                        {reason} — your next step is{" "}
+                        <span className="font-semibold text-white">{next.label}</span>{" "}
+                        for follow-ups, multi-sender rotation, and bigger lead caps.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <a
+                        href={`/pricing#${next.anchor}`}
+                        data-testid="upgrade-banner-cta"
+                        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-400 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-900 hover:bg-emerald-300"
+                    >
+                        See upgrade <ArrowRight size={12} />
+                    </a>
+                    {!forced && (
+                        <button
+                            data-testid="upgrade-banner-dismiss"
+                            onClick={() => {
+                                try { sessionStorage.setItem("cb_upgrade_banner_dismissed", "1"); } catch { /* noop */ }
+                                onDismiss && onDismiss();
+                            }}
+                            className="rounded-md border border-white/10 bg-ink-900 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400 hover:border-white/20 hover:text-slate-200"
+                        >
+                            Not now
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Iter 54 · Founder-only Start Engine analytics card
+const StartEngineAnalyticsCard = ({ auth }) => {
+    const [data, setData] = useState(null);
+    const [err, setErr] = useState(null);
+    useEffect(() => {
+        startEngineAnalytics(auth)
+            .then(setData)
+            .catch((e) => setErr(e?.response?.data?.detail || "Could not load activation analytics"));
+        // eslint-disable-next-line
+    }, [auth]);
+
+    if (err) return null;
+    if (!data) {
+        return (
+            <div className="rounded-md border border-white/10 bg-ink-700/30 p-4 text-xs text-slate-400" data-testid="start-engine-analytics-loading">
+                Loading activation analytics…
+            </div>
+        );
+    }
+    const dist = data.path_distribution_pct || {};
+    return (
+        <div
+            className="rounded-md border border-emerald-400/30 bg-emerald-500/5 p-5"
+            data-testid="start-engine-analytics-card"
+        >
+            <div className="flex items-center gap-2">
+                <Sparkles size={12} className="text-emerald-300" />
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Start Engine activation</p>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Stat label="Onboarded" value={`${data.users_completed_onboarding}/${data.users_total_gated}`} sub={`${data.completion_rate_pct}%`} />
+                <Stat label="Generated leads" value={data.users_who_generated_leads} sub={`${data.lead_generation_rate_pct}%`} />
+                <Stat label="Autopilot dispatched" value={`${data.autopilot_dispatched_rate_pct}%`} sub="of path-leads" />
+                <Stat label="Time to first reply" value={data.avg_time_to_first_reply_min != null ? `${data.avg_time_to_first_reply_min}m` : "—"} sub="avg" />
+            </div>
+            <div className="mt-4">
+                <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Path distribution</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                    {["leads", "import", "explore"].map((p) => (
+                        <div key={p} className="rounded-sm border border-white/5 bg-ink-900 p-2.5" data-testid={`start-engine-path-${p}`}>
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{p}</p>
+                            <p className="mt-0.5 font-heading text-base font-semibold text-white">
+                                {(data.per_path?.[p]?.users) || 0}
+                            </p>
+                            <p className="font-mono text-[9px] text-emerald-300">{dist[p] || 0}%</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-sm border border-white/5 bg-ink-900 p-2.5">
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">First email sent</p>
+                    <p className="mt-0.5 font-heading text-base font-semibold text-white">{data.users_who_received_first_email}</p>
+                </div>
+                <div className="rounded-sm border border-white/5 bg-ink-900 p-2.5">
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">First reply received</p>
+                    <p className="mt-0.5 font-heading text-base font-semibold text-white">{data.users_who_received_first_reply}</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const Stat = ({ label, value, sub }) => (
+    <div className="rounded-sm border border-white/5 bg-ink-900 p-3">
+        <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{label}</p>
+        <p className="mt-0.5 font-heading text-lg font-semibold text-white">{value}</p>
+        {sub && <p className="font-mono text-[9px] text-emerald-300">{sub}</p>}
+    </div>
+);
+
 const PerformanceTab = ({ auth, me }) => {
     const [data, setData] = useState(null);
     const [autopilotBusy, setAutopilotBusy] = useState(false);
@@ -297,6 +463,12 @@ const PerformanceTab = ({ auth, me }) => {
                     </button>
                 )}
             </SectionHeader>
+
+            {/* Iter 54 · Startup → Standard upgrade banner (hybrid trigger) */}
+            <UpgradeBanner me={me} dash={data} />
+
+            {/* Iter 54 · Founder-only Start Engine activation analytics */}
+            {isFounder && <StartEngineAnalyticsCard auth={auth} />}
 
             {/* ═══ AUTOMATION STATUS PANEL ═══ */}
             {isFounder && (

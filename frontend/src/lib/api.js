@@ -458,4 +458,7 @@ export const startEnginePathImport = ({ email, token }) =>
 export const startEnginePathExplore = ({ email, token }) =>
     api.post("/start-engine/path-explore", { email, token }).then((r) => r.data);
 
+export const startEngineAnalytics = ({ email, token }) =>
+    api.post("/start-engine/analytics", { email, token }).then((r) => r.data);
+
 

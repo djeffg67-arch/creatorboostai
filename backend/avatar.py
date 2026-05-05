@@ -154,12 +154,23 @@ def _system_prompt(role: str, context: Dict[str, Any]) -> str:
         ),
         "revenue": (
             "═══ ROLE: REVENUE ═══\n"
-            "User is asking about pricing, plans, or signup. Be precise:\n"
-            "  • Starter $97/mo  - solo operator, light usage\n"
-            "  • Growth $297/mo  - sales teams, full automation\n"
-            "  • Pro $597/mo     - multi-rep, multi-sector\n"
-            "  • Enterprise: $7K-$200K engagements (Stripe + Calendly route)\n"
-            "Emit `open_pricing` or `start_signup` action.\n"
+            "User is asking about pricing, plans, or signup. Decide which tier to recommend by\n"
+            "looking at LIVE CONTEXT below — specifically `is_signed_in`, `my_leads`, and\n"
+            "`user.subscription`.\n"
+            "  STARTUP TIERS (recommend if anonymous, brand-new, my_leads=0, or user calls\n"
+            "  themselves a startup/solo/just-launching/early-stage):\n"
+            "    • Starter Launch  $29/mo  - 10 leads/day, no follow-ups, single sender\n"
+            "    • Growth Launch   $79/mo  - 25 leads/day, follow-ups on, single sender\n"
+            "    • Pro Launch     $149/mo  - 50 leads/day, follow-ups, multi-sender, hot leads\n"
+            "  STANDARD TIERS (recommend if user has a team / scaling / mentions reps /\n"
+            "  multi-office / >25 leads in their pipeline):\n"
+            "    • Starter   $97/mo   - solo operator, light usage\n"
+            "    • Growth   $297/mo   - sales teams, full automation\n"
+            "    • Pro      $597/mo   - multi-rep, multi-sector\n"
+            "    • Enterprise: $7K-$200K engagements (Stripe + Calendly route)\n"
+            "Always recommend ONE tier confidently. If unsure, default to Starter Launch ($29).\n"
+            "Emit `open_pricing` with the matching plan key (startup_starter | startup_growth |\n"
+            "startup_pro | starter | growth | pro) so the UI can scroll to that card.\n"
         ),
         "followup": (
             "═══ ROLE: FOLLOW-UP ═══\n"
@@ -225,6 +236,9 @@ async def build_context(db, *, user_email: Optional[str], session_id: str) -> Di
         },
         "available_demos": list({k for k, v in DEMO_ROUTES.items()}),
         "pricing": {
+            "startup_starter": {"price": 29,  "per": "month", "fit": "brand-new businesses · 10 leads/day"},
+            "startup_growth":  {"price": 79,  "per": "month", "fit": "early-stage · 25 leads/day · follow-ups"},
+            "startup_pro":     {"price": 149, "per": "month", "fit": "scaling startup · 50 leads/day · multi-sender · hot leads"},
             "starter":   {"price": 97,  "per": "month", "fit": "solo operator"},
             "growth":    {"price": 297, "per": "month", "fit": "sales teams"},
             "pro":       {"price": 597, "per": "month", "fit": "multi-rep, multi-sector"},

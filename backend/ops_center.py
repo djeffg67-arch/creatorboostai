@@ -257,17 +257,25 @@ def make_router(db, email_service=None) -> APIRouter:
 
     def _strip(u: Dict[str, Any]) -> Dict[str, Any]:
         """Frontend-safe user projection."""
+        role = u.get("role")
+        # Privileged roles bypass Start Engine onboarding gate.
+        gated = role not in ELEVATED_ROLES
+        onboarding_complete = bool(u.get("onboarding_complete"))
         return {
             "email": u.get("email"),
             "name": u.get("name"),
-            "role": u.get("role"),
+            "role": role,
+            "plan_tier": u.get("plan_tier"),
+            "onboarding_complete": onboarding_complete or not gated,
+            "onboarding_path": u.get("onboarding_path"),
+            "onboarding_redirect": "/start-engine" if (gated and not onboarding_complete) else "/portal/ops",
             "scopes": {
-                "can_see_all_leads": u.get("role") in ELEVATED_ROLES,
-                "can_invite_employees": u.get("role") == ROLE_FOUNDER,
-                "can_reassign_leads": u.get("role") in ELEVATED_ROLES,
-                "can_see_financials": u.get("role") == ROLE_FOUNDER,
-                "can_see_settings": u.get("role") == ROLE_FOUNDER,
-                "can_see_all_employees": u.get("role") in ELEVATED_ROLES,
+                "can_see_all_leads": role in ELEVATED_ROLES,
+                "can_invite_employees": role == ROLE_FOUNDER,
+                "can_reassign_leads": role in ELEVATED_ROLES,
+                "can_see_financials": role == ROLE_FOUNDER,
+                "can_see_settings": role == ROLE_FOUNDER,
+                "can_see_all_employees": role in ELEVATED_ROLES,
             },
         }
 
@@ -615,8 +623,16 @@ def make_router(db, email_service=None) -> APIRouter:
             channel=rec.get("channel", "email"),
             outcome="verified", delivery_ok=True,
         )
+        # Iter 54 · onboarding gate — non-elevated roles must complete Start Engine first
+        gated = user["role"] not in ELEVATED_ROLES
+        onboarding_complete = bool(user.get("onboarding_complete"))
+        redirect = "/start-engine" if (gated and not onboarding_complete) else "/portal/ops"
         return {"email": user["email"], "name": user.get("name"), "role": user["role"],
-                "token": user["portal_token"], "redirect": "/portal/ops"}
+                "token": user["portal_token"],
+                "plan_tier": user.get("plan_tier"),
+                "onboarding_complete": onboarding_complete or not gated,
+                "onboarding_path": user.get("onboarding_path"),
+                "redirect": redirect}
 
     # After successful OTP verify, log it
     async def _log_verified(email: str, role: str, channel: str) -> None:
@@ -792,12 +808,19 @@ def make_router(db, email_service=None) -> APIRouter:
             {"magic_token": payload.magic_token},
             {"$set": {"used": True, "consumed_at": _now_iso(), "consumption_outcome": "success"}},
         )
+        # Iter 54 · onboarding gate
+        gated = role not in ELEVATED_ROLES
+        onboarding_complete = bool(user.get("onboarding_complete"))
+        redirect = "/start-engine" if (gated and not onboarding_complete) else "/portal/ops"
         return {
             "email": user["email"],
             "name": user.get("name"),
             "role": role,
             "token": user["portal_token"],
-            "redirect": "/portal/ops",
+            "plan_tier": user.get("plan_tier"),
+            "onboarding_complete": onboarding_complete or not gated,
+            "onboarding_path": user.get("onboarding_path"),
+            "redirect": redirect,
         }
 
     # ------------------------------------------------------------------

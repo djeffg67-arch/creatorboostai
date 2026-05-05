@@ -5,8 +5,51 @@ import { listSubscriptions, createSubscriptionSession, createLiveCheckoutSession
 import { PAGE_HERO } from "@/lib/images";
 import { toast } from "sonner";
 import {
-    Sparkles, Check, ArrowRight, Zap, Building2, ShieldCheck, Crown,
+    Sparkles, Check, ArrowRight, Zap, Building2, ShieldCheck, Crown, Rocket,
 } from "lucide-react";
+
+// Iter 54 · Startup Pricing tiers — early-stage operators
+const STARTUP_TIERS = [
+    {
+        key: "startup_launch_monthly", tier: "startup_starter",
+        name: "Starter Launch", price: 29, icon: Rocket,
+        tagline: "Brand-new businesses · validate the system",
+        bullets: [
+            "10 fresh leads / day",
+            "10 emails / day",
+            "Single-sender outbound",
+            "AI scoring + Day 0 email",
+            "No follow-ups (upgrade to unlock)",
+            "Cancel anytime",
+        ],
+    },
+    {
+        key: "startup_growth_monthly", tier: "startup_growth", featured: true,
+        name: "Growth Launch", price: 79, icon: Sparkles,
+        tagline: "Early-stage operators · ready for cadence",
+        bullets: [
+            "25 fresh leads / day",
+            "25 emails / day",
+            "Single-sender outbound",
+            "Automated follow-ups (Day 1, 2, 5)",
+            "AI reply classifier",
+            "Hot-lead detection (read-only)",
+        ],
+    },
+    {
+        key: "startup_pro_monthly", tier: "startup_pro",
+        name: "Pro Launch", price: 149, icon: ShieldCheck,
+        tagline: "Scaling startup · full execution",
+        bullets: [
+            "50 fresh leads / day",
+            "50 emails / day",
+            "Multi-sender inbox rotation (3 inboxes)",
+            "Automated follow-ups + Loom Day 2",
+            "Hot-lead push-button re-engage",
+            "Priority queue for replies",
+        ],
+    },
+];
 
 const TIERS = [
     {
@@ -131,6 +174,23 @@ export default function PricingPage() {
         return plans[planKey];
     };
 
+    // Iter 54 · Startup tier checkout — uses plan_key flow (Stripe Price IDs from .env)
+    const subscribeStartup = async (planKey) => {
+        setRedirecting(planKey);
+        try {
+            const { url } = await createSubscriptionSession({
+                plan_key: planKey,
+                origin_url: window.location.origin,
+            });
+            toast.success("Opening secure checkout…");
+            window.location.href = url;
+        } catch (err) {
+            const detail = err?.response?.data?.detail;
+            toast.error(typeof detail === "string" ? detail : "Could not open checkout");
+            setRedirecting(null);
+        }
+    };
+
     return (
         <Layout>
             <div className="relative mx-auto max-w-[1280px] px-4 py-12 lg:px-8 lg:py-20" data-testid="pricing-page">
@@ -169,8 +229,75 @@ export default function PricingPage() {
                     </div>
                 </header>
 
+                {/* Iter 54 · For New Businesses — startup tiers */}
+                <section className="mt-12" data-testid="pricing-startup-section">
+                    <div className="mb-6 flex items-center gap-3">
+                        <Rocket size={16} className="text-emerald-300" />
+                        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">
+                            For New Businesses · Validate fast · Cancel anytime
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-3" data-testid="pricing-startup-tiers">
+                        {STARTUP_TIERS.map((t) => (
+                            <div
+                                key={t.key}
+                                data-testid={`startup-tier-${t.tier}`}
+                                className={`relative flex flex-col rounded-md border p-6 transition-all ${
+                                    t.featured
+                                        ? "border-emerald-400/50 bg-gradient-to-b from-emerald-400/10 to-transparent shadow-[0_0_30px_rgba(16,185,129,0.18)]"
+                                        : "border-white/10 bg-ink-700/30 hover:border-emerald-400/30"
+                                }`}
+                            >
+                                {t.featured && (
+                                    <span className="absolute -top-3 left-6 inline-flex items-center gap-1.5 rounded-sm border border-emerald-400/50 bg-ink-900 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">
+                                        <Sparkles size={10} /> Most picked
+                                    </span>
+                                )}
+                                <div className="flex items-center gap-2">
+                                    <t.icon size={16} className="text-emerald-300" />
+                                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">{t.name}</span>
+                                </div>
+                                <p className="mt-2 text-sm text-slate-400">{t.tagline}</p>
+                                <div className="mt-6 flex items-end gap-1.5 border-b border-white/5 pb-6">
+                                    <span className="font-heading text-5xl font-semibold text-white">${t.price}</span>
+                                    <span className="mb-1.5 font-mono text-xs uppercase tracking-[0.18em] text-slate-500">USD · /mo</span>
+                                </div>
+                                <ul className="mt-6 space-y-2.5 text-sm text-slate-300 flex-1">
+                                    {t.bullets.map((b) => (
+                                        <li key={b} className="flex items-start gap-2.5">
+                                            <Check size={14} className="mt-0.5 flex-shrink-0 text-emerald-300" />
+                                            <span>{b}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <button
+                                    data-testid={`subscribe-${t.tier}`}
+                                    onClick={() => subscribeStartup(t.key)}
+                                    disabled={loading || redirecting}
+                                    className={`mt-8 inline-flex items-center justify-center gap-2 rounded-md px-6 py-3.5 text-sm font-semibold transition-all disabled:opacity-60 ${
+                                        t.featured
+                                            ? "bg-emerald-400 text-ink-900 shadow-[0_0_18px_rgba(16,185,129,0.35)] hover:bg-emerald-300"
+                                            : "border border-emerald-400/40 bg-transparent text-emerald-300 hover:bg-emerald-400 hover:text-ink-900"
+                                    }`}
+                                >
+                                    {redirecting === t.key ? "Redirecting…" : `Get ${t.name}`} <ArrowRight size={15} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                    <p className="mt-4 text-center text-xs text-slate-500">
+                        Outgrow it? Upgrade to a Standard tier in one click — your leads, history, and senders move with you.
+                    </p>
+                </section>
+
+                <div className="mt-16 flex items-center justify-center gap-3">
+                    <span className="h-px w-16 bg-white/10" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">For Established Operators</span>
+                    <span className="h-px w-16 bg-white/10" />
+                </div>
+
                 {/* Tiers */}
-                <section className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4" data-testid="pricing-tiers">
+                <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4" data-testid="pricing-tiers">
                     {TIERS.map((t) => {
                         const plan = !t.custom ? priceFor(t.tier) : null;
                         return (

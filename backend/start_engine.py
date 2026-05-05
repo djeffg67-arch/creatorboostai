@@ -262,6 +262,93 @@ def make_start_engine_router(db, require_any_role, require_founder=None) -> APIR
         )
         return {"ok": True, "reset_for": target}
 
+    @router.post("/analytics")
+    async def analytics(payload: _Auth):
+        """Founder-only · Start Engine activation analytics card.
+
+        Returns activation funnel + path-level conversion to first lead, first email,
+        first reply. Used by `/portal/ops` Performance/Admin tab.
+        """
+        if not require_founder:
+            raise HTTPException(403, "Founder-only")
+        await require_founder(payload)
+
+        # All users with role employee/founder/executive who could have onboarded
+        gated_roles = ["employee"]  # gated roles only — founders/executives skip onboarding
+        users_total = await db.users.count_documents({"role": {"$in": gated_roles}})
+        users_completed = await db.users.count_documents({
+            "role": {"$in": gated_roles}, "onboarding_complete": True,
+        })
+
+        # Per-path completion
+        paths = ["leads", "import", "explore"]
+        per_path: Dict[str, Any] = {}
+        for p in paths:
+            n = await db.users.count_documents({"onboarding_path": p})
+            per_path[p] = {"users": n}
+
+        # Aggregate activation timestamps from `start_engine_runs` + users collection
+        # autopilot_dispatch %  (only on path=leads)
+        leads_runs = await db.start_engine_runs.count_documents({"path": "leads"})
+        leads_runs_dispatched = await db.start_engine_runs.count_documents({
+            "path": "leads", "autopilot_dispatched": True,
+        })
+        autopilot_pct = (100.0 * leads_runs_dispatched / leads_runs) if leads_runs else 0.0
+
+        # Users who actually generated ≥1 lead
+        users_with_first_lead = await db.users.count_documents({
+            "first_lead_generated_at": {"$exists": True, "$ne": None},
+        })
+        users_with_first_email = await db.users.count_documents({
+            "first_email_sent_at": {"$exists": True, "$ne": None},
+        })
+        users_with_first_reply = await db.users.count_documents({
+            "first_reply_received_at": {"$exists": True, "$ne": None},
+        })
+
+        # time_to_first_reply averaged across users (in minutes) — only for users with both ts
+        cursor = db.users.find(
+            {"first_lead_generated_at": {"$exists": True, "$ne": None},
+             "first_reply_received_at": {"$exists": True, "$ne": None}},
+            {"_id": 0, "first_lead_generated_at": 1, "first_reply_received_at": 1},
+        )
+        deltas: List[float] = []
+        async for u in cursor:
+            try:
+                a = datetime.fromisoformat(u["first_lead_generated_at"].replace("Z", "+00:00"))
+                b = datetime.fromisoformat(u["first_reply_received_at"].replace("Z", "+00:00"))
+                if a.tzinfo is None:
+                    a = a.replace(tzinfo=timezone.utc)
+                if b.tzinfo is None:
+                    b = b.replace(tzinfo=timezone.utc)
+                deltas.append(max(0.0, (b - a).total_seconds() / 60.0))
+            except Exception:
+                continue
+        avg_ttr_min = round(sum(deltas) / len(deltas), 1) if deltas else None
+
+        # Latest 10 onboarding events
+        recent_cursor = db.start_engine_runs.find({}, {"_id": 0}).sort("created_at", -1).limit(10)
+        recent = await recent_cursor.to_list(10)
+
+        denom = max(1, users_completed)
+        return {
+            "ok": True,
+            "users_total_gated": users_total,
+            "users_completed_onboarding": users_completed,
+            "completion_rate_pct": round(100.0 * users_completed / max(1, users_total), 1),
+            "per_path": per_path,
+            "path_distribution_pct": {
+                p: round(100.0 * per_path[p]["users"] / denom, 1) for p in paths
+            },
+            "autopilot_dispatched_rate_pct": round(autopilot_pct, 1),
+            "users_who_generated_leads": users_with_first_lead,
+            "users_who_received_first_email": users_with_first_email,
+            "users_who_received_first_reply": users_with_first_reply,
+            "lead_generation_rate_pct": round(100.0 * users_with_first_lead / max(1, users_completed), 1),
+            "avg_time_to_first_reply_min": avg_ttr_min,
+            "recent_runs": recent,
+        }
+
     return router
 
 

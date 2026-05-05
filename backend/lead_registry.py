@@ -313,6 +313,7 @@ async def update_status(db, lead_id: str, status: str, by: Optional[str] = None)
     if status not in LEAD_STATUSES:
         raise ValueError(f"Invalid status: {status} · allowed: {LEAD_STATUSES}")
     now_s = _now_iso()
+    lead = await db.leads_registry.find_one({"lead_id": lead_id}, {"_id": 0, "assigned_to_user_id": 1})
     await db.leads_registry.update_one(
         {"lead_id": lead_id},
         {
@@ -320,6 +321,29 @@ async def update_status(db, lead_id: str, status: str, by: Optional[str] = None)
             "$push": {"activity_log": {"at": now_s, "type": "status_change", "by": by, "to": status}},
         },
     )
+    # Iter 54 · Start Engine analytics — track the first time each user's lead
+    # transitions out of `new`. status="contacted" → first_email_sent_at,
+    # status in (responded|meeting_set) → first_reply_received_at.
+    owner = ((lead or {}).get("assigned_to_user_id") or "").strip().lower()
+    if owner:
+        if status == "contacted":
+            await db.users.update_one(
+                {"email": owner, "first_email_sent_at": {"$in": [None, ""]}},
+                {"$set": {"first_email_sent_at": now_s}},
+            )
+            await db.users.update_one(
+                {"email": owner, "first_email_sent_at": {"$exists": False}},
+                {"$set": {"first_email_sent_at": now_s}},
+            )
+        elif status in ("responded", "meeting_set"):
+            await db.users.update_one(
+                {"email": owner, "first_reply_received_at": {"$in": [None, ""]}},
+                {"$set": {"first_reply_received_at": now_s}},
+            )
+            await db.users.update_one(
+                {"email": owner, "first_reply_received_at": {"$exists": False}},
+                {"$set": {"first_reply_received_at": now_s}},
+            )
 
 
 async def list_leads(
