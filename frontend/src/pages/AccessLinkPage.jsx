@@ -64,10 +64,21 @@ export default function AccessLinkPage({ mode }) {
         try {
             const data = await cfg.authFn(value);
             const session = { email: data.email, token: data.token };
-            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(session)); } catch { /* noop */ }
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+                localStorage.setItem("cb_portal_email", data.email);
+                localStorage.setItem("cb_portal_token", data.token);
+            } catch { /* noop */ }
             setStatus("success");
             toast.success(`Signed in · ${data.role}`);
-            setTimeout(() => navigate(data.redirect || "/portal/ops", { replace: true }), 500);
+            // Iter 54 · onboarding gate — non-elevated roles must finish Start Engine first.
+            // Founders / executives go straight to the requested redirect (or /portal/ops).
+            let target = data.redirect || "/portal/ops";
+            const elevated = ["founder", "executive", "president"].includes((data.role || "").toLowerCase());
+            if (!elevated && !data.onboarding_complete) {
+                target = `/start-engine?email=${encodeURIComponent(data.email)}&token=${encodeURIComponent(data.token)}`;
+            }
+            setTimeout(() => navigate(target, { replace: true }), 500);
         } catch (err) {
             const d = err?.response?.data?.detail;
             toast.error(typeof d === "string" ? d : "Invalid access value");

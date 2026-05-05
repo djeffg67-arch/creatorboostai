@@ -346,7 +346,13 @@ def make_router(db, email_service=None) -> APIRouter:
             upsert=True,
         )
         await db.ops_invites.update_one({"invite_token": payload.invite_token}, {"$set": {"status": "accepted", "accepted_at": now}})
-        return {"email": email, "token": portal_token, "role": ROLE_EMPLOYEE, "redirect": "/portal/ops"}
+        # Iter 54 · onboarding gate — newly accepted employees haven't completed Start Engine
+        user_doc = await db.users.find_one({"email": email}, {"_id": 0, "onboarding_complete": 1})
+        return {
+            "email": email, "token": portal_token, "role": ROLE_EMPLOYEE,
+            "onboarding_complete": bool((user_doc or {}).get("onboarding_complete")),
+            "redirect": "/start-engine" if not (user_doc or {}).get("onboarding_complete") else "/portal/ops",
+        }
 
     @router.post("/me")
     async def me(payload: OpsAuth):
@@ -426,7 +432,9 @@ def make_router(db, email_service=None) -> APIRouter:
                                      outcome="trusted_device", delivery_ok=True)
             return {"sent": False, "trusted_device": True, "channel": channel,
                     "delivery_ok": True, "token": user["portal_token"],
-                    "role": user["role"], "redirect": "/portal/ops"}
+                    "role": user["role"],
+                    "onboarding_complete": bool(user.get("onboarding_complete")),
+                    "redirect": "/start-engine" if (user["role"] not in ("founder", "executive", "president") and not user.get("onboarding_complete")) else "/portal/ops"}
 
         # Cooldown — check the newest existing OTP row
         existing = await db.ops_otps.find_one({"email": payload.email, "role": payload.role}, {"_id": 0})

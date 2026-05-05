@@ -445,4 +445,17 @@ export const avatarEscalationsUpdate = ({ email, token, escalation_id, status, n
 export const avatarEscalationsNote = ({ email, token, escalation_id, note }) =>
     api.post("/avatar/escalations/note", { email, token, escalation_id, note }).then((r) => r.data);
 
+// ---------- Start Engine (Iter 54) ----------
+export const startEngineStatus = ({ email, token }) =>
+    api.post("/start-engine/status", { email, token }).then((r) => r.data);
+
+export const startEnginePathLeads = ({ email, token }) =>
+    api.post("/start-engine/path-leads", { email, token }).then((r) => r.data);
+
+export const startEnginePathImport = ({ email, token }) =>
+    api.post("/start-engine/path-import", { email, token }).then((r) => r.data);
+
+export const startEnginePathExplore = ({ email, token }) =>
+    api.post("/start-engine/path-explore", { email, token }).then((r) => r.data);
+
 

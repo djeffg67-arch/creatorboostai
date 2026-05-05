@@ -134,6 +134,22 @@ PRODUCTS: Dict[str, Dict[str, Any]] = {
 # NOTE: $7K and $27K programs are intentionally NOT here — they require an
 # application + booking call and are closed manually via Stripe invoice or Zelle.
 SUBSCRIPTIONS: Dict[str, Dict[str, Any]] = {
+    # ----- Iter 54 · Startup Pricing tiers (early-stage operators) -----
+    "startup_launch_monthly": {
+        "name": "Starter Launch", "tier": "startup_starter", "interval": "month",
+        "amount": 29.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_STARTUP_LAUNCH_MONTHLY",
+    },
+    "startup_growth_monthly": {
+        "name": "Growth Launch", "tier": "startup_growth", "interval": "month",
+        "amount": 79.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_STARTUP_GROWTH_MONTHLY",
+    },
+    "startup_pro_monthly": {
+        "name": "Pro Launch", "tier": "startup_pro", "interval": "month",
+        "amount": 149.00, "currency": "usd",
+        "price_id_env": "STRIPE_PRICE_STARTUP_PRO_MONTHLY",
+    },
     # ----- Canonical multi-industry plans (Iter 28 — public-facing) -----
     "starter_monthly": {
         "name": "CreatorBoostAI Starter", "tier": "starter", "interval": "month",
@@ -3527,6 +3543,15 @@ from avatar import make_avatar_router  # noqa: E402
 app.include_router(make_avatar_router(
     db,
     send_founder_notification=send_founder_notification,
+    require_founder=_require_outbound_founder,
+))
+
+
+# ---------- Start Engine · First-login activation flow (Iter 54) ----------
+from start_engine import make_start_engine_router  # noqa: E402
+
+app.include_router(make_start_engine_router(
+    db, _require_any_role,
     require_founder=_require_outbound_founder,
 ))
 
