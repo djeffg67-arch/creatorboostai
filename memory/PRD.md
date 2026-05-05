@@ -1,6 +1,90 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD & Handoff
 
-**Last update:** 2026-05-05 (Iter 51 — Universal Lead Intake · CSV import · manual paste · exclusive ownership UI)
+**Last update:** 2026-05-05 (Iter 52 — Avatar Intelligence Layer · multi-agent · live actions · Exclusive Lead Engine messaging)
+
+---
+
+## 🎯 ITER 52 — AVATAR INTELLIGENCE LAYER (V1)
+
+Per Jeffrey's "FINAL SYSTEM UPGRADE — CONVERSATION AVATAR" directive: build the brain (multi-agent orchestrator) and a chat widget. Visual avatar provider (HeyGen/D-ID) deferred per Q1=e.
+
+### Backend `/app/backend/avatar.py` (NEW)
+- 4 endpoints under `/api/avatar`:
+  - `POST /chat` — non-streaming JSON, ~2-7s
+  - `POST /chat-stream` — SSE with character-cadence client-side typing
+  - `POST /quick-context` — fetches live CB context + 8 homepage chips
+  - `POST /escalate` — logs to `avatar_escalations` + emails founder
+- **Multi-agent orchestrator** (Presenter / Research / Lead / Revenue / Follow-Up): one LLM call per turn, role classified by keyword and routed via role-tagged system prompt — true multi-chain deferred (overkill for V1)
+- **Speed/depth model switch**: Claude Haiku 4.5 (fast, ~600ms first token) by default; auto-escalates to Claude Sonnet 4.5 (deep) on Revenue/Research roles, or when message contains pricing/strategy/objection/investor/enterprise/compliance keywords, or when user message > 240 chars
+- **Live CB context injection per turn**: signed-in users get `my_leads`, `my_hot_leads`, `recent_demos_viewed`, `subscription`. All users get the Exclusive Lead Engine rule + pricing table + available demos
+- **Action whitelist** (8 types — frontend MUST execute):
+  - `route_to_demo {demo, route}` — auto-injected even if LLM doesn't emit, when user mentions a demo by name
+  - `capture_lead {fields}`
+  - `open_pricing {plan?, route}`
+  - `start_signup {plan?}`
+  - `schedule_followup {topic, when}`
+  - `escalate_to_founder {reason}`
+  - `open_calendly {url}`
+  - `show_quick_replies {chips}`
+- **Action normalizer**: unknown action types silently dropped; demo names canonicalized; demos that don't exist filtered out
+- **System prompt** baked with positioning Jeffrey requires:
+  - "CreatorBoostAI is NOT just a demo tool — it is an AI execution system"
+  - "Every lead is EXCLUSIVE — never shared, never duplicated, never resold"
+  - "The Exclusive Lead Engine locks each lead to one user/rep/company globally"
+  - Sectors: real estate, insurance, retail, contractors, enterprise, supermarkets, c-stores, education, sales teams, creators
+  - Style: direct, confident, no fluff, no emoji, no exclamation marks
+- **Founder-escalation fallback**: when LLM returns empty/timeout, auto-emit `escalate_to_founder` action
+- **12s hard timeout** on LLM call so widget never hangs
+- **Audit log**: every turn persisted to `avatar_sessions` collection (session_id, surface, turns[], role, model, actions)
+
+### Frontend `/app/frontend/src/components/avatar/AvatarWidget.jsx` (NEW)
+- Floating "Talk to CreatorBoostAI" pill bottom-right (z-50, positioned `bottom-20` to clear Emergent badge)
+- Opens 380×580 panel with cyan border glow
+- 8 quick-reply chips on first open (per Q4=c): "How does this get me leads?", "Show me airport demo", "Show me supermarket demo", "Pricing", "How is this different from Apollo?", "Tell me about the Exclusive Lead Engine", "I want to start", "Talk to founder"
+- Free-form input after first interaction
+- Action handler executes all 8 action types (`route_to_demo` → `navigate(route)`, `open_calendly` → `window.open`, `escalate_to_founder` → opens contact form, etc.)
+- Built-in **escalation form** (name/email/company) for founder follow-up — submits to `/api/avatar/escalate`
+- **Footer tagline**: "Exclusive Lead Engine · No Duplicates · Locked To You" (always visible — non-negotiable per Jeffrey's spec)
+- Session persistence in `sessionStorage` (continues conversation across tab reloads)
+- Pulsing cyan dot + "thinking…" loader during in-flight calls
+
+### Wiring
+- **Public homepage**: `/app/frontend/src/pages/HomePage.jsx` mounts `<AvatarWidget surface="homepage" />` — visible to anonymous visitors for conversion
+- **Portal `/portal/ops` AI Assistant tab**: rebuilt to use the new avatar brain. Shows model badge ("fast" / "deep") + role tag per turn so founder can see which agent answered
+- New API helpers in `/app/frontend/src/lib/api.js`: `avatarChat`, `avatarQuickContext`, `avatarEscalate`
+
+### Verified live (curl + browser screenshot)
+```
+✓ POST /api/avatar/chat "How does this get me leads?"
+   → role: research · model: claude-sonnet-4-5 · reply mentions "exclusive lead engine, locks
+     every lead to you alone — no duplicates, no reselling" · 3 follow-up chips suggested
+✓ POST /api/avatar/chat "Show me the airport demo"
+   → role: presenter · model: claude-haiku-4-5 (fast) · action: {type:"route_to_demo",
+     demo:"airport", route:"/demo/airport"}
+✓ POST /api/avatar/chat "Pricing"
+   → role: revenue · model: claude-sonnet-4-5 (auto-escalated) · accurate prices ($97/$297/$597
+     + enterprise) · action: open_pricing + plan-specific chips
+✓ POST /api/avatar/chat "Talk to founder"
+   → action: open_calendly with j-davidg67/30min URL
+✓ POST /api/avatar/escalate → escalation_id returned, founder emailed
+✓ Homepage widget renders, 8 chips visible, "Exclusive Lead Engine · No Duplicates · Locked To You"
+  footer always visible, click on chip triggers thinking state then response
+```
+
+### Files touched
+- `/app/backend/avatar.py` — NEW
+- `/app/backend/server.py` — wired `make_avatar_router` after leads_router
+- `/app/frontend/src/components/avatar/AvatarWidget.jsx` — NEW
+- `/app/frontend/src/lib/api.js` — 3 new helpers (`avatarChat`, `avatarQuickContext`, `avatarEscalate`)
+- `/app/frontend/src/pages/HomePage.jsx` — mounts `<AvatarWidget>` at top of Layout
+- `/app/frontend/src/pages/PortalOpsPage.jsx` — `AITab` rewritten to use avatar brain with action triggers + role/model badges
+
+### What still needs Jeffrey's action / future iterations
+- (P1) Add `RESEND_API_KEY` to `.env` so escalation emails actually fire (currently logged to MongoDB, founder notification graceful no-op without key)
+- (P1) Pick avatar face provider (HeyGen / D-ID) and paste API key → I'll wire as a 1-day add-on layer
+- (P2) Real provider streaming (currently client-side word-by-word cadence — feels natural but isn't true SSE token streaming since Anthropic via emergentintegrations doesn't expose stream cleanly today)
+- (P2) Avatar memory across sessions for signed-in users (currently session-scoped)
+- (P2) Avatar in `/demo/*` cinematic pages as a guided concierge
 
 ---
 

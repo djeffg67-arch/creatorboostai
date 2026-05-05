@@ -3521,6 +3521,12 @@ async def _require_any_role(payload) -> Dict[str, Any]:
 app.include_router(make_leads_router(db, _require_any_role))
 
 
+# ---------- Avatar Intelligence Layer (Iter 52) ----------
+from avatar import make_avatar_router  # noqa: E402
+
+app.include_router(make_avatar_router(db, send_founder_notification=send_founder_notification))
+
+
 # ---------- CORS ----------
 # Explicitly allow the production domains + any additional origins injected via
 # CORS_ORIGINS env var. "*" is used as a safety fallback so a misconfigured

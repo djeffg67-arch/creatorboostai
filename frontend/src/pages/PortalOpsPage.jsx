@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { toast } from "sonner";
 import {
@@ -28,6 +28,7 @@ import {
     opsOutboundSetDailyLimit,
     leadsAddManual, leadsList, leadsUpdateStatus, leadsTouch, leadsRelease,
     leadsStats, leadsImportCsv,
+    avatarChat,
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 
@@ -1038,21 +1039,45 @@ const DemosTab = ({ auth }) => {
     );
 };
 
-// ---------- AI Assistant tab ----------
-const AITab = ({ auth }) => {
+// ---------- AI Assistant tab (Iter 52 · uses Avatar brain with actions) ----------
+const AITab = ({ auth, me }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [busy, setBusy] = useState(false);
     const sessionId = useRef(`s-${Date.now()}`);
     const scrollRef = useRef(null);
+    const navigate = useNavigate();
 
-    const send = async () => {
-        const msg = input.trim(); if (!msg || busy) return;
-        setMessages((m) => [...m, { role: "user", text: msg }]);
+    const handleAction = (a) => {
+        switch (a.type) {
+            case "route_to_demo":
+                if (a.route) { toast.success(`Opening ${a.demo} demo`); window.open(a.route, "_blank", "noopener"); }
+                break;
+            case "open_pricing":
+                window.open(a.route || "/pricing", "_blank", "noopener"); break;
+            case "open_calendly":
+                if (a.url) window.open(a.url, "_blank", "noopener"); break;
+            case "escalate_to_founder":
+                toast.message("Escalation logged for founder follow-up"); break;
+            default: break;
+        }
+    };
+
+    const send = async (textOverride) => {
+        const msg = (textOverride ?? input).trim(); if (!msg || busy) return;
+        const newMsgs = [...messages, { role: "user", text: msg }];
+        setMessages(newMsgs);
         setInput(""); setBusy(true);
         try {
-            const r = await opsAIChat({ ...auth, session_id: sessionId.current, message: msg });
-            setMessages((m) => [...m, { role: "assistant", text: r.reply }]);
+            const r = await avatarChat({
+                session_id: sessionId.current,
+                user_email: auth.email,
+                history: newMsgs.map((m) => ({ role: m.role, content: m.text })),
+                surface: "portal",
+            });
+            if (r.session_id) sessionId.current = r.session_id;
+            setMessages((m) => [...m, { role: "assistant", text: r.reply, model: r.model, role_tag: r.role }]);
+            (r.actions || []).forEach(handleAction);
         } catch (err) {
             const d = err?.response?.data?.detail;
             toast.error(typeof d === "string" ? d : "AI error");
@@ -1062,14 +1087,15 @@ const AITab = ({ auth }) => {
         }
     };
     const suggestions = [
-        "Draft a follow-up email after a demo · decision-maker went quiet",
-        "Rehearse a 30-second cold opener for a C-store chain CFO",
+        "Draft a force-reply email for an airport CFO",
+        "How does the Exclusive Lead Engine compare to Apollo?",
         "Give me 3 objection-handlers for 'we already have a maintenance platform'",
+        "Walk me through the supermarket demo",
     ];
 
     return (
         <div data-testid="tab-ai" className="space-y-4">
-            <SectionHeader sub="Claude Sonnet · sales coach" title="AI Assistant" />
+            <SectionHeader sub="Claude · multi-agent · with actions" title="AI Assistant" />
             <div className="flex flex-col rounded-md border border-white/10 bg-ink-700/40" style={{ height: "65vh" }}>
                 <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto p-4" data-testid="ai-messages">
                     {messages.length === 0 && (
@@ -1077,14 +1103,16 @@ const AITab = ({ auth }) => {
                             <p className="text-sm text-slate-400">Try one of these to start:</p>
                             <div className="mt-2 space-y-1">
                                 {suggestions.map((s) => (
-                                    <button key={s} onClick={() => setInput(s)} className="block w-full rounded-sm border border-white/5 bg-ink-900 p-2 text-left text-xs text-slate-300 hover:border-cyan-500/30 hover:text-cyan-300">{s}</button>
+                                    <button key={s} onClick={() => send(s)} className="block w-full rounded-sm border border-white/5 bg-ink-900 p-2 text-left text-xs text-slate-300 hover:border-cyan-500/30 hover:text-cyan-300">{s}</button>
                                 ))}
                             </div>
                         </div>
                     )}
                     {messages.map((m, i) => (
                         <div key={i} className={`rounded-md border p-3 text-sm ${m.role === "user" ? "border-cyan-500/30 bg-cyan-500/5 text-white" : "border-white/10 bg-ink-900 text-slate-200"}`}>
-                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">{m.role === "user" ? "you" : "assistant"}</p>
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
+                                {m.role === "user" ? "you" : `assistant${m.role_tag ? " · " + m.role_tag : ""}${m.model ? " · " + (m.model.includes("haiku") ? "fast" : "deep") : ""}`}
+                            </p>
                             <p className="mt-1 whitespace-pre-wrap">{m.text}</p>
                         </div>
                     ))}
@@ -1094,9 +1122,9 @@ const AITab = ({ auth }) => {
                     <div className="flex gap-2">
                         <input value={input} onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-                            placeholder="Ask the AI… (press Enter to send)" data-testid="ai-input"
+                            placeholder="Ask the avatar… (press Enter to send)" data-testid="ai-input"
                             className="flex-1 rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none" />
-                        <button onClick={send} disabled={busy} data-testid="ai-send"
+                        <button onClick={() => send()} disabled={busy} data-testid="ai-send"
                             className="inline-flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 text-xs font-semibold text-ink-900 hover:bg-cyan-400 disabled:opacity-60">
                             <Send size={11} /> Send
                         </button>
@@ -2956,7 +2984,7 @@ export default function PortalOpsPage() {
             case "intake":      return <LeadIntakeTab auth={auth} me={me} />;
             case "outreach":    return <OutreachTab auth={auth} />;
             case "demos":       return <DemosTab auth={auth} />;
-            case "ai":          return <AITab auth={auth} />;
+            case "ai":          return <AITab auth={auth} me={me} />;
             case "employees":   return me.scopes.can_see_all_employees ? <EmployeesTab auth={auth} me={me} /> : null;
             case "outbound":    return me.scopes.can_see_settings ? <OutboundTab auth={auth} /> : null;
             case "revenue":     return me.scopes.can_see_settings ? <DemoRevenueTab auth={auth} /> : null;

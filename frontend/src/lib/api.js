@@ -422,4 +422,14 @@ export const leadsImportCsv = ({ email, token, source, file }) => {
     }).then((r) => r.data);
 };
 
+// ---------- Avatar Intelligence (Iter 52) ----------
+export const avatarChat = ({ session_id, user_email, history, surface }) =>
+    api.post("/avatar/chat", { session_id, user_email, history, surface }).then((r) => r.data);
+
+export const avatarQuickContext = ({ session_id, user_email }) =>
+    api.post("/avatar/quick-context", { session_id, user_email }).then((r) => r.data);
+
+export const avatarEscalate = ({ session_id, user_email, reason, last_message, contact }) =>
+    api.post("/avatar/escalate", { session_id, user_email, reason, last_message, contact }).then((r) => r.data);
+
 

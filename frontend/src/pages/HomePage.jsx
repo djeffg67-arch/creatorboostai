@@ -6,6 +6,7 @@ import { CountrySelector } from "@/components/site/CountrySelector";
 import { GetLeadsSection } from "@/components/site/GetLeadsSection";
 import { OperationsLifecycleSection } from "@/components/site/OperationsLifecycleSection";
 import { RecentActivityTicker } from "@/components/site/RecentActivityTicker";
+import AvatarWidget from "@/components/avatar/AvatarWidget";
 import { INDUSTRY_IMG, DEMO_IMG, SECTION_BG } from "@/lib/images";
 import {
     ArrowRight, Play, Building2, ShieldCheck, Mic, ShoppingBag, Plane,
@@ -230,6 +231,7 @@ const DEMO_SELECTOR = [
 export default function HomePage() {
     return (
         <Layout>
+            <AvatarWidget surface="homepage" />
             {/* HERO */}
             <section
                 className="relative isolate overflow-hidden border-b border-white/5"
