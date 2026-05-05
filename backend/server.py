@@ -3616,6 +3616,12 @@ async def _start_business_activation_nurture():
     asyncio.create_task(business_activation_nurture_loop(db))
 
 
+# ---------- Agentic Orchestrator (Iter 59) ----------
+from orchestrator import make_orchestrator_router  # noqa: E402
+
+app.include_router(make_orchestrator_router(db, _require_outbound_founder))
+
+
 # ---------- CORS ----------
 # Explicitly allow the production domains + any additional origins injected via
 # CORS_ORIGINS env var. "*" is used as a safety fallback so a misconfigured

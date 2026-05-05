@@ -520,6 +520,28 @@ def make_business_activation_router(db, require_founder=None) -> APIRouter:
         except Exception as e:
             log.warning(f"founder notify failed: {e}")
 
+        # Iter 59 · auto-trigger the agentic orchestrator on high-intent captures.
+        # Fire-and-forget: the user already has their PDF + Email 1. The
+        # orchestrator runs the 4-agent chain in the background and queues
+        # personalized follow-ups in business_activation_nurture.
+        if payload.wants_outbound_help:
+            try:
+                from orchestrator import _orchestrate as _orch  # type: ignore
+                orch_input = {
+                    "name": payload.name,
+                    "email": clean_email,
+                    "business_name": biz_name,
+                    "business_type": payload.business_type,
+                    "industry": payload.business_type,
+                    "notes": f"Activated via {payload.source or 'startup_builder'}; "
+                             f"opted into outbound help; tools={','.join(b.tool for b in payload.blocks)}",
+                    "source": "business_activation_orchestrator",
+                    "wants_outbound_help": True,
+                }
+                asyncio.create_task(_orch(db, orch_input, triggered_by="business_activation_capture"))
+            except Exception as e:
+                log.warning(f"async orchestrator trigger failed: {e}")
+
         return {
             "ok": True,
             "lead_id": lead_id,
@@ -532,7 +554,19 @@ def make_business_activation_router(db, require_founder=None) -> APIRouter:
             "nurture_scheduled": True,
             "outbound_prospect_id": outbound_prospect_id,
             "outbound_bridged": bool(outbound_prospect_id),
+            "orchestrator_triggered": payload.wants_outbound_help,
         }
+
+    async def _trigger_orchestrator_async(lead_input: Dict[str, Any]) -> None:
+        """Iter 59 · Fire-and-forget orchestrator chain when a high-intent
+        activation comes in. Non-blocking — the user already got their PDF +
+        Email 1. The orchestrator adds a second, more personalized email +
+        replaces the generic nurture with agent-authored follow-ups."""
+        try:
+            from orchestrator import _orchestrate as _orch  # type: ignore
+            await _orch(db, lead_input, triggered_by="business_activation_capture")
+        except Exception as e:
+            log.warning(f"async orchestrator trigger failed: {e}")
 
     @router.post("/admin-list")
     async def admin_list(payload: FounderAuth):
