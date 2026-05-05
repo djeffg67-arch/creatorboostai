@@ -245,6 +245,95 @@ async def _call_claude(system: str, user_msg: str, session_id: str) -> str:
     return str(reply or "").strip()
 
 
+# ──────────────── Website Builder (Iter 62) ────────────────
+WEBSITE_SYSTEM_PROMPT = (
+    "You are an elite conversion copywriter and brand strategist. Given a business "
+    "description, output a complete website structure as STRICT JSON only. No "
+    "preamble. No markdown fences. No commentary outside the JSON. The JSON object "
+    "must use exactly these keys:\n"
+    "{\n"
+    '  "domain": "<short, hyphenated, .com domain stem>",\n'
+    '  "brand": "<business name as written>",\n'
+    '  "tagline": "<5-10 word memorable tagline>",\n'
+    '  "hero": {\n'
+    '    "eyebrow": "<short location/industry tag, 2-5 words>",\n'
+    '    "headline": "<6-12 word benefit-driven headline>",\n'
+    '    "subheadline": "<one sentence, 12-22 words>",\n'
+    '    "primary_cta": "<2-4 words, action verb>",\n'
+    '    "secondary_cta": "<2-4 words>"\n'
+    "  },\n"
+    '  "services": [\n'
+    '    {"title": "<3-5 words>", "desc": "<1 sentence value prop>", "price": "<\'$X\' or \'Starting at $X\' or null>"},\n'
+    "    ... 3 to 4 services\n"
+    "  ],\n"
+    '  "about": "<2-3 sentence founder/business pitch in first person>",\n'
+    '  "trust_points": ["<short bullet>", "<short bullet>", "<short bullet>", "<short bullet>"],\n'
+    '  "contact_fields": ["<field 1>", "<field 2>", "<field 3>", "<industry-specific field 4>"],\n'
+    '  "contact_cta": "<3-5 words>",\n'
+    '  "footer_blurb": "<one sentence>"\n'
+    "}\n\n"
+    "Adapt copy to the industry. Voice: confident, specific, action-oriented. Avoid "
+    "generic phrases like 'world-class' or 'best in class'. Output ONLY the JSON object."
+)
+
+
+class WebsiteGenReq(BaseModel):
+    business_idea: str = Field(min_length=4, max_length=600)
+    business_name: Optional[str] = Field(default=None, max_length=80)
+    industry: Optional[str] = Field(default=None, max_length=80)
+    location: Optional[str] = Field(default=None, max_length=80)
+    audience: Optional[str] = Field(default=None, max_length=160)
+    offer: Optional[str] = Field(default=None, max_length=200)
+    session_id: Optional[str] = None
+    user_email: Optional[str] = None
+
+
+def _build_website_user_message(p: "WebsiteGenReq") -> str:
+    parts = [f"BUSINESS IDEA: {p.business_idea}"]
+    if p.business_name:
+        parts.append(f"BUSINESS NAME: {p.business_name}")
+    if p.industry:
+        parts.append(f"INDUSTRY: {p.industry}")
+    if p.location:
+        parts.append(f"LOCATION: {p.location}")
+    if p.audience:
+        parts.append(f"TARGET CUSTOMER: {p.audience}")
+    if p.offer:
+        parts.append(f"OFFER / PRICING: {p.offer}")
+    parts.append("\nReturn the website JSON now.")
+    return "\n".join(parts)
+
+
+def _extract_site_json(text: str) -> Optional[Dict[str, Any]]:
+    """Tolerate fenced or prefixed JSON. Returns parsed dict or None."""
+    if not text:
+        return None
+    s = text.strip()
+    # Strip ```json ... ``` fence if present
+    if s.startswith("```"):
+        parts = s.split("```")
+        # parts = ["", "json\n{...}\n", "", ...]
+        if len(parts) >= 2:
+            s = parts[1]
+            if s.lower().lstrip().startswith("json"):
+                s = s.lstrip()[4:]
+        s = s.strip()
+    # Direct parse first
+    try:
+        return json.loads(s)
+    except Exception:
+        pass
+    # Fallback: slice between first { and last }
+    try:
+        first = s.find("{")
+        last = s.rfind("}")
+        if first >= 0 and last > first:
+            return json.loads(s[first: last + 1])
+    except Exception:
+        return None
+    return None
+
+
 # ──────────────── ROUTER ────────────────
 def make_business_builder_router(db) -> APIRouter:
     router = APIRouter(prefix="/api/business-builder", tags=["business-builder"])
@@ -313,6 +402,51 @@ def make_business_builder_router(db) -> APIRouter:
     async def history(payload: BaseModel):
         # Stub for future founder-side analytics. Not a hard requirement now.
         return {"ok": True, "runs": []}
+
+    # ─────────── Iter 62 · Website Builder (real-time site generation) ──────────
+    @router.post("/website-generate")
+    async def website_generate(payload: WebsiteGenReq):
+        if not (LlmChat and LlmUserMessage and EMERGENT_LLM_KEY):
+            raise HTTPException(503, "LLM not configured (EMERGENT_LLM_KEY missing)")
+        session_id = payload.session_id or f"wb_{uuid.uuid4()}"
+        user_msg = _build_website_user_message(payload)
+        try:
+            raw = await asyncio.wait_for(
+                LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+                        system_message=WEBSITE_SYSTEM_PROMPT)
+                .with_model("anthropic", DEEP_MODEL)
+                .send_message(LlmUserMessage(text=user_msg)),
+                timeout=45.0,
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(504, "Website generator timed out — try again")
+        except Exception as e:
+            log.error(f"website-generate failed: {e}")
+            raise HTTPException(500, f"Generation failed: {str(e)[:200]}")
+
+        text = str(raw or "").strip()
+        # Tolerate stray prose: extract the first JSON object between { and }
+        site = _extract_site_json(text)
+        if not site:
+            raise HTTPException(502, "LLM returned unparseable content")
+
+        # Best-effort persist
+        try:
+            await db.business_builder_runs.insert_one({
+                "id": str(uuid.uuid4()),
+                "session_id": session_id,
+                "tool": "website_builder",
+                "tool_label": "Website Builder",
+                "user_email": payload.user_email,
+                "inputs": payload.model_dump(exclude={"session_id", "user_email"}),
+                "output_chars": len(text),
+                "site": site,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception:
+            pass
+
+        return {"ok": True, "tool": "website_builder", "session_id": session_id, "site": site}
 
     return router
 

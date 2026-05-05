@@ -532,3 +532,8 @@ export const auditLeadTrail = (payload) =>
 
 export const auditList = (payload) =>
     api.post("/audit/list", payload).then((r) => r.data);
+
+// ---------- Iter 62 · Real Website Builder ----------
+export const websiteBuilderGenerate = (payload) =>
+    api.post("/business-builder/website-generate", payload, { timeout: 90000 }).then((r) => r.data);
+

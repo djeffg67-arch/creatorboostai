@@ -267,6 +267,15 @@ const WebsiteBuilderPanel = ({ active, sceneIdx }) => {
                 <p className="mt-2 font-mono text-[10px] text-slate-400">
                     {showSite ? "Domain-ready · lead capture wired to your CRM" : "Rendering your site…"}
                 </p>
+                {showSite && (
+                    <a
+                        href="/portal/website-builder"
+                        data-testid="demo-website-builder-cta"
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-400 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-900 hover:bg-emerald-300"
+                    >
+                        Build mine for real →
+                    </a>
+                )}
             </div>
         </div>
     );

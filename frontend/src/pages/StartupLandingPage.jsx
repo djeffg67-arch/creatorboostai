@@ -110,7 +110,7 @@ export default function StartupLandingPage() {
                                             See it in the demo <ArrowRight size={13} />
                                         </Link>
                                         <Link
-                                            to="/portal/builder"
+                                            to="/portal/website-builder"
                                             data-testid="cta-build-website"
                                             className="inline-flex items-center gap-1.5 rounded-md border border-cyan-500/40 bg-ink-900 px-4 py-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500 hover:text-ink-900"
                                         >

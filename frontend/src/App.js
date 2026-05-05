@@ -42,6 +42,7 @@ import ClientPortalPage from "@/pages/ClientPortalPage";
 import StartupLandingPage from "@/pages/StartupLandingPage";
 import StartupDemoPage from "@/pages/StartupDemoPage";
 import BusinessBuilderPage from "@/pages/BusinessBuilderPage";
+import WebsiteBuilderPage from "@/pages/WebsiteBuilderPage";
 import AccessLinkPage from "@/pages/AccessLinkPage";
 import TeamAccessPage from "@/pages/TeamAccessPage";
 import PortalMagicPage from "@/pages/PortalMagicPage";
@@ -95,6 +96,7 @@ function App() {
                     <Route path="/startup" element={<StartupLandingPage />} />
                     <Route path="/demo/startup" element={<StartupDemoPage />} />
                     <Route path="/portal/builder" element={<BusinessBuilderPage />} />
+                    <Route path="/portal/website-builder" element={<WebsiteBuilderPage />} />
                     <Route path="/portal/client/:client_id" element={<ClientPortalPage />} />
                     <Route path="/founder-access" element={<AccessLinkPage mode="founder" />} />
                     <Route path="/executive-access" element={<AccessLinkPage mode="executive" />} />
