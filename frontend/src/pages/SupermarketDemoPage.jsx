@@ -1055,7 +1055,7 @@ const ExistingSystemsStage = () => {
         { label: "CRM",          items: ["Customer + loyalty"],                                     Icon: Sparkles },
         { label: "Fleet",        items: ["Transportation mgmt", "Route + telematics"],              Icon: Truck },
         { label: "C-Store + Fuel", items: ["Forecourt POS", "Tank monitoring", "Fuel pricing"],     Icon: Fuel },
-        { label: "Store POS",    items: ["NCR", "Toshiba", "Verifone", "Banner POS"],          Icon: ScanLine },
+        { label: "Store POS",    items: ["Lane terminals", "Self-checkout", "Mobile POS", "Banner-level POS"],          Icon: ScanLine },
     ];
     return (
         <div className="rounded-md border border-cyan-500/40 bg-gradient-to-b from-cyan-500/10 to-ink-900 p-5 fade-in-up" data-testid="stage-existing-systems">
@@ -1376,7 +1376,7 @@ const CStoreStage = () => {
         { Icon: Fuel,         label: "Fuel pricing",          detail: "Real-time · fuel systems" },
         { Icon: Boxes,        label: "Fuel inventory + tank", detail: "Tank monitoring · variance alert" },
         { Icon: AlertTriangle,label: "Pump downtime",         detail: "Pump 4 · 18 min · vendor pinged" },
-        { Icon: ScanLine,     label: "POS issues",            detail: "NCR · 2 lanes · auto ticket" },
+        { Icon: ScanLine,     label: "POS issues",            detail: "Lane terminal · 2 lanes · auto ticket" },
         { Icon: Package,      label: "Food freshness",        detail: "Hot bar · expiring 38 min" },
         { Icon: Users,        label: "Labor coverage",        detail: "Saturday morning · -1 cashier" },
         { Icon: Truck,        label: "Delivery timing",       detail: "Late · ETA shifted +1:14" },
