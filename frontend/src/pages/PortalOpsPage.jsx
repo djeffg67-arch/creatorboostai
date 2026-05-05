@@ -597,7 +597,7 @@ const LeadsTab = ({ auth, me }) => {
     const [showForm, setShowForm] = useState(false);
     const [demoFilter, setDemoFilter] = useState(false); // Filter: closed from demo only
     const refresh = () => opsListLeads(auth).then((d) => setLeads(d.leads || [])).catch(() => {});
-    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth]);
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const visibleLeads = demoFilter
         ? leads.filter((l) => Boolean(l.closed_source_demo))
@@ -788,7 +788,7 @@ const EngagementPanel = ({ lead, auth }) => {
         } finally { setBusy(false); }
     };
 
-    useEffect(() => { if (open && !data) load(); /* eslint-disable-next-line */ }, [open]);
+    useEffect(() => { if (open && !data) load(); /* eslint-disable-next-line */ }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const score = data?.lead?.signal_score ?? 0;
     const scoreTone = score >= 80 ? "text-rose-300 border-rose-500/40 bg-rose-500/10"
@@ -1023,7 +1023,7 @@ const LeadIntakeTab = ({ auth, me }) => {
             setLeads(l.leads || []);
         } catch (e) { /* no-op */ }
     };
-    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth, filters]);
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div data-testid="tab-intake" className="space-y-6">
@@ -1543,7 +1543,7 @@ const EmployeesTab = ({ auth, me }) => {
     const [invite, setInvite] = useState({ invitee_email: "", invitee_name: "" });
     const [last, setLast] = useState(null);
     const refresh = () => opsListEmployees(auth).then((d) => setList(d.employees || [])).catch(() => {});
-    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth]);
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth]); // eslint-disable-line react-hooks/exhaustive-deps
     const send = async () => {
         if (!invite.invitee_email) { toast.error("Email required"); return; }
         try {
@@ -2353,7 +2353,7 @@ const DiagnosticsPanel = ({ auth, dash, onChange }) => {
         } finally { setBusy(false); }
     };
 
-    useEffect(() => { if (open) refreshDiag(); /* eslint-disable-next-line */ }, [open]);
+    useEffect(() => { if (open) refreshDiag(); /* eslint-disable-next-line */ }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4" data-testid="outbound-diagnostics-panel">
@@ -2528,7 +2528,7 @@ const OutboundTab = ({ auth }) => {
             toast.error(typeof det === "string" ? det : "Could not load outbound data");
         }
     };
-    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth.email]);
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [auth.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const togglePause = async () => {
         const paused = !(dash?.state?.paused);
@@ -3062,7 +3062,7 @@ const EscalationsPanel = ({ auth }) => {
         try { setData(await avatarEscalationsList({ ...auth, status: filter, limit: 200 })); }
         catch { /* silent */ }
     };
-    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filter, auth]);
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filter, auth]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const openDetail = async (id) => {
         setOpenId(id); setDetail(null);
@@ -3317,7 +3317,7 @@ const AdminTab = ({ auth }) => {
         }
     };
 
-    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filterOutcome]);
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filterOutcome]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const upsert = async (e) => {
         e.preventDefault();
@@ -3594,7 +3594,7 @@ const ClientsTab = ({ auth, me }) => {
             .then(setData)
             .catch((e) => toast.error(e?.response?.data?.detail || "Could not load clients"));
     };
-    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filter]);
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const onboardManual = async () => {
         const lead_id = window.prompt("Paste the ops_leads.lead_id of the won deal to onboard:");
@@ -3697,7 +3697,7 @@ const ClientDrawer = ({ auth, client_id, onClose }) => {
     const [busy, setBusy] = useState(false);
 
     const refresh = () => clientWorkspace({ ...auth, client_id }).then(setData).catch(() => {});
-    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [client_id]);
+    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [client_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const toggleTask = async (task_key, currentDone) => {
         await clientTaskToggle({ ...auth, client_id, task_key, done: !currentDone });

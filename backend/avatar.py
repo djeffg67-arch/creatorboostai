@@ -575,6 +575,10 @@ def make_avatar_router(db, send_founder_notification=None, require_founder=None)
         except Exception as _e:
             log.error(f"escalate enrichment failed: {_e}")
 
+        # session_doc is loaded conditionally in the enrichment block above —
+        # use locals() to safely access it without triggering a NameError if
+        # the enrichment branch was skipped.
+        _session_doc = locals().get("session_doc") or {}
         rec = {
             "id": str(uuid.uuid4()),
             "session_id": req.session_id,
@@ -587,7 +591,7 @@ def make_avatar_router(db, send_founder_notification=None, require_founder=None)
             "company": (req.contact or {}).get("company"),
             "sector": sector_guess,
             "demo_viewed": demo_viewed,
-            "surface": (session_doc or {}).get("surface") if 'session_doc' in dir() else "homepage",
+            "surface": _session_doc.get("surface") or "homepage",
             "status": "open",
             "status_history": [
                 {"status": "open", "at": now_s, "by": "avatar"}

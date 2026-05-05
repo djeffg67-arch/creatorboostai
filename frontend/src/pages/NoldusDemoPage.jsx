@@ -352,7 +352,7 @@ export default function NoldusDemoPage() {
         } else {
             advanceTimer.current = setTimeout(() => { if (!pausedRef.current) goToNext(); }, maxMs);
         }
-    }, [audioCache, muted, paused, goToNext]);
+    }, [audioCache, muted, paused, goToNext]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         const a = audioRef.current; if (!a) return;
@@ -378,7 +378,7 @@ export default function NoldusDemoPage() {
             a.removeEventListener("pause", onPause);
             a.removeEventListener("error", onError);
         };
-    }, [paused, goToNext]);
+    }, [paused, goToNext]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!started) return;

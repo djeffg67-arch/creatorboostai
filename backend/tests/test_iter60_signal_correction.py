@@ -100,6 +100,7 @@ class TestCaptureSignalScoring:
         # poll briefly for orchestrator entries to be appended
         async def _check():
             db = _make_db()
+            lead = None
             for _ in range(8):
                 lead = await db.leads_registry.find_one(
                     {"lead_id": lead_id},
@@ -128,12 +129,13 @@ class TestCaptureSignalScoring:
 
         async def _poll():
             db = _make_db()
+            kinds: list = []
             deadline = time.time() + 120
             while time.time() < deadline:
                 lead = await db.leads_registry.find_one(
                     {"lead_id": lead_id}, {"_id": 0, "signal_history": 1},
                 )
-                kinds = [e.get("kind") for e in (lead.get("signal_history") or [])]
+                kinds = [e.get("kind") for e in ((lead or {}).get("signal_history") or [])]
                 if "orchestrator_run_started" in kinds and "asset_generated" in kinds:
                     return kinds
                 await asyncio.sleep(8)

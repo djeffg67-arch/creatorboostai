@@ -58,7 +58,10 @@ export function useDemoCleanup(audioRef, audioCacheRef) {
         }
         return () => {
             fullStop();
-            try { Object.values(audioCacheRef?.current || {}).forEach(URL.revokeObjectURL); } catch { /* noop */ }
+            // ESLint flags audioCacheRef.current may change by cleanup; this is intentional —
+            // we want to revoke whatever URLs are in the cache at unmount time.
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            try { Object.values((audioCacheRef && audioCacheRef.current) || {}).forEach(URL.revokeObjectURL); } catch { /* noop */ }
             if (typeof window !== "undefined") {
                 window.removeEventListener("pagehide", fullStop);
                 window.removeEventListener("beforeunload", fullStop);

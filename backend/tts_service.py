@@ -5,11 +5,12 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+import tempfile
 from emergentintegrations.llm.openai import OpenAITextToSpeech
 
 logger = logging.getLogger(__name__)
 
-CACHE_DIR = Path("/tmp/tts_cache")
+CACHE_DIR = Path(tempfile.gettempdir()) / "tts_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "").strip()

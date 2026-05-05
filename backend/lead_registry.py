@@ -111,16 +111,21 @@ def _norm_company_loc(company: Optional[str], location: Optional[str]) -> str:
 
 
 def _fingerprint_hash(email: str, phone: str, company: str, name: str) -> str:
-    """sha1 of canonical signal — primary email, fallback phone or company+name."""
+    """sha1 of canonical signal — primary email, fallback phone or company+name.
+
+    Note: SHA1 is used only for *deduplication fingerprints*, not for any
+    cryptographic / authentication purpose — `usedforsecurity=False` declares
+    that intent to security scanners (CWE-327 N/A here).
+    """
     if email:
-        return hashlib.sha1(f"email:{email}".encode()).hexdigest()
+        return hashlib.sha1(f"email:{email}".encode(), usedforsecurity=False).hexdigest()
     if phone:
-        return hashlib.sha1(f"phone:{phone}".encode()).hexdigest()
+        return hashlib.sha1(f"phone:{phone}".encode(), usedforsecurity=False).hexdigest()
     if company and name:
-        return hashlib.sha1(f"co:{_norm_company(company)}|name:{name.lower().strip()}".encode()).hexdigest()
+        return hashlib.sha1(f"co:{_norm_company(company)}|name:{name.lower().strip()}".encode(), usedforsecurity=False).hexdigest()
     if company:
-        return hashlib.sha1(f"co:{_norm_company(company)}".encode()).hexdigest()
-    return hashlib.sha1(f"raw:{email}{phone}{company}{name}".encode()).hexdigest()
+        return hashlib.sha1(f"co:{_norm_company(company)}".encode(), usedforsecurity=False).hexdigest()
+    return hashlib.sha1(f"raw:{email}{phone}{company}{name}".encode(), usedforsecurity=False).hexdigest()
 
 
 def _dedupe_keys(payload: Dict[str, Any]) -> List[str]:

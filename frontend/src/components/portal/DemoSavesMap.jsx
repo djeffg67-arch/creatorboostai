@@ -30,7 +30,7 @@ export const DemoSavesMap = ({ auth, range = "30d" }) => {
         return () => { cancelled = true; };
     }, [auth, range]);
 
-    const markers = data?.markers || [];
+    const markers = useMemo(() => data?.markers || [], [data]);
     const topCountries = data?.top_countries || [];
     const maxCount = useMemo(() => Math.max(1, ...markers.map((m) => m.count)), [markers]);
 

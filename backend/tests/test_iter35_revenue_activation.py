@@ -208,5 +208,6 @@ class TestApplicationPersistence:
 class TestStripeWebhook:
     def test_webhook_missing_signature_returns_400(self, s):
         r = requests.post(f"{API}/webhook/stripe", data="{}",
-                          headers={"Content-Type": "application/json"})
+                          headers={"Content-Type": "application/json"},
+                          timeout=15)
         assert r.status_code == 400
