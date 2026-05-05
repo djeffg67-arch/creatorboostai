@@ -1,8 +1,101 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-05 (Iter 55 — Client Delivery System: Client Portal + Auto-Onboarding)
+**Last update:** 2026-05-05 (Iter 56 — New Startup Business positioning + Business Builder Module)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 56 — NEW STARTUP BUSINESS POSITIONING + BUSINESS BUILDER
+
+Core positioning shift: CreatorBoostAI is not just for enterprise — it's the single
+operating system a brand-new founder uses to launch, fund, sell, and deliver. User
+confirmed reduced Phase 1 scope (chat) — full spec deferred to Phase 2 once API keys
+land for new-business ingestion / LinkedIn / inbox warming.
+
+### What shipped (Phase 1)
+- **Navbar** (desktop + mobile): "New Startup Business" → `/startup` and "Startup Demo"
+  → `/demo/startup`, both highlighted with the cyan dot indicator. `whitespace-nowrap`
+  applied to prevent label wrap.
+- **`/startup`** (`StartupLandingPage.jsx`): hero with the exact headline + subtext +
+  3 CTAs (Start a New Business / Watch Startup Demo / Build My Business Plan), 8-tool
+  grid, story strip, startup-tier pricing teaser, legal disclaimer.
+- **`/demo/startup`** (`StartupDemoPage.jsx`): 10-scene auto-advancing cinematic
+  walkthrough (Spark → Discovery → Plan → Numbers → Capital → Customers → Outreach →
+  Conversion → Signal → Delivery). Pause/Play/Replay + clickable scene pager. CTAs to
+  Builder + Pricing.
+- **`/portal/builder`** (`BusinessBuilderPage.jsx`): structured wizard for **17 tools**
+  — business plan, financial projections, loan summary, startup checklist, ICP builder,
+  sales script, email campaign, pitch deck outline, offer/pricing builder, market
+  research, competitor research, social content, proposal, invoice, break-even, ROI,
+  startup budget. URL param `?tool=<key>` auto-selects.
+  - Each tool: structured input form → Claude Sonnet 4.5 generation → markdown render +
+    HTML preview + 5 export buttons (PDF, DOCX, CSV, Print, Save).
+  - Client-side exports: `jspdf` (PDF), `docx` + `file-saver` (DOCX), `sheetjs`-style
+    CSV writer for any markdown table. localStorage workspace persists last 30 saves.
+- **Avatar Startup Advisor** delivered via the existing `client_portal` surface +
+  `delivery` role (Iter 55) — Builder uses dedicated tool prompts so the avatar widget
+  stays focused on conversational decision support.
+- **Legal disclaimer** appended automatically to every Builder output: "Draft document
+  — review with a qualified professional. Not licensed legal/tax/financial advice."
+
+### Backend (`/app/backend/business_builder.py`, NEW · 290 lines)
+- `TOOLS` catalog of 17 tools, each with `label`, `fields[]`, and a tool-specific
+  Claude system prompt (no fluff, no preamble, markdown-clean output).
+- `GET /api/business-builder/tools` — public catalog for the picker.
+- `POST /api/business-builder/generate {tool, inputs, session_id?}` — runs Claude
+  Sonnet 4.5 with the tool's system prompt + structured user message. 45s asyncio
+  timeout. Persists run history to `business_builder_runs` (best-effort).
+- All outputs auto-include the `DISCLAIMER` markdown block.
+
+### Verified live (testing agent iteration 34 · 100% pass · 4/4 backend + frontend e2e)
+```
+✓ Nav: nav-startup → /startup, nav-startup-demo → /demo/startup
+✓ /startup renders headline + 3 CTAs + 8 tool tiles + pricing CTA
+✓ /demo/startup auto-advances · pause/play/replay/pager all work
+✓ /portal/builder renders 17 tool cards
+✓ ?tool= URL param auto-selects + scrolls to input form
+✓ /generate startup_checklist (Texas LLC) → 6.7KB markdown w/ disclaimer + state-specific items
+✓ /generate break_even → numeric content (formula + math + sensitivity table)
+✓ /generate unknown tool → 400
+✓ Generate UI flow: form fill → output panel → 5 export buttons + disclaimer visible
+✓ export-save persists to localStorage cb_builder_workspace
+✓ back-to-inputs returns to form cleanly
+```
+
+### Bug fixed by testing agent
+- `builderGenerate()` in `/app/frontend/src/lib/api.js` was using axios default 30s
+  timeout, but Claude Sonnet 4.5 long-form generations take 25–45s. Bumped to 90s
+  matching the autopilot pattern. Backend already enforces its own 45s asyncio timeout.
+
+### Code-review findings (cosmetic only, not actioned)
+- `business_builder.py` module docstring still says "16 tool keys" — catalog now 17.
+- `BusinessBuilderPage.jsx` input type ternary always evaluates to "text" (dead code).
+  All fields render as text inputs — fine for MVP per user direction.
+
+### Phase 2 — DEFERRED (blocked on Jeffrey decisions / API keys)
+- New-business registration ingestion (Outscraper / OpenCorporates / manual CSV)
+- LinkedIn auto-touchpoint (HeyReach / PhantomBuster) — user picked manual buttons
+- Inbox health card (compute from existing bounce/complaint data — quick win, can ship
+  next cycle without any vendor)
+- Real-time intent triggers wired to demo viewer behavior (Hot Leads infrastructure
+  already exists from Iter 50 — needs frontend hook on demo pages)
+- Dynamic demo personalization via URL params (`?name=&company=&industry=`)
+- Homepage hero refresh with the new high-visibility startup section
+- Multi-channel total-touch counter (Resend + LinkedIn manual + SMS)
+
+### Files touched
+- `/app/backend/business_builder.py` (NEW)
+- `/app/backend/server.py` (router wired)
+- `/app/frontend/src/components/site/Navbar.jsx` (2 new highlighted links + nowrap)
+- `/app/frontend/src/App.js` (3 new routes)
+- `/app/frontend/src/pages/StartupLandingPage.jsx` (NEW)
+- `/app/frontend/src/pages/StartupDemoPage.jsx` (NEW)
+- `/app/frontend/src/pages/BusinessBuilderPage.jsx` (NEW)
+- `/app/frontend/src/lib/exporters.js` (NEW · jspdf + docx + CSV + print + workspace)
+- `/app/frontend/src/lib/api.js` (builderListTools + builderGenerate, 90s timeout)
+- `/app/backend/tests/test_iter56_business_builder.py` (NEW · 4 pytest cases)
+- `package.json`: added `jspdf`, `docx`, `file-saver`
 
 ---
 

@@ -76,7 +76,7 @@ export const Navbar = () => {
                             end={l.to === "/"}
                             data-testid={l.testid}
                             className={({ isActive }) =>
-                                `text-[13px] font-medium tracking-wide transition-colors ${
+                                `whitespace-nowrap text-[13px] font-medium tracking-wide transition-colors ${
                                     isActive
                                         ? "text-cyan-400"
                                         : l.highlight
