@@ -1,8 +1,40 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-06 (Iter 63 — Website Builder One-Click Publish + Domain Connect + Hosting)
+**Last update:** 2026-05-06 (Iter 65 — Cinematic 3-Layer Demo Funnel · Layer 1 hooks + Industry chips + Hero simplification)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 65 — CINEMATIC 3-LAYER DEMO FUNNEL (P1)
+
+Status: SHIPPED · Tested 100% (frontend e2e, zero freezes, zero breakdowns)
+
+### Strategic shift
+Restructured demo experience into a progressive funnel:
+- **Layer 1** · 30-60s cinematic hook demos (NEW, this iter)
+- **Layer 2** · 2-4 / ~5-13 min industry walkthroughs (existing demos, re-labeled)
+- **Layer 3** · Executive deep dive (existing Noldus + SITA, re-labeled)
+
+### Files added
+- `/app/frontend/src/lib/hookDemos.js` — fully data-driven hook demo configs (Realtor + Supermarket shipped). Adding more industries = drop config + flip `hookReady=true`.
+- `/app/frontend/src/components/demo/HookDemoPlayer.jsx` — reusable cinematic player (Pain → Activation → Outcome → Positioning → Final frame), Web Speech narration, Action ID stream w/ staged reveal, metric tiles, frame scrubber. Exports `BehindTheScenes` + `IndustryChipRow`.
+- `/app/frontend/src/pages/HookDemoPage.jsx` — `/demo/quick/:industry` route. Falls back to long-form demo when a hook isn't built (per `INDUSTRY_CHIPS.fallback`). Shows BTS panel + 3-layer next-step cards + industry switcher.
+
+### Files updated
+- `/app/frontend/src/pages/HomePage.jsx` — hero H1 simplified to "Your Business Doesn't Need Another CRM. **It Needs Execution.**", added mono tagline + concrete-integration sub-copy + `IndustryChipRow`. Primary CTA "Watch 60-second Demo" → `/demo/quick/realtor`.
+- `/app/frontend/src/pages/VerticalPickerPage.jsx` — new "Layer 1 · 60-second hook" section above the existing vertical cards; "Layer 2 · Industry walkthrough" label on the existing grid.
+- `/app/frontend/src/App.js` — added `<Route path="/demo/quick/:industry" element={<HookDemoPage />} />`.
+
+### What's tested
+- Both hooks (Realtor + Supermarket) play end-to-end with metrics, action stream, BTS reveal, and all 4 final-frame CTAs.
+- All 6 non-built industries fall back to the correct existing long-form demo.
+- Mobile 390px: no horizontal overflow.
+- All 5 existing demos (Realtor, Supermarket, SITA, Noldus, Startup) regression-clean.
+- No JS errors, no infinite loaders, no Web Speech blocking.
+
+### Known gap (NOT a regression)
+The Layer-2 picker grid in `VerticalPickerPage.jsx` ships 5 vertical cards (Realtor / Insurance / Creators / Noldus / Airports). Contractor / Automotive / pure-Startup-vertical / dedicated-Supermarket cards are **not** in `VERTICALS`. Supermarket is reachable via the new Layer-1 hook card. Filling out the remaining vertical cards is a P1 content task next session.
 
 ---
 
