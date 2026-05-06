@@ -2065,6 +2065,12 @@ def make_outbound_router(
 
         result["finished_at"] = now_iso()
         result["sent_today"] = await _today_sent_count()
+        # Heartbeat — the autopilot cycle reached the end successfully.
+        try:
+            from worker_telemetry import record_heartbeat
+            await record_heartbeat(db, "autopilot_cycle", ok=True)
+        except Exception as _e:
+            log.warning(f"[autopilot] heartbeat write failed: {_e}")
         # Diagnostic reasons explaining why any step might have produced 0
         reasons: List[str] = []
         if (result.get("seeded") or {}).get("added", 0) == 0 and (result.get("internal_seeded") or {}).get("added", 0) == 0:
@@ -2520,6 +2526,20 @@ def make_outbound_router(
         except Exception as e:
             log.warning(f"[dashboard] warmup panel failed: {e}")
 
+        # System status traffic-light (Iter 68) — at-a-glance health
+        try:
+            from worker_telemetry import compute_system_status
+            system_status = await compute_system_status(
+                db,
+                paused=bool(state.get("paused")),
+                pause_reason=state.get("pause_reason"),
+            )
+        except Exception as e:
+            log.warning(f"[dashboard] system_status compute failed: {e}")
+            system_status = {"level": "red", "label": "Unknown",
+                             "summary": f"telemetry error: {str(e)[:80]}",
+                             "reasons": ["telemetry_compute_failed"], "workers": []}
+
         return {
             "kpi": {
                 "total_prospects": total,
@@ -2541,7 +2561,44 @@ def make_outbound_router(
             "sources_configured": sources_cfg,
             "state_filings": state_filings_panel,
             "warmup": warmup_panel,
+            "system_status": system_status,
         }
+
+    @router.post("/worker-status")
+    async def worker_status(payload: OpsAuth):
+        """Iter 68 · founder-only. Returns every background worker's heartbeat
+        + computed traffic-light system status. The UI signal-light reads
+        `system_status.level` (green / yellow / red) directly.
+
+        When `paused=true`, the level is yellow (intentional, not a failure).
+        When 2+ workers are stale OR error rate ≥50%, the level is red.
+        Otherwise green."""
+        await require_founder(payload)
+        try:
+            from worker_telemetry import compute_system_status, get_all_workers
+            state = await _state()
+            system_status = await compute_system_status(
+                db,
+                paused=bool(state.get("paused")),
+                pause_reason=state.get("pause_reason"),
+            )
+            workers = await get_all_workers(db)
+            return {
+                "ok": True,
+                "system_status": system_status,
+                "workers": workers,
+                "paused": bool(state.get("paused")),
+                "pause_reason": state.get("pause_reason"),
+            }
+        except Exception as e:
+            log.error(f"[worker_status] failed: {e}")
+            return {
+                "ok": False,
+                "error": str(e)[:200],
+                "system_status": {"level": "red", "label": "Unknown",
+                                  "summary": "Telemetry error", "reasons": ["telemetry_failed"]},
+                "workers": [],
+            }
 
     @router.post("/live-feed")
     async def live_feed(payload: OpsAuth):
@@ -2820,11 +2877,14 @@ async def background_scheduler_loop(
         log.info("[outbound] scheduler disabled by env")
         return
     log.info("[outbound] scheduler loop starting")
+    from worker_telemetry import record_heartbeat
     while True:
         try:
             await _standalone_process_queue(db, send_outbound_email, send_founder_notification)
+            await record_heartbeat(db, "scheduler_loop", ok=True, interval_sec=interval_sec)
         except Exception as e:
             log.error(f"[outbound] scheduler tick error: {e}")
+            await record_heartbeat(db, "scheduler_loop", ok=False, error=str(e), interval_sec=interval_sec)
         await asyncio.sleep(interval_sec + random.randint(-15, 15))
 
 
@@ -3164,11 +3224,14 @@ async def imap_poller_loop(db, interval_sec: int = 300) -> None:
         log.info("[imap] poller not configured — skipping loop")
         return
     log.info("[imap] poller loop starting")
+    from worker_telemetry import record_heartbeat
     while True:
         try:
             await _imap_poll_once(db)
+            await record_heartbeat(db, "imap_poller", ok=True, interval_sec=interval_sec)
         except Exception as e:
             log.error(f"[imap] tick error: {e}")
+            await record_heartbeat(db, "imap_poller", ok=False, error=str(e), interval_sec=interval_sec)
         await asyncio.sleep(interval_sec + random.randint(-15, 15))
 
 
@@ -3180,9 +3243,12 @@ async def daily_autopilot_loop(db, send_outbound_email, send_founder_notificatio
         log.info("[autopilot] daily loop disabled by env")
         return
     log.info(f"[autopilot] daily loop starting · interval={interval_sec}s")
+    from worker_telemetry import record_heartbeat
     # First run after a short delay so the server can fully boot
     await asyncio.sleep(60)
     while True:
+        cycle_ok = True
+        cycle_err: Optional[str] = None
         try:
             router = make_outbound_router(db, send_outbound_email, send_founder_notification, _NOOP_REQUIRE_FOUNDER)
             cycle_fn = _AUTOPILOT_HELPERS.get(id(router))
@@ -3204,9 +3270,14 @@ async def daily_autopilot_loop(db, send_outbound_email, send_founder_notificatio
                         {"$set": {"status": "failed", "error": str(e)[:400],
                                   "finished_at": datetime.now(timezone.utc).isoformat()}},
                     )
-                    raise
+                    cycle_ok = False
+                    cycle_err = str(e)
         except Exception as e:
             log.error(f"[autopilot] cycle error: {e}")
+            cycle_ok = False
+            cycle_err = str(e)
+        await record_heartbeat(db, "daily_autopilot_loop", ok=cycle_ok, error=cycle_err,
+                               interval_sec=interval_sec)
         await asyncio.sleep(interval_sec + random.randint(-60, 60))
 
 

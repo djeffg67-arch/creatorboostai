@@ -2503,6 +2503,137 @@ const SourcesStatusRow = ({ dash }) => {
     );
 };
 
+// ─────────── Iter 68 · System Signal Light ───────────
+// At-a-glance traffic light for the outbound engine. Reads dashboard.system_status.
+// Levels: green (Operational) · yellow (Degraded / Paused) · red (Stalled).
+const SystemSignalLight = ({ status, state }) => {
+    const [expanded, setExpanded] = React.useState(false);
+    const level = status?.level || "red";
+    const label = status?.label || (state?.paused ? "Paused" : "Unknown");
+    const summary = status?.summary || (state?.paused ? "Engine paused by operator." : "No telemetry yet.");
+    const workers = status?.workers || [];
+    const reasons = status?.reasons || [];
+    const optionalInactive = status?.optional_inactive || [];
+
+    const TONE = {
+        green:  { dot: "bg-emerald-400", glow: "shadow-[0_0_24px_rgba(16,185,129,0.55)]",
+                  border: "border-emerald-500/40", bg: "bg-emerald-500/[0.06]",
+                  label: "text-emerald-300", icon: "text-emerald-400" },
+        yellow: { dot: "bg-amber-400",   glow: "shadow-[0_0_24px_rgba(251,191,36,0.55)]",
+                  border: "border-amber-500/40", bg: "bg-amber-500/[0.06]",
+                  label: "text-amber-300", icon: "text-amber-400" },
+        red:    { dot: "bg-rose-400",    glow: "shadow-[0_0_24px_rgba(244,63,94,0.55)]",
+                  border: "border-rose-500/40", bg: "bg-rose-500/[0.06]",
+                  label: "text-rose-300", icon: "text-rose-400" },
+    }[level] || {
+        dot: "bg-slate-400", glow: "", border: "border-slate-500/30", bg: "bg-slate-500/5",
+        label: "text-slate-300", icon: "text-slate-400",
+    };
+
+    return (
+        <div data-testid="system-signal-light"
+             data-signal-level={level}
+             className={`rounded-md border ${TONE.border} ${TONE.bg} px-4 py-3.5`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <span className={`relative inline-flex h-3 w-3 flex-shrink-0 items-center justify-center`}>
+                        {level === "green" && (
+                            <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${TONE.dot} opacity-60`} />
+                        )}
+                        <span className={`relative inline-flex h-3 w-3 rounded-full ${TONE.dot} ${TONE.glow}`} />
+                    </span>
+                    <div>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                            Engine Signal
+                        </p>
+                        <p className={`font-heading text-lg font-semibold ${TONE.label}`} data-testid="signal-label">
+                            {label}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                    <p className="font-mono text-[11px] text-slate-400" data-testid="signal-summary">
+                        {summary}
+                    </p>
+                    <button
+                        onClick={() => setExpanded((e) => !e)}
+                        data-testid="signal-toggle"
+                        className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-ink-700/40 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300 hover:text-cyan-300"
+                    >
+                        {expanded ? "Hide" : "Workers"} <ChevronDown size={10} className={expanded ? "rotate-180" : ""} />
+                    </button>
+                </div>
+            </div>
+
+            {expanded && (
+                <div className="mt-3 border-t border-white/5 pt-3" data-testid="signal-workers">
+                    {/* Active worker rows */}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {workers.length === 0 && (
+                            <p className="font-mono text-[10px] text-slate-500" data-testid="signal-no-workers">
+                                No worker heartbeats yet — boot up will register on first tick.
+                            </p>
+                        )}
+                        {workers.map((w) => (
+                            <div key={w.worker} data-testid={`worker-${w.worker}`}
+                                 className={`rounded-md border px-3 py-2 ${
+                                     w.is_stale ? "border-rose-500/30 bg-rose-500/5"
+                                                : "border-white/10 bg-white/[0.03]"
+                                 }`}>
+                                <div className="flex items-center justify-between">
+                                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300">
+                                        {w.worker}
+                                    </p>
+                                    <span className={`inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.18em] ${
+                                        w.is_stale ? "text-rose-300" : "text-emerald-300"
+                                    }`}>
+                                        <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                                            w.is_stale ? "bg-rose-400" : "bg-emerald-400"
+                                        }`} />
+                                        {w.is_stale ? "stale" : "fresh"}
+                                    </span>
+                                </div>
+                                <p className="mt-0.5 font-mono text-[9px] text-slate-500">
+                                    {w.ticks_total} ticks · {w.errors_total} errors ·
+                                    last {w.seconds_since_tick != null ? `${w.seconds_since_tick}s ago` : "—"}
+                                </p>
+                                {w.last_error && (
+                                    <p className="mt-1 truncate font-mono text-[9px] text-rose-300" title={w.last_error}>
+                                        {w.last_error}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Optional / intentionally inactive workers */}
+                    {optionalInactive.length > 0 && (
+                        <div className="mt-3 rounded-md border border-white/5 bg-white/[0.02] p-2.5">
+                            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
+                                Optional · not running
+                            </p>
+                            <ul className="mt-1 space-y-0.5">
+                                {optionalInactive.map((w) => (
+                                    <li key={w.worker} className="font-mono text-[10px] text-slate-400">
+                                        <span className="text-slate-300">{w.worker}</span> — {w.reason}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {/* Reasons */}
+                    {reasons.length > 0 && (
+                        <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
+                            <span className="text-slate-400">Signal reasons:</span> {reasons.join(" · ")}
+                        </p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const OutboundTab = ({ auth }) => {
     const [dash, setDash] = useState(null);
     const [prospects, setProspects] = useState([]);
@@ -2669,6 +2800,7 @@ const OutboundTab = ({ auth }) => {
 
     return (
         <div data-testid="tab-outbound" className="space-y-6">
+            <SystemSignalLight status={dash?.system_status} state={dash?.state} />
             <SectionHeader sub="Autonomous Outbound Sales Engine" title="Outbound command center">
                 <div className="flex flex-wrap items-center gap-2">
                     <button

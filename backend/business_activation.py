@@ -618,12 +618,15 @@ async def business_activation_nurture_loop(db, interval_sec: int = 300) -> None:
         log.info("[nurture] disabled by env")
         return
     log.info("[nurture] activation nurture loop starting")
+    from worker_telemetry import record_heartbeat
     await asyncio.sleep(30)  # let app start
     while True:
         try:
             await _nurture_tick(db)
+            await record_heartbeat(db, "business_activation_nurture", ok=True, interval_sec=interval_sec)
         except Exception as e:
             log.error(f"[nurture] tick error: {e}")
+            await record_heartbeat(db, "business_activation_nurture", ok=False, error=str(e), interval_sec=interval_sec)
         await asyncio.sleep(interval_sec + random.randint(-15, 15))
 
 

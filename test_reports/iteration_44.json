@@ -1,0 +1,41 @@
+{
+  "summary": "Iter 68 · Worker telemetry + SystemSignalLight fully validated. All 11 pytest backend tests + all 6 Playwright UI assertions PASS. Signal light correctly reflects green/yellow/red state transitions (pause flips to yellow, fault-injection flips to red, healthy is green with animate-ping).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter68_worker_telemetry.py",
+    "/app/test_reports/pytest/iter68_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "worker_telemetry.compute_system_status swallows exceptions in get_all_workers (good — telemetry must not crash), but a completely empty heartbeats collection currently yields level='red' label='Unknown'. Consider whether a brand-new deployment (before any worker has ticked) should start as yellow/warming-up rather than red — currently a fresh boot shows red for the first ~5 min until scheduler_loop ticks.",
+    "compute_system_status re-reads env vars on every call · fine for correctness, but would miss a live env change without a restart (low priority).",
+    "PortalOpsPage.jsx is 4073 lines — exceeds the >700-line guideline. Suggest extracting OutboundTab, SystemSignalLight, and KPI cards into separate files for maintainability (not blocking this iteration).",
+    "The SystemSignalLight reads status from `dash?.system_status` (dashboard poll) rather than the dedicated /worker-status endpoint. This is fine since they return identical structure, but worth documenting the single-source-of-truth."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter68_worker_telemetry.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Founder master key: jeffrey-2026-bodyiq-founder-master (validated via /api/ops/founder-access)",
+  "seed_data_creation": "Fault-injection test creates TEST_stale_worker_iter68 doc in worker_heartbeats and temporarily marks scheduler_loop/business_activation_nurture as stale — cleanup runs in finally block to restore fresh state.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 68 backend + UI fully passing. Key artifacts: /app/backend/worker_telemetry.py (record_heartbeat/get_all_workers/compute_system_status), /api/ops/outbound/worker-status endpoint, system_status embedded in /api/ops/outbound/dashboard. Signal light component at PortalOpsPage.jsx:2509. Master key auth via /api/ops/founder-access returns {email, token, role, redirect}. Pytest fixture auto-detects BASE_URL from /app/frontend/.env and MONGO_URL/DB_NAME from /app/backend/.env. The autopilot_cycle heartbeat test waits up to 120s after /autopilot-now call.",
+  "verified_flows": [
+    "worker-status endpoint requires founder auth (401 without key)",
+    "worker-status payload contains all required fields (level/label/summary/reasons/workers/expected_workers/missing_workers/optional_inactive/stale_count/error_rate/total_ticks/total_errors/checked_at)",
+    "dashboard endpoint embeds system_status with identical structure",
+    "scheduler_loop heartbeats present (ticks_total>=1, is_stale=false after ~8 min uptime)",
+    "business_activation_nurture heartbeats present",
+    "imap_poller absent from worker_heartbeats AND shown in system_status.optional_inactive (IMAP env unset — intentional)",
+    "Pause flow: POST /pause {paused:true} → system_status.level='yellow' label='Paused'",
+    "Resume flow: POST /pause {paused:false} → system_status.level='green' label='Operational'",
+    "Fault injection: inserted 2-hour-old + 50% error scheduler_loop + business_activation_nurture → level='red' with stale/error_rate in reasons",
+    "Autopilot-now triggers autopilot_cycle heartbeat within 120s",
+    "UI: SystemSignalLight renders with data-testid='system-signal-light' and data-signal-level attribute",
+    "UI: green dot has animate-ping class when level=green",
+    "UI: signal-toggle expands signal-workers grid, each worker has data-testid='worker-{name}'",
+    "UI: imap_poller shown in 'OPTIONAL · NOT RUNNING' section",
+    "UI: Pause Engine button → label flips to 'Paused' + yellow tint; Resume → back to green",
+    "UI: KPI cards (Total prospects=353, Scored=353, Contacted=142, Replied=12) still render correctly"
+  ]
+}
