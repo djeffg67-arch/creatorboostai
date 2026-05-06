@@ -6,8 +6,27 @@ import {
     ArrowRight, Play, Pause, RotateCcw, CheckCircle2, MessageSquare, Building2,
     Volume2, VolumeX, Mic, Globe, Layout as LayoutIcon, Smartphone, Monitor,
 } from "lucide-react";
+import {
+    useAgenticEngine, ActionLedger, ReasoningStream, RevenueSavingsCounter,
+    ExecutionControlPanel, SovereignVault,
+} from "@/components/agentic/AgenticExecutionCore";
 
-// 10 scenes · ~18 seconds each · 3 minutes total narration
+// Static Action IDs per scene — fired into engine on scene-mount for visible execution proof.
+const SCENE_ACTIONS = {
+    "scene-1":  [{ id: "CB-FND-30001", trigger: "Founder describes business: mobile dog grooming · Austin TX",          reasoning: "Industry-classifier locks pet-services vertical · pricing band identified",                  action: "Business operating session opened · agentic blueprint queued",                            impact_usd: 0,    impact_label: "Session start", status: "executed" }],
+    "scene-2":  [{ id: "CB-FND-30002", trigger: "6 structured discovery questions completed",                            reasoning: "ICP, pricing, year-1 target captured · downstream tools auto-routed",                          action: "Discovery snapshot persisted · 5 generators unlocked",                                     impact_usd: 0,    impact_label: "Profile",       status: "executed" }],
+    "scene-3":  [{ id: "CB-FND-30003", trigger: "Business plan generation requested",                                    reasoning: "8 plan sections templated · industry-aware language model invoked",                            action: "8-section plan generated · PDF + DOCX exports unlocked",                                   impact_usd: 0,    impact_label: "Asset",         status: "executed" }],
+    "scene-4":  [{ id: "CB-FND-30004", trigger: "12-month financial projections required",                               reasoning: "CFO-grade revenue / COGS / fixed-cost / cash model assembled",                                action: "12-month cash model generated · breakeven month-7 · year-end cash $42K",                   impact_usd: 0,    impact_label: "Forecast",      status: "executed" }],
+    "scene-5":  [{ id: "CB-FND-30005", trigger: "Capital request flow initiated",                                        reasoning: "Loan-summary template · DSCR ≥ 1.25 · use-of-funds itemized",                                  action: "1-page loan summary + repayment schedule generated · bank-ready",                          impact_usd: 0,    impact_label: "Asset",         status: "executed" }],
+    "scene-6":  [{ id: "CB-FND-30006", trigger: "Founder authorizes website build",                                      reasoning: "Industry-tuned copy + Home/About/Services/Contact + lead capture wired to CRM",               action: "Website composed · domain-ready · mobile + desktop verified",                              impact_usd: 0,    impact_label: "Asset",         status: "executed" }],
+    "scene-7":  [{ id: "CB-FND-30007", trigger: "ICP locked · prospect list requested",                                  reasoning: "Filter spec · 47 prospects assembled · all locked to founder via Exclusive Lead Engine",       action: "47 leads created in registry · all assigned + locked to founder",                          impact_usd: 0,    impact_label: "Pipeline",      status: "executed" }],
+    "scene-8":  [{ id: "CB-FND-30008", trigger: "Outreach drafting requested for 47 prospects",                          reasoning: "5-touch personalized cadence · Day-0/1/3/5/8 · industry + city personalization",              action: "235 emails drafted across 47 prospects · all in voice · queued",                           impact_usd: 0,    impact_label: "Outreach",      status: "executed" }],
+    "scene-9":  [{ id: "CB-FND-30009", trigger: "First demo viewed by prospect · soft-gate triggered",                   reasoning: "Intent score climbed to 85 · hot-lead threshold breached",                                   action: "Hot lead surfaced in Ops portal · founder notified",                                       impact_usd: 0,    impact_label: "Signal",        status: "executed" }],
+    "scene-10": [{ id: "CB-FND-30010", trigger: "Reply received · classified 'interested' by avatar",                    reasoning: "Calendly auto-send · deal auto-created · founder SMS dispatched within 60s",                  action: "Deal created · Calendly sent · founder SMS fired",                                         impact_usd: 2800, impact_label: "Revenue",       status: "executed" }],
+    "scene-11": [{ id: "CB-FND-30011", trigger: "Deal flipped to won",                                                   reasoning: "Client onboarding workflow seeded · 6-step checklist · magic link generated",                 action: "Client workspace created · status active · delivery AI engaged",                          impact_usd: 0,    impact_label: "Delivery",      status: "executed" }],
+};
+
+// 11 scenes · ~16.5 seconds each · 3 minutes total narration
 // Each scene has a dedicated voiceover script tuned for a female narrator.
 const SCENES = [
     {
@@ -293,6 +312,9 @@ export default function StartupDemoPage() {
     const utteranceRef = useRef(null);
     const advanceTimerRef = useRef(null);
 
+    // Agentic Execution Core
+    const engine = useAgenticEngine({ initialMode: "auto" });
+
     // Load voices once. Chrome fires an async `voiceschanged` event — handle both.
     useEffect(() => {
         if (typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -374,6 +396,10 @@ export default function StartupDemoPage() {
         if (!started) return;
         stopSpeech();
         if (playing && !muted) speakScene(idx);
+        // Fire the scene's static Action IDs into the agentic engine
+        const sc = SCENES[idx];
+        const acts = sc ? (SCENE_ACTIONS[sc.id] || []) : [];
+        acts.forEach((a, i) => setTimeout(() => engine.fire(a), 250 + i * 800));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [idx, started]);
 
@@ -552,6 +578,22 @@ export default function StartupDemoPage() {
                                 )}
                             </div>
                         )}
+                    </div>
+
+                    {/* Agentic Execution overlay · visible execution proof */}
+                    <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3" data-testid="startup-agentic-overlay">
+                        <div className="lg:col-span-2 space-y-3">
+                            <RevenueSavingsCounter totals={engine.totals} testId="startup-counter" />
+                            <ReasoningStream stream={engine.stream} testId="startup-stream" />
+                        </div>
+                        <div className="space-y-3">
+                            <ActionLedger ledger={engine.ledger} testId="startup-ledger" />
+                            <ExecutionControlPanel mode={engine.mode} setMode={engine.setMode} role="Founder" testId="startup-control" />
+                            <div className="flex items-center justify-between rounded-md border border-white/5 bg-ink-700/30 px-3 py-2">
+                                <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Traceability</p>
+                                <SovereignVault testId="startup-vault" />
+                            </div>
+                        </div>
                     </div>
 
                     {/* CTA */}

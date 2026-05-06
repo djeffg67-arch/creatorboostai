@@ -17,6 +17,21 @@ import {
 
 // Real-world business imagery (Unsplash CDN, optimized)
 const HERO_BG = "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=2000&q=75"; // diverse team in modern office
+
+// Tiny presentational tile · used by execution-proof strip in hero
+const ExecTile = ({ testid, label, value, accent = "cyan" }) => {
+    const cls = {
+        cyan:    "border-cyan-500/30 bg-cyan-500/5 text-cyan-300",
+        emerald: "border-emerald-500/30 bg-emerald-500/5 text-emerald-300",
+        amber:   "border-amber-500/30 bg-amber-500/5 text-amber-300",
+    }[accent] || "border-cyan-500/30 bg-cyan-500/5 text-cyan-300";
+    return (
+        <div data-testid={testid} className={`rounded-md border ${cls} px-3 py-2.5`}>
+            <p className="font-mono text-[9px] uppercase tracking-[0.22em] opacity-90">{label}</p>
+            <p className="font-heading mt-1 text-xl font-semibold tabular-nums text-white">{value}</p>
+        </div>
+    );
+};
 const NOT_BL_IMG = "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=1400&q=75"; // executive boardroom conversation
 
 const INDUSTRIES = [
@@ -258,8 +273,8 @@ export default function HomePage() {
                                 style={{ animationDelay: "80ms" }}
                                 data-testid="hero-headline"
                             >
-                                The AI That Connects Human Perception and Business Software Operations —{" "}
-                                <span className="text-cyan-400">Turning Signals into Decisions, Insights, and Execution.</span>
+                                Your Business Doesn't Need Another CRM.{" "}
+                                <span className="text-cyan-400">It Needs Execution.</span>
                             </h1>
 
                             <p
@@ -267,10 +282,21 @@ export default function HomePage() {
                                 style={{ animationDelay: "160ms" }}
                                 data-testid="hero-sub"
                             >
-                                CreatorBoostAI connects your existing software systems and real-world signals
-                                to drive smarter decisions, coordinated actions, and measurable business
-                                outcomes — without adding more complexity.
+                                CreatorBoostAI finds leads, contacts them, follows up, and closes deals —
+                                automatically. The execution layer for modern operations · already running
+                                across your existing systems · every action tagged to a measurable outcome.
                             </p>
+
+                            {/* Execution-proof tiles · today's measurable activity */}
+                            <div
+                                className="mt-6 grid grid-cols-3 gap-3 fade-in-up"
+                                style={{ animationDelay: "180ms" }}
+                                data-testid="hero-execution-tiles"
+                            >
+                                <ExecTile testid="tile-leads"    label="Leads found today"        value="124"     accent="cyan" />
+                                <ExecTile testid="tile-emails"   label="Emails sent automatically" value="412"    accent="emerald" />
+                                <ExecTile testid="tile-revenue"  label="Revenue generated"        value="$84,000" accent="amber" />
+                            </div>
 
                             <CountrySelector />
 
