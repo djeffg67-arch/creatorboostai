@@ -1,8 +1,41 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-05 (Iter 61 — CFO Business Case Generator + Dark Funnel Phase 1 + Sovereign Audit Trail Phase 1)
+**Last update:** 2026-05-06 (Iter 63 — Website Builder One-Click Publish + Domain Connect + Hosting)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 63 — WEBSITE BUILDER PUBLISH + DOMAIN + HOSTING (P1)
+
+Status: SHIPPED · Tested 100% (backend 10/10 pytest, frontend all flows)
+
+### Backend — 4 new endpoints (`/app/backend/business_builder.py`, ~+220 lines)
+- `POST /api/business-builder/website-publish` — persists Claude-generated site to `published_sites`
+  collection with auto-generated unique slug. Returns absolute `public_url` from `SITE_URL` env.
+  Slug collisions auto-resolve with 5-hex suffix.
+- `GET /api/business-builder/published/{slug}` — public; returns site JSON + bumps `visit_count`.
+- `POST /api/business-builder/published/{slug}/lead` — public; lead form submissions from the
+  rendered site route into `leads_registry` (founder picks up in Ops dashboard normally).
+- `POST /api/business-builder/published/{slug}/connect-domain` — captures custom-domain pointer
+  request. Validates host shape, returns CNAME (`www`) + A/ALIAS (`@`) DNS instructions targeting
+  the CB host. Persists `custom_domain` + `pending_dns` status on the published-site doc.
+
+### Frontend
+- New page `/app/frontend/src/pages/PublishedSitePage.jsx` (~250 lines) at route `/p/:slug` — full
+  public render of brand, hero, services, about, trust points, lead-capture form, footer. Lead form
+  posts to the published-lead endpoint; success state shown inline.
+- `WebsiteBuilderPage.jsx` `DomainIntentCard` rewritten as a publish-first 3-state card:
+  1. Idle: optional email + "Publish now (instant)" button.
+  2. Published: live URL + Visit / Copy / Connect-domain toggle.
+  3. Domain pending: DNS records (Type / Host / Points to) the user can paste into their registrar.
+- Old `website-intent` event still fires alongside publish so dark-funnel ledger stays consistent.
+- App router updated: `<Route path="/p/:slug" element={<PublishedSitePage />} />`.
+- New API helpers: `websiteBuilderPublish`, `websiteBuilderFetchPublished`, `websiteBuilderPublishedLead`, `websiteBuilderConnectDomain`.
+
+### Verified
+- Hero copy update (Iter 62 carryover) verified visually — desktop + mobile both clean.
+- End-to-end: chip → generate → preview → publish → visit live URL → submit lead → connect domain → DNS instructions all working.
 
 ---
 
