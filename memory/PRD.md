@@ -1,8 +1,43 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-06 (Iter 67 — Domain-Warming Ramp · Week-Indexed Schedule + Live Warmup Status)
+**Last update:** 2026-05-06 (Iter 67b — Day-1 Cold-Start Safety Guardrail)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 67b — DAY-1 COLD-START SAFETY GUARDRAIL (P0)
+
+Status: SHIPPED · Live-tested 4/4 behaviors verified
+
+User brief: defensive automation against accidental mass-sending on a fresh domain. If someone uploads 500/1000/5000 verified contacts on Day 1, the engine must NOT honor the full ramp cap — even if those contacts pass DNS verification, suppression checks, and bounce protection.
+
+### How it works
+- **Day 0 / Day 1** (first 24h after first-send OR pre-first-send): `_ramped_daily_limit()` returns `min(ramp[0], COLD_START_DEFAULT_CAP)` → caps at **10/day** by default.
+- **Day 2+**: guard auto-lifts; full week-indexed ramp applies (50 → 100 → 200).
+- **Manual override**: `state.manual_daily_limit=true` always wins (operator took explicit responsibility via `/admin/set-daily-limit`).
+- **Founder unlock**: `POST /api/ops/outbound/admin/cold-start-unlock` with `confirm: "I-ACCEPT-DOMAIN-REPUTATION-RISK"` clears the guard. Re-lock with `unlock: false` (no confirmation needed).
+
+### Files updated
+- `/app/backend/outbound.py`:
+  - `_cold_start_status()` — current state object (active / unlocked / reason / cap / days_since_start / first_send_at).
+  - `_ramped_daily_limit()` — added Day-1 clamp branch (and pre-first-send branch).
+  - `/api/ops/outbound/admin/cold-start-unlock` — founder-only, intentional-friction confirmation phrase.
+  - `/api/ops/outbound/warmup-status` + `/dashboard.warmup` panel both surface `cold_start` snapshot + `effective_cap`.
+- `OUTBOUND_COLD_START_CAP` env var (default 10) — operators can adjust if needed.
+
+### Verified scenarios
+- Day-2 engine: `cold_start.active=false`, `reason="lifted_after_day_1"` — full ramp applies. ✅
+- Unlock without phrase → 400 with explicit error. ✅
+- Unlock with phrase → persists flag, returns updated cap. ✅
+- Re-lock without phrase → no-friction re-arming. ✅
+
+### Defends against
+- Accidental 5000-row CSV upload on Day 1.
+- Mistakenly bypassing warm-up by manually scoring & queuing too aggressively.
+- Domain reputation damage on fresh sending domains.
+- Spam-flagging / blacklist risk during cold start.
+- Layered with existing bounce/complaint auto-pause + suppression list.
 
 ---
 

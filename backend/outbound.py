@@ -987,10 +987,52 @@ def make_outbound_router(
                 due.append(p)
         return due
 
+    # Iter 67 · Cold-start safety guardrail
+    # Defends domain reputation on Day 1 of warm-up by clamping the daily cap
+    # to a small safety threshold (default 10). Lifts automatically on Day 2+,
+    # OR can be unlocked manually by the founder via `/admin/cold-start-unlock`.
+    COLD_START_DEFAULT_CAP = max(1, int(os.environ.get("OUTBOUND_COLD_START_CAP", "10")))
+
+    async def _cold_start_status() -> Dict[str, Any]:
+        """Returns the current cold-start state.
+        - active: True only when first-send has occurred AND days_since_first_send < 1
+        - unlocked: founder explicitly unlocked it (persists in campaign state)
+        - cap: the safety cap that applies if active and not unlocked
+        """
+        state = await _state()
+        if state.get("manual_daily_limit"):
+            # Manual override always wins — operator took explicit responsibility.
+            return {"active": False, "unlocked": True, "reason": "manual_daily_limit",
+                    "cap": COLD_START_DEFAULT_CAP, "days_since_start": None,
+                    "first_send_at": None}
+        first_send = await db.outbound_events.find_one(
+            {"type": "sent"}, {"_id": 0, "created_at": 1}, sort=[("created_at", 1)],
+        )
+        if not first_send or not first_send.get("created_at"):
+            # Engine has not sent its first email yet — guard armed and ready.
+            return {"active": True, "unlocked": bool(state.get("cold_start_unlocked")),
+                    "reason": "engine_not_yet_started", "cap": COLD_START_DEFAULT_CAP,
+                    "days_since_start": None, "first_send_at": None}
+        first_iso = first_send["created_at"]
+        days_since = (now_dt() - datetime.fromisoformat(first_iso)).days
+        active = days_since < 1
+        return {
+            "active": active,
+            "unlocked": bool(state.get("cold_start_unlocked")),
+            "reason": "day_1" if active else "lifted_after_day_1",
+            "cap": COLD_START_DEFAULT_CAP,
+            "days_since_start": days_since,
+            "first_send_at": first_iso,
+        }
+
     async def _ramped_daily_limit() -> int:
-        """Iter 50 · ramp daily_limit on a curve over the first ~5 days from
-        the engine's first send. Final state: respect whatever is in
-        outbound_campaign_state.daily_limit (manual override).
+        """Iter 50/66/67 · ramp daily_limit on a curve over the first ~3 weeks
+        from the engine's first send.
+
+        Layered guards (most-restrictive wins):
+          1. Manual override → state.daily_limit
+          2. Cold-start guardrail → COLD_START_DEFAULT_CAP on Day 1 unless unlocked
+          3. Week-indexed ramp → ramp[week_idx]
         """
         state = await _state()
         if state.get("manual_daily_limit"):
@@ -999,13 +1041,21 @@ def make_outbound_router(
             {"type": "sent"}, {"_id": 0, "created_at": 1}, sort=[("created_at", 1)],
         )
         if not first_send or not first_send.get("created_at"):
-            return _ramp_schedule()[0]
+            base = _ramp_schedule()[0]
+            # Pre-first-send: still clamp to cold-start cap unless unlocked.
+            if state.get("cold_start_unlocked"):
+                return base
+            return min(base, COLD_START_DEFAULT_CAP)
         days_since = (now_dt() - datetime.fromisoformat(first_send["created_at"])).days
         # Week-indexed by default (iter 66+) — advance one ramp step every
         # `OUTBOUND_RAMP_STEP_DAYS` (default 7).
         ramp = _ramp_schedule()
         idx = min(days_since // _ramp_step_days(), len(ramp) - 1)
-        return ramp[idx]
+        ramp_cap = ramp[idx]
+        # Day-1 cold-start clamp (iter 67): only the first 24h after first send.
+        if days_since < 1 and not state.get("cold_start_unlocked"):
+            return min(ramp_cap, COLD_START_DEFAULT_CAP)
+        return ramp_cap
 
     async def _process_queue(batch_override: Optional[int] = None) -> int:
         """Returns number of emails sent this invocation. Respects daily limit +
@@ -1106,7 +1156,8 @@ def make_outbound_router(
     @router.post("/warmup-status")
     async def warmup_status(payload: OpsAuth):
         """Domain-warming ramp status (Iter 67). Returns current week,
-        current daily cap, the full ramp schedule, days until next step."""
+        current daily cap, the full ramp schedule, days until next step,
+        and the cold-start guardrail state."""
         await require_founder(payload)
         ramp = _ramp_schedule()
         step_days = _ramp_step_days()
@@ -1116,12 +1167,14 @@ def make_outbound_router(
         state = await _state()
         manual = bool(state.get("manual_daily_limit"))
         current_cap = int(state.get("daily_limit") or DAILY_LIMIT_DEFAULT)
+        cold = await _cold_start_status()
 
         out: Dict[str, Any] = {
             "ramp_schedule": ramp,
             "ramp_step_days": step_days,
             "manual_override": manual,
             "manual_daily_limit": current_cap if manual else None,
+            "cold_start": cold,
         }
 
         if not first_send or not first_send.get("created_at"):
@@ -2143,6 +2196,51 @@ def make_outbound_router(
         )
         return {"ok": True, "daily_limit": limit}
 
+    @router.post("/admin/cold-start-unlock")
+    async def admin_cold_start_unlock(payload: Dict[str, Any] = Body(...)):
+        """Iter 67 · founder-only. Bypass the Day-1 cold-start cap (default 10)
+        so the full week-1 ramp cap can apply on Day 1 of warm-up.
+
+        Required:
+          - email, token (founder auth)
+          - confirm: must equal "I-ACCEPT-DOMAIN-REPUTATION-RISK"
+
+        The confirmation phrase is intentional friction — this endpoint is the
+        ONLY way to push more than 10 sends in the first 24 hours of a fresh
+        domain. The flag clears automatically after 14 days."""
+        class _A:
+            email = (payload.get("email") or "").strip()
+            token = (payload.get("token") or "").strip()
+        await require_founder(_A())
+
+        confirm = (payload.get("confirm") or "").strip()
+        unlock = bool(payload.get("unlock", True))
+
+        if unlock and confirm != "I-ACCEPT-DOMAIN-REPUTATION-RISK":
+            raise HTTPException(
+                400,
+                "Confirmation required. Pass confirm='I-ACCEPT-DOMAIN-REPUTATION-RISK' "
+                "to bypass the Day-1 cold-start cap. To re-lock, pass unlock=false.",
+            )
+
+        await db.outbound_campaign_state.update_one(
+            {},
+            {"$set": {
+                "cold_start_unlocked": unlock,
+                "cold_start_unlocked_at": now_iso() if unlock else None,
+                "cold_start_unlocked_by": _A.email if unlock else None,
+                "updated_at": now_iso(),
+            }},
+            upsert=True,
+        )
+        cold = await _cold_start_status()
+        return {
+            "ok": True,
+            "unlocked": unlock,
+            "cold_start": cold,
+            "effective_daily_cap": await _ramped_daily_limit(),
+        }
+
     @router.post("/admin/diagnostics")
     async def admin_diagnostics(payload: OpsAuth):
         """Returns the exact reasons the next autopilot cycle might produce 0
@@ -2392,6 +2490,7 @@ def make_outbound_router(
             first_send = await db.outbound_events.find_one(
                 {"type": "sent"}, {"_id": 0, "created_at": 1}, sort=[("created_at", 1)],
             )
+            cold_snap = await _cold_start_status()
             if first_send and first_send.get("created_at"):
                 ds = (now_dt() - datetime.fromisoformat(first_send["created_at"])).days
                 idx = min(ds // step_days, len(ramp) - 1)
@@ -2403,6 +2502,8 @@ def make_outbound_router(
                     "ramp_schedule": ramp,
                     "step_days": step_days,
                     "manual_override": bool(state.get("manual_daily_limit")),
+                    "cold_start": cold_snap,
+                    "effective_cap": await _ramped_daily_limit(),
                 }
             else:
                 warmup_panel = {
@@ -2413,6 +2514,8 @@ def make_outbound_router(
                     "ramp_schedule": ramp,
                     "step_days": step_days,
                     "manual_override": bool(state.get("manual_daily_limit")),
+                    "cold_start": cold_snap,
+                    "effective_cap": await _ramped_daily_limit(),
                 }
         except Exception as e:
             log.warning(f"[dashboard] warmup panel failed: {e}")
