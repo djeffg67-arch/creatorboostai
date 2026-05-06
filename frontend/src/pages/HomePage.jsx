@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import { EmailCapture } from "@/components/site/EmailCapture";
@@ -8,6 +8,7 @@ import { OperationsLifecycleSection } from "@/components/site/OperationsLifecycl
 import { RecentActivityTicker } from "@/components/site/RecentActivityTicker";
 import AvatarWidget from "@/components/avatar/AvatarWidget";
 import { INDUSTRY_IMG, DEMO_IMG, SECTION_BG } from "@/lib/images";
+import { api } from "@/lib/api";
 import {
     ArrowRight, Play, Building2, ShieldCheck, Mic, ShoppingBag, Plane,
     HardHat, Briefcase, Layers, Brain, TrendingUp, DollarSign, Target,
@@ -19,18 +20,62 @@ import {
 const HERO_BG = "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=2000&q=75"; // diverse team in modern office
 
 // Tiny presentational tile · used by execution-proof strip in hero
-const ExecTile = ({ testid, label, value, accent = "cyan" }) => {
+// Animates value changes with a simple ease so updates feel "live".
+const ExecTile = ({ testid, label, value, accent = "cyan", isCurrency = false }) => {
+    const [display, setDisplay] = useState(value);
+    useEffect(() => {
+        const from = display, to = value, start = performance.now();
+        let raf;
+        const step = (now) => {
+            const t = Math.min(1, (now - start) / 800);
+            const eased = 1 - Math.pow(1 - t, 3);
+            setDisplay(Math.round(from + (to - from) * eased));
+            if (t < 1) raf = requestAnimationFrame(step);
+        };
+        raf = requestAnimationFrame(step);
+        return () => cancelAnimationFrame(raf);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value]);
+
     const cls = {
         cyan:    "border-cyan-500/30 bg-cyan-500/5 text-cyan-300",
         emerald: "border-emerald-500/30 bg-emerald-500/5 text-emerald-300",
         amber:   "border-amber-500/30 bg-amber-500/5 text-amber-300",
     }[accent] || "border-cyan-500/30 bg-cyan-500/5 text-cyan-300";
+    const formatted = isCurrency
+        ? `$${(display || 0).toLocaleString()}`
+        : (display || 0).toLocaleString();
     return (
         <div data-testid={testid} className={`rounded-md border ${cls} px-3 py-2.5`}>
             <p className="font-mono text-[9px] uppercase tracking-[0.22em] opacity-90">{label}</p>
-            <p className="font-heading mt-1 text-xl font-semibold tabular-nums text-white">{value}</p>
+            <p className="font-heading mt-1 text-xl font-semibold tabular-nums text-white">{formatted}</p>
         </div>
     );
+};
+
+// Hook: fetch live execution stats from /api/homepage/execution-stats
+// Polls every 30s. Returns floor values immediately so first render is non-empty.
+const useExecutionStats = () => {
+    const [stats, setStats] = useState({ leads_found: 124, emails_sent: 412, revenue_usd: 84000 });
+    useEffect(() => {
+        let alive = true;
+        const load = async () => {
+            try {
+                const r = await api.get("/homepage/execution-stats", { timeout: 8000 });
+                if (alive && r?.data?.ok) {
+                    setStats({
+                        leads_found: r.data.leads_found,
+                        emails_sent: r.data.emails_sent,
+                        revenue_usd: r.data.revenue_usd,
+                    });
+                }
+            } catch { /* keep prior values */ }
+        };
+        load();
+        const id = setInterval(load, 30000);
+        return () => { alive = false; clearInterval(id); };
+    }, []);
+    return stats;
 };
 const NOT_BL_IMG = "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=1400&q=75"; // executive boardroom conversation
 
@@ -244,6 +289,7 @@ const DEMO_SELECTOR = [
 ];
 
 export default function HomePage() {
+    const execStats = useExecutionStats();
     return (
         <Layout>
             <AvatarWidget surface="homepage" />
@@ -293,9 +339,9 @@ export default function HomePage() {
                                 style={{ animationDelay: "180ms" }}
                                 data-testid="hero-execution-tiles"
                             >
-                                <ExecTile testid="tile-leads"    label="Leads found today"        value="124"     accent="cyan" />
-                                <ExecTile testid="tile-emails"   label="Emails sent automatically" value="412"    accent="emerald" />
-                                <ExecTile testid="tile-revenue"  label="Revenue generated"        value="$84,000" accent="amber" />
+                                <ExecTile testid="tile-leads"    label="Leads found today"        value={execStats.leads_found} accent="cyan" />
+                                <ExecTile testid="tile-emails"   label="Emails sent automatically" value={execStats.emails_sent} accent="emerald" />
+                                <ExecTile testid="tile-revenue"  label="Revenue generated"        value={execStats.revenue_usd} accent="amber" isCurrency />
                             </div>
 
                             <CountrySelector />

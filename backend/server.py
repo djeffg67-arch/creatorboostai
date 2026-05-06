@@ -3650,6 +3650,12 @@ from audit_trail import make_audit_router  # noqa: E402
 app.include_router(make_audit_router(db, _require_outbound_founder))
 
 
+# ---------- Homepage Execution Stats · Iter 62 ----------
+from homepage_stats import make_homepage_stats_router  # noqa: E402
+
+app.include_router(make_homepage_stats_router(db))
+
+
 @app.on_event("startup")
 async def _start_dark_funnel_loops():
     """Iter 61 · re-engagement scanner + engagement-data indexes + audit indexes."""
