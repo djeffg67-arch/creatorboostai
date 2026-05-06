@@ -377,7 +377,7 @@ export default function HomePage() {
                                 data-testid="hero-headline"
                             >
                                 Your Business Doesn't Need Another CRM.{" "}
-                                <span className="text-cyan-400">It Needs Execution.</span>
+                                <span className="text-cyan-400">It Needs Execution, Automation &amp; Intelligent Software Management.</span>
                             </h1>
 
                             <p
@@ -385,10 +385,32 @@ export default function HomePage() {
                                 style={{ animationDelay: "160ms" }}
                                 data-testid="hero-sub"
                             >
-                                CreatorBoostAI finds leads, contacts them, follows up, and closes deals —
-                                automatically. The execution layer for modern operations · already running
-                                across your existing systems · every action tagged to a measurable outcome.
+                                CreatorBoostAI finds leads, contacts them, follows up, and closes deals
+                                automatically — while operating across your existing software, workflows, and
+                                teams to improve execution, reduce inefficiencies, and increase measurable
+                                business performance.
                             </p>
+
+                            {/* Enterprise infrastructure / interop reinforcement */}
+                            <div
+                                className="mt-4 max-w-2xl space-y-1.5 fade-in-up"
+                                style={{ animationDelay: "200ms" }}
+                                data-testid="hero-enterprise-positioning"
+                            >
+                                <p className="flex items-start gap-2 text-sm text-slate-400">
+                                    <span className="mt-2 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400/70" />
+                                    <span>
+                                        Works across CRMs, spreadsheets, operations software, service systems,
+                                        finance workflows, and internal business tools.
+                                    </span>
+                                </p>
+                                <p className="flex items-start gap-2 text-sm text-slate-400">
+                                    <span className="mt-2 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400/70" />
+                                    <span>
+                                        CB acts as an AI execution layer over the software your company already uses.
+                                    </span>
+                                </p>
+                            </div>
 
                             {/* Execution-proof tiles · today's measurable activity */}
                             <div
