@@ -26,6 +26,7 @@ import {
     opsOutboundImapPollNow, opsOutboundAutopilotNow, opsOutboundPushHotLeads,
     opsOutboundArchiveInternal, opsOutboundResetDaily, opsOutboundDiagnostics,
     opsOutboundSetDailyLimit,
+    opsOutboundQueueStatus, opsOutboundWorkerStatus,
     leadsAddManual, leadsList, leadsUpdateStatus, leadsTouch, leadsRelease,
     leadsStats, leadsImportCsv,
     avatarChat,
@@ -2634,6 +2635,245 @@ const SystemSignalLight = ({ status, state }) => {
     );
 };
 
+// ─────────── Iter 68b · Operator View · the 7-point engine status ───────────
+// Single block answering: Is alive? What's it doing? Leads waiting? Sent? Failed?
+// Stuck? Last worker run? Next scheduled action?
+const OperatorView = ({ auth, dash }) => {
+    const [queue, setQueue] = React.useState(null);
+    const [refreshing, setRefreshing] = React.useState(false);
+    const [auto, setAuto] = React.useState(true);
+
+    const refresh = React.useCallback(async () => {
+        setRefreshing(true);
+        try {
+            const q = await opsOutboundQueueStatus(auth);
+            setQueue(q);
+        } catch { /* signal-light already shows engine health; this section just shows queue */ }
+        finally { setRefreshing(false); }
+    }, [auth]);
+
+    React.useEffect(() => { refresh(); }, [refresh]);
+
+    // Auto-refresh every 30s while user is on the tab
+    React.useEffect(() => {
+        if (!auto) return;
+        const id = setInterval(refresh, 30000);
+        return () => clearInterval(id);
+    }, [auto, refresh]);
+
+    const sys = dash?.system_status;
+    const warmup = dash?.warmup;
+    const last = dash?.last_autopilot_run;
+    const lastRunAgo = last?.started_at ? Math.max(0, Math.floor((Date.now() - new Date(last.started_at).getTime()) / 60000)) : null;
+    const nextScheduled = (() => {
+        if (sys?.workers?.length) {
+            const sched = sys.workers.find((w) => w.worker === "scheduler_loop");
+            if (sched && sched.seconds_since_tick != null) {
+                const ttl = Math.max(0, (sched.interval_sec || 300) - sched.seconds_since_tick);
+                return ttl <= 60 ? "any moment" : `~${Math.round(ttl / 60)} min`;
+            }
+        }
+        return "—";
+    })();
+
+    const Card = ({ label, value, tone = "slate", testid, hint }) => (
+        <div data-testid={testid}
+             className={`rounded-md border px-3 py-2.5 ${
+                 tone === "rose"    ? "border-rose-500/30 bg-rose-500/5" :
+                 tone === "amber"   ? "border-amber-500/30 bg-amber-500/5" :
+                 tone === "emerald" ? "border-emerald-500/30 bg-emerald-500/5" :
+                 tone === "cyan"    ? "border-cyan-500/30 bg-cyan-500/5" :
+                                       "border-white/10 bg-white/[0.03]"
+             }`}>
+            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">{label}</p>
+            <p className={`font-heading mt-0.5 text-2xl font-semibold tabular-nums ${
+                 tone === "rose"    ? "text-rose-300" :
+                 tone === "amber"   ? "text-amber-300" :
+                 tone === "emerald" ? "text-emerald-300" :
+                 tone === "cyan"    ? "text-cyan-300" :
+                                       "text-white"
+            }`}>{value}</p>
+            {hint && <p className="mt-0.5 font-mono text-[9px] text-slate-500">{hint}</p>}
+        </div>
+    );
+
+    return (
+        <div data-testid="operator-view"
+             className="rounded-md border border-cyan-500/20 bg-gradient-to-br from-cyan-500/[0.04] to-emerald-500/[0.02] p-4 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <Activity size={13} className="text-cyan-300" />
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                        Operator View · what the engine is doing right now
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setAuto((a) => !a)}
+                        data-testid="operator-auto-toggle"
+                        className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] ${
+                            auto ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                 : "border-white/10 bg-ink-700/40 text-slate-400"
+                        }`}>
+                        {auto ? "● Auto-refresh 30s" : "○ Manual"}
+                    </button>
+                    <button
+                        onClick={refresh}
+                        disabled={refreshing}
+                        data-testid="operator-refresh"
+                        className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-ink-700/40 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-300 hover:text-cyan-300 disabled:opacity-60">
+                        <RefreshCcw size={10} className={refreshing ? "animate-spin" : ""} /> Refresh
+                    </button>
+                </div>
+            </div>
+
+            {/* The 7-point answer grid */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {/* 1. Is the engine alive? */}
+                <Card
+                    testid="operator-alive"
+                    label="1 · Engine alive?"
+                    value={sys?.label || "—"}
+                    tone={sys?.level === "green" ? "emerald" : sys?.level === "yellow" ? "amber" : "rose"}
+                    hint={sys?.summary?.slice(0, 60)}
+                />
+                {/* 2. What is it doing right now? */}
+                <Card
+                    testid="operator-doing"
+                    label="2 · Doing right now"
+                    value={
+                        queue?.in_flight_sends?.count > 0
+                            ? `Sending ${queue.in_flight_sends.count}`
+                            : queue?.scoring_backlog?.count > 0
+                                ? `Scoring ${queue.scoring_backlog.count}`
+                                : queue?.send_eligible_now?.count > 0
+                                    ? "Idle · ready"
+                                    : "Idle"
+                    }
+                    tone={queue?.in_flight_sends?.count > 0 ? "cyan" : "slate"}
+                    hint={dash?.state?.paused ? "Engine paused" : `Cap ${warmup?.effective_cap || dash?.state?.daily_limit || "—"}/day`}
+                />
+                {/* 3. Leads waiting */}
+                <Card
+                    testid="operator-waiting"
+                    label="3 · Leads waiting"
+                    value={(queue?.scoring_backlog?.count || 0) + (queue?.send_eligible_now?.count || 0)}
+                    tone={(queue?.send_eligible_now?.count || 0) > 0 ? "cyan" : "slate"}
+                    hint={`${queue?.scoring_backlog?.count || 0} unscored · ${queue?.send_eligible_now?.count || 0} ready`}
+                />
+                {/* 4. Emails sent today */}
+                <Card
+                    testid="operator-sent"
+                    label="4 · Sent today"
+                    value={dash?.sent_today ?? 0}
+                    tone="emerald"
+                    hint={`${dash?.deliverability?.bounce_rate != null ? Math.round(dash.deliverability.bounce_rate * 100) : 0}% bounce`}
+                />
+                {/* 5. Stuck */}
+                <Card
+                    testid="operator-stuck"
+                    label="5 · Stuck (>7d)"
+                    value={queue?.stalled_no_progress?.count || 0}
+                    tone={(queue?.stalled_no_progress?.count || 0) > 0 ? "amber" : "slate"}
+                    hint={queue?.stalled_no_progress?.count > 0 ? "Will be marked cold soon" : "—"}
+                />
+                {/* 6. Failed */}
+                <Card
+                    testid="operator-failed"
+                    label="6 · Failed (errors)"
+                    value={sys?.total_errors || 0}
+                    tone={sys?.total_errors > 0 ? "rose" : "slate"}
+                    hint={sys?.error_rate != null ? `${Math.round((sys.error_rate || 0) * 100)}% error rate` : "—"}
+                />
+                {/* 7. Last worker run */}
+                <Card
+                    testid="operator-last-run"
+                    label="7 · Last cycle"
+                    value={lastRunAgo != null ? (lastRunAgo === 0 ? "just now" : `${lastRunAgo} min ago`) : "—"}
+                    tone="slate"
+                    hint={last?.status || "—"}
+                />
+                {/* Extra: Next scheduled */}
+                <Card
+                    testid="operator-next"
+                    label="Next scheduled"
+                    value={nextScheduled}
+                    tone="cyan"
+                    hint="scheduler_loop tick"
+                />
+            </div>
+
+            {/* Hot leads + recent sends + recent replies — execution evidence */}
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                {/* Hot leads */}
+                <div data-testid="operator-hot-leads-block"
+                     className="rounded-md border border-rose-500/20 bg-rose-500/[0.05] p-3">
+                    <div className="flex items-center gap-1.5">
+                        <Flame size={11} className="text-rose-300" />
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-rose-300">Hot leads</p>
+                        <span className="ml-auto font-mono text-[10px] text-rose-300">
+                            {queue?.hot_leads?.count || 0}
+                        </span>
+                    </div>
+                    <ul className="mt-2 space-y-1">
+                        {(queue?.hot_leads?.sample || []).length === 0 ? (
+                            <li className="font-mono text-[10px] text-slate-500">No positive replies yet.</li>
+                        ) : (
+                            queue.hot_leads.sample.map((p) => (
+                                <li key={p.id} className="truncate font-mono text-[10px] text-slate-200">
+                                    <span className="text-rose-300">→</span> {p.business_name || p.email}
+                                </li>
+                            ))
+                        )}
+                    </ul>
+                </div>
+
+                {/* Recent sends */}
+                <div data-testid="operator-recent-sends"
+                     className="rounded-md border border-emerald-500/20 bg-emerald-500/[0.04] p-3">
+                    <div className="flex items-center gap-1.5">
+                        <Send size={11} className="text-emerald-300" />
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Last 5 sends</p>
+                    </div>
+                    <ul className="mt-2 space-y-1">
+                        {(queue?.recent_sends || []).length === 0 ? (
+                            <li className="font-mono text-[10px] text-slate-500">No sends in last 60 min.</li>
+                        ) : (
+                            queue.recent_sends.map((e, i) => (
+                                <li key={i} className="truncate font-mono text-[10px] text-slate-200">
+                                    <span className="text-emerald-300">{e.kind || "sent"}</span> · {e.email}
+                                </li>
+                            ))
+                        )}
+                    </ul>
+                </div>
+
+                {/* Recent replies */}
+                <div data-testid="operator-recent-replies"
+                     className="rounded-md border border-cyan-500/20 bg-cyan-500/[0.04] p-3">
+                    <div className="flex items-center gap-1.5">
+                        <Inbox size={11} className="text-cyan-300" />
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Last 5 replies</p>
+                    </div>
+                    <ul className="mt-2 space-y-1">
+                        {(queue?.recent_replies || []).length === 0 ? (
+                            <li className="font-mono text-[10px] text-slate-500">No replies captured yet.</li>
+                        ) : (
+                            queue.recent_replies.map((p) => (
+                                <li key={p.id} className="truncate font-mono text-[10px] text-slate-200">
+                                    <span className={`${p.reply_category === "Interested" ? "text-emerald-300" : p.reply_category === "Not Interested" ? "text-rose-300" : "text-cyan-300"}`}>
+                                        {p.reply_category || "?"}
+                                    </span> · {p.business_name || p.email}
+                                </li>
+                            ))
+                        )}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const OutboundTab = ({ auth }) => {
     const [dash, setDash] = useState(null);
     const [prospects, setProspects] = useState([]);
@@ -2801,6 +3041,7 @@ const OutboundTab = ({ auth }) => {
     return (
         <div data-testid="tab-outbound" className="space-y-6">
             <SystemSignalLight status={dash?.system_status} state={dash?.state} />
+            <OperatorView auth={auth} dash={dash} />
             <SectionHeader sub="Autonomous Outbound Sales Engine" title="Outbound command center">
                 <div className="flex flex-wrap items-center gap-2">
                     <button

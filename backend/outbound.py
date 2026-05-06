@@ -2564,6 +2564,156 @@ def make_outbound_router(
             "system_status": system_status,
         }
 
+    @router.post("/queue-status")
+    async def queue_status_endpoint(payload: OpsAuth):
+        """Iter 68b · founder-only. Real-time queue visibility.
+
+        Returns counts + sample rows for each pipeline stage:
+          - scoring_backlog          · prospects without a lead_score yet
+          - send_eligible_now        · scored ≥ MIN_SCORE_TO_SEND, no email yet
+          - awaiting_bump            · waiting on +45min bump after initial open
+          - scheduled_followups      · cadence step 1-3 with not_before_at in future
+          - in_flight_sends          · contacted in last 60min (engine actively working)
+          - stalled_no_progress      · contacted >7 days ago, no reply, cadence stalled
+          - cold                     · status=cold (engine has stopped reaching out)
+
+        Each section includes the count + up to 5 sample rows for the operator
+        to inspect what's actually moving / not moving.
+        """
+        await require_founder(payload)
+        now_s = now_iso()
+        sample_proj = {"_id": 0, "id": 1, "business_name": 1, "email": 1,
+                       "status": 1, "lead_score": 1, "emails_sent": 1,
+                       "last_email_at": 1, "not_before_at": 1, "cadence_step": 1,
+                       "industry": 1, "source": 1}
+
+        async def _count(query):
+            try:
+                return await db.outbound_prospects.count_documents(query)
+            except Exception as e:
+                log.warning(f"[queue_status] count failed: {e}")
+                return 0
+
+        async def _sample(query, sort=None, limit=5):
+            try:
+                cursor = db.outbound_prospects.find(query, sample_proj)
+                if sort:
+                    cursor = cursor.sort(sort)
+                return await cursor.to_list(limit)
+            except Exception as e:
+                log.warning(f"[queue_status] sample failed: {e}")
+                return []
+
+        # 1 · scoring backlog
+        scoring_q = {
+            "lead_score": None,
+            "unsubscribed": {"$ne": True},
+            "suppressed": {"$ne": True},
+        }
+
+        # 2 · send-eligible right now
+        send_eligible_q = {
+            "status": {"$in": ["new", "scored"]},
+            "unsubscribed": {"$ne": True},
+            "suppressed": {"$ne": True},
+            "emails_sent": {"$lte": 0},
+            "lead_score": {"$gte": MIN_SCORE_TO_SEND},
+            "$or": [
+                {"not_before_at": {"$exists": False}},
+                {"not_before_at": None},
+                {"not_before_at": {"$lte": now_s}},
+            ],
+        }
+
+        # 3 · awaiting bump (initial sent, no reply, awaiting +45min)
+        awaiting_bump_q = {
+            "status": "contacted",
+            "emails_sent": 1,
+            "replied_at": None,
+            "bump_sent_at": None,
+        }
+
+        # 4 · scheduled follow-ups
+        scheduled_followups_q = {
+            "status": "contacted",
+            "cadence_step": {"$gte": 1, "$lte": 3},
+            "replied_at": None,
+            "not_before_at": {"$gt": now_s},
+        }
+
+        # 5 · in-flight sends (last 60min)
+        cutoff_60m = (now_dt() - timedelta(minutes=60)).isoformat()
+        in_flight_q = {
+            "last_email_at": {"$gte": cutoff_60m},
+        }
+
+        # 6 · stalled — contacted >7 days ago, cadence step 1-3, no reply
+        cutoff_7d = (now_dt() - timedelta(days=7)).isoformat()
+        stalled_q = {
+            "status": "contacted",
+            "cadence_step": {"$gte": 1, "$lte": 3},
+            "replied_at": None,
+            "last_email_at": {"$lt": cutoff_7d},
+        }
+
+        # 7 · cold
+        cold_q = {"status": "cold"}
+
+        # Hot leads (positive replies awaiting next-action)
+        hot_q = {"status": "replied_positive"}
+
+        # Last 5 sends + last 5 replies — recent execution evidence
+        recent_sends_cursor = db.outbound_events.find(
+            {"type": "sent"},
+            {"_id": 0, "ts": 1, "email": 1, "kind": 1, "from_email": 1,
+             "subject": 1, "prospect_id": 1, "created_at": 1},
+        ).sort([("created_at", -1)]).limit(5)
+        recent_sends = await recent_sends_cursor.to_list(5)
+
+        recent_replies = await db.outbound_prospects.find(
+            {"replied_at": {"$ne": None}},
+            {"_id": 0, "id": 1, "email": 1, "business_name": 1,
+             "replied_at": 1, "reply_category": 1, "reply_sentiment": 1},
+        ).sort([("replied_at", -1)]).limit(5).to_list(5)
+
+        return {
+            "ok": True,
+            "checked_at": now_s,
+            "scoring_backlog": {
+                "count": await _count(scoring_q),
+                "sample": await _sample(scoring_q, sort=[("created_at", 1)]),
+            },
+            "send_eligible_now": {
+                "count": await _count(send_eligible_q),
+                "sample": await _sample(send_eligible_q, sort=[("lead_score", -1)]),
+            },
+            "awaiting_bump": {
+                "count": await _count(awaiting_bump_q),
+                "sample": await _sample(awaiting_bump_q, sort=[("last_email_at", 1)]),
+            },
+            "scheduled_followups": {
+                "count": await _count(scheduled_followups_q),
+                "sample": await _sample(scheduled_followups_q, sort=[("not_before_at", 1)]),
+            },
+            "in_flight_sends": {
+                "count": await _count(in_flight_q),
+                "sample": await _sample(in_flight_q, sort=[("last_email_at", -1)]),
+            },
+            "stalled_no_progress": {
+                "count": await _count(stalled_q),
+                "sample": await _sample(stalled_q, sort=[("last_email_at", 1)]),
+            },
+            "cold": {
+                "count": await _count(cold_q),
+            },
+            "hot_leads": {
+                "count": await _count(hot_q),
+                "sample": await _sample(hot_q, sort=[("replied_at", -1)]),
+            },
+            "recent_sends": recent_sends,
+            "recent_replies": recent_replies,
+        }
+
     @router.post("/worker-status")
     async def worker_status(payload: OpsAuth):
         """Iter 68 · founder-only. Returns every background worker's heartbeat

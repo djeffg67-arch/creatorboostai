@@ -380,6 +380,13 @@ export const opsOutboundResetDaily = (auth) =>
 export const opsOutboundDiagnostics = (auth) =>
     api.post("/ops/outbound/admin/diagnostics", auth).then((r) => r.data);
 
+// Iter 68b · Phase-1 Trust-Through-Evidence
+export const opsOutboundQueueStatus = (auth) =>
+    api.post("/ops/outbound/queue-status", auth).then((r) => r.data);
+
+export const opsOutboundWorkerStatus = (auth) =>
+    api.post("/ops/outbound/worker-status", auth).then((r) => r.data);
+
 export const opsOutboundSetDailyLimit = (payload) =>
     api.post("/ops/outbound/admin/set-daily-limit", payload).then((r) => r.data);
 

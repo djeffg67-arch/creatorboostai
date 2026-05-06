@@ -1,0 +1,42 @@
+{
+  "summary": "Iter 68b · Queue-Status endpoint + Operator View · Full validation PASS. All 9/9 pytest backend tests + all 14 Playwright frontend assertions green. Engine confirmed alive and unpaused (Operational, 19 sends today, 157 ready, 2 hot leads). No new issues found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter68b_queue_status_operator.py",
+    "/app/test_reports/pytest/iter68b_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "queue-status recent_sends entries are not uniform — some older outbound_events docs lack the `ts` field (only `created_at`). Not a bug per se, but the spec promised both; either (a) backfill legacy docs with ts=created_at, or (b) drop `ts` from the promised schema and let the UI read `created_at` uniformly. Currently works because the UI only renders `kind` + `email`.",
+    "PortalOpsPage.jsx is now 4314 lines (+241 from Iter 68). Still well past the >700-line guideline. OperatorView (~235 lines) is a clean candidate for extraction into /components/OperatorView.jsx alongside SystemSignalLight — no business logic inside, purely presentational on dash + queue props.",
+    "OperatorView reads queue-status directly (30s interval) AND dashboard (longer poll). Two independent fetches on the same tab — fine for now, but if scaling adds friction, consider merging into a single /ops/outbound/status endpoint that returns both payloads.",
+    "`opsOutboundQueueStatus` errors are silently swallowed in OperatorView.refresh (catch {}). Good for UX (no red banner when engine is fine) but the operator has no way to tell the queue fetch itself is failing. Consider a tiny inline error pill on the header next to the refresh button."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter68b_queue_status_operator.py"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (14/14)"},
+  "test_credentials": "Founder master key: jeffrey-2026-bodyiq-founder-master (via /api/ops/founder-access)",
+  "seed_data_creation": "BACKEND-6 fault-injection mutates worker_heartbeats.scheduler_loop.last_tick_at to 4h-ago then restores the original doc in finally block. BACKEND-7 pauses engine with reason='phase1_smoke_test' then unpauses — ends green.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 68b queue-status + Operator View fully validated against live engine (engine is active: 19 sends today, 12 replies, 2 hot leads, state.paused=false, effective_cap=50). Test fixture reads MONGO_URL/DB_NAME from /app/backend/.env (strip quotes!) and uses asyncio.run() instead of pytest-asyncio (not installed). Key endpoint: POST /api/ops/outbound/queue-status accepts OpsAuth {email, token}. Sample arrays capped at 5. recent_sends uses outbound_events.type='sent'; recent_replies uses outbound_prospects.replied_at!=null. UI testids: system-signal-light, operator-view, operator-{alive,doing,waiting,sent,stuck,failed,last-run,next}, operator-{hot-leads-block,recent-sends,recent-replies}, operator-refresh, operator-auto-toggle.",
+  "verified_flows": [
+    "POST /queue-status returns ok=true + checked_at + all 9 count/sample sections + recent_sends[0-5] + recent_replies[0-5]",
+    "All count values are integers >= 0",
+    "No-auth and wrong-token return 401/403",
+    "Every sample array length <= 5 (bounded)",
+    "POST /autopilot-now → autopilot_cycle heartbeat appears in /worker-status with ticks_total>=1 + last_ok_at populated within 90s",
+    "Malformed CSV (binary garbage) upload does NOT return 500; worker-status stays GREEN",
+    "Inject scheduler_loop stale (last_tick_at=4h ago) → system_status.level flips to yellow with reasons containing 'stale'; cleanup restores to green",
+    "Pause flow: /pause {paused:true, reason:'phase1_smoke_test'} → level=yellow label contains 'paused'; /pause {paused:false} → level=green within 5s",
+    "/dashboard still returns kpi.{total_prospects=353, scored=353, contacted=142, replied=12, positive=2, unsubscribed} as ints, plus system_status/warmup/state_filings/deliverability/segments/warm_leads/sent_today=19. state.paused=false (engine IS unpaused and running)",
+    "UI: Login via /portal/ops founder key → Outbound tab → both SystemSignalLight (signal=green, 'Operational') and OperatorView render",
+    "UI: All 8 cards show real data (Operational / Idle·ready / 157 / 19 / 0 / 0 / just now / ~4 min)",
+    "UI: 3 evidence blocks populated — hot leads(2: NY Hot Aviation, BigStore Grocery), last 5 sends(5 bumps), last 5 replies (interested/not_interested mix)",
+    "UI: operator-refresh clickable; operator-auto-toggle flips '● AUTO-REFRESH 30S' ↔ '○ MANUAL'",
+    "UI: operator-alive has border-emerald-500/30 + bg-emerald-500/5 classes (emerald tone) when system_status.level='green'",
+    "UI regression: Total prospects, Scored, Contacted, Replied, Seed from demo viewers, Score unscored, Scan replies, Push hot leads, Run autopilot now all present"
+  ]
+}
