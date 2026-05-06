@@ -4,9 +4,9 @@ import { Layout } from "@/components/site/Layout";
 import { toast } from "sonner";
 import {
     Globe, Sparkles, Loader2, ArrowRight, ArrowLeft, RefreshCcw, CheckCircle2,
-    Copy, Rocket, Send, Mail,
+    Copy, Rocket, Mail, ExternalLink, Server,
 } from "lucide-react";
-import { websiteBuilderGenerate, websiteBuilderIntent } from "@/lib/api";
+import { websiteBuilderGenerate, websiteBuilderIntent, websiteBuilderPublish, websiteBuilderConnectDomain } from "@/lib/api";
 import { RenderedWebsitePreview } from "@/components/portal/RenderedWebsitePreview";
 
 const BUILD_STEPS = [
@@ -265,7 +265,7 @@ export default function WebsiteBuilderPage() {
                                             <Copy size={11} /> Copy JSON
                                         </button>
                                         <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                                            Layered next: 1-click publish · domain · hosting
+                                            Publishes instantly · custom-domain ready
                                         </span>
                                     </div>
                                 </>
@@ -282,152 +282,228 @@ export default function WebsiteBuilderPage() {
     );
 }
 
-// ─────────── Domain Intent CTA · captures publish intent + bumps signal ───────────
+// ─────────── Publish + Custom-Domain Card · Iter 63 ───────────
+// Three states:
+//   1. idle      — show Publish button + email field
+//   2. published — show live URL + Visit/Copy + (optional) Connect Domain panel
+//   3. domain    — DNS instruction card after a custom domain is requested
 const DomainIntentCard = ({ site, inputs }) => {
-    const [open, setOpen] = useState(false);
-    const [intent, setIntent] = useState("domain_intent");
     const [email, setEmail] = useState("");
-    const [domain, setDomain] = useState("");
     const [busy, setBusy] = useState(false);
-    const [done, setDone] = useState(false);
+    const [published, setPublished] = useState(null);   // {slug, public_url, published_at}
+    const [showDomain, setShowDomain] = useState(false);
+    const [customDomain, setCustomDomain] = useState("");
+    const [domainBusy, setDomainBusy] = useState(false);
+    const [domainResult, setDomainResult] = useState(null); // server response
 
-    // Pre-fill domain from generated site (with .com fallback).
+    // Reset when a new site is generated.
     useEffect(() => {
-        if (site?.domain) {
-            const d = String(site.domain).replace(/^https?:\/\//, "").replace(/\/+$/, "");
-            setDomain(d.includes(".") ? d : `${d}.com`);
-        }
+        setPublished(null);
+        setShowDomain(false);
+        setCustomDomain("");
+        setDomainResult(null);
     }, [site]);
 
-    // Reset on new site generation.
-    useEffect(() => {
-        setDone(false);
-        setOpen(false);
-    }, [site]);
+    const buildPayload = () => ({
+        site,
+        owner_email: (email || "").trim().toLowerCase() || null,
+        business_name: inputs?.business_name || site?.brand || null,
+        industry: inputs?.industry || null,
+        slug: site?.domain || null,
+    });
 
-    const submit = async () => {
-        const cleanEmail = email.trim().toLowerCase();
-        if (!cleanEmail || !cleanEmail.includes("@")) {
-            toast.error("Add your email so we can reach you");
-            return;
-        }
+    const publishNow = async () => {
         setBusy(true);
         try {
-            await websiteBuilderIntent({
-                intent,
-                email: cleanEmail,
-                name: inputs?.business_name || null,
-                desired_domain: domain || null,
-                business_name: inputs?.business_name || site?.brand || null,
-                business_idea: inputs?.business_idea || null,
-                industry: inputs?.industry || null,
-            });
-            setDone(true);
-            toast.success(intent === "publish_intent" ? "Publish request received" : "Domain request received");
+            const r = await websiteBuilderPublish(buildPayload());
+            setPublished(r);
+            // Best-effort: also log a publish_intent so it shows in the dark-funnel ledger.
+            try {
+                await websiteBuilderIntent({
+                    intent: "publish_intent",
+                    email: email || null,
+                    business_name: inputs?.business_name || site?.brand || null,
+                    business_idea: inputs?.business_idea || null,
+                    industry: inputs?.industry || null,
+                    desired_domain: r?.public_url || null,
+                });
+            } catch { /* non-blocking */ }
+            toast.success("Site is live");
         } catch (e) {
-            const msg = e?.response?.data?.detail || e?.message || "Could not save your request";
+            const msg = e?.response?.data?.detail || e?.message || "Publish failed";
             toast.error(msg);
         } finally {
             setBusy(false);
         }
     };
 
-    if (done) {
+    const copyUrl = async () => {
+        if (!published?.public_url) return;
+        try {
+            await navigator.clipboard.writeText(published.public_url);
+            toast.success("Link copied");
+        } catch { toast.error("Copy failed"); }
+    };
+
+    const connectDomain = async () => {
+        const d = (customDomain || "").trim().toLowerCase()
+            .replace(/^https?:\/\//, "").replace(/\/+$/, "");
+        if (!/^[a-z0-9.\-]+\.[a-z]{2,}$/.test(d)) {
+            toast.error("Use the bare host, e.g. yourbusiness.com");
+            return;
+        }
+        if (!published?.slug) return;
+        setDomainBusy(true);
+        try {
+            const r = await websiteBuilderConnectDomain(published.slug, {
+                custom_domain: d,
+                email: email || null,
+            });
+            setDomainResult(r);
+            toast.success("DNS instructions ready");
+        } catch (e) {
+            const msg = e?.response?.data?.detail || e?.message || "Could not save your domain request";
+            toast.error(msg);
+        } finally {
+            setDomainBusy(false);
+        }
+    };
+
+    // ───── State 2 + 3 · Site is published
+    if (published) {
         return (
-            <div data-testid="domain-intent-done"
-                 className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-4">
+            <div data-testid="publish-success-card"
+                 className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-4">
                 <div className="flex items-center gap-2">
                     <CheckCircle2 size={14} className="text-emerald-300" />
-                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Request received</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Site is live</p>
                 </div>
-                <p className="mt-2 text-sm text-slate-200">
-                    We've got your {intent === "publish_intent" ? "publish" : "domain"} request for{" "}
-                    <span className="font-mono text-emerald-300">{domain || "your site"}</span>.{" "}
-                    The CreatorBoostAI team will reach out shortly to wire it up.
-                </p>
+                <a href={published.public_url} target="_blank" rel="noopener noreferrer"
+                   data-testid="publish-public-url"
+                   className="mt-2 block break-all rounded-sm border border-emerald-500/30 bg-ink-900 px-3 py-2 font-mono text-[12px] text-emerald-200 hover:bg-emerald-500/10">
+                    {published.public_url}
+                </a>
+                <div className="mt-2 flex flex-wrap gap-2">
+                    <a href={published.public_url} target="_blank" rel="noopener noreferrer"
+                       data-testid="publish-visit"
+                       className="inline-flex items-center gap-1 rounded-md bg-emerald-400 px-3 py-1.5 text-[11px] font-semibold text-ink-900 hover:bg-emerald-300">
+                        <ExternalLink size={11} /> Visit live site
+                    </a>
+                    <button onClick={copyUrl}
+                        data-testid="publish-copy-url"
+                        className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-ink-700/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-300 hover:text-cyan-300">
+                        <Copy size={11} /> Copy URL
+                    </button>
+                    <button onClick={() => setShowDomain((p) => !p)}
+                        data-testid="publish-toggle-domain"
+                        className="inline-flex items-center gap-1 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300 hover:bg-cyan-500 hover:text-ink-900">
+                        <Globe size={11} /> {showDomain ? "Hide" : "Connect a custom domain"}
+                    </button>
+                </div>
+
+                {showDomain && !domainResult && (
+                    <div className="mt-4 space-y-3 border-t border-white/10 pt-3" data-testid="connect-domain-form">
+                        <div>
+                            <label className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">Your domain</label>
+                            <input
+                                value={customDomain}
+                                onChange={(e) => setCustomDomain(e.target.value)}
+                                placeholder="yourbusiness.com"
+                                data-testid="connect-domain-input"
+                                className="mt-1 w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+                            />
+                        </div>
+                        <button
+                            onClick={connectDomain}
+                            disabled={domainBusy}
+                            data-testid="connect-domain-submit"
+                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-ink-900 hover:bg-cyan-300 disabled:opacity-60"
+                        >
+                            {domainBusy ? <><Loader2 size={13} className="animate-spin" /> Generating…</>
+                                : <><Server size={13} /> Get DNS instructions</>}
+                        </button>
+                        <p className="font-mono text-[9px] text-slate-500">
+                            We'll point your domain at this site. You'll need access to your registrar (GoDaddy, Namecheap, Cloudflare, etc.).
+                        </p>
+                    </div>
+                )}
+
+                {domainResult && (
+                    <div className="mt-4 border-t border-white/10 pt-3" data-testid="connect-domain-instructions">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                            DNS records for {domainResult.custom_domain}
+                        </p>
+                        <p className="mt-1 font-mono text-[10px] text-slate-400">
+                            Status: {domainResult.status} · {domainResult.verification_eta}
+                        </p>
+                        <div className="mt-3 space-y-2">
+                            {(domainResult.dns_instructions || []).map((rec, i) => (
+                                <div key={i} data-testid={`dns-record-${i}`}
+                                     className="rounded-md border border-cyan-500/20 bg-ink-900 p-3">
+                                    <div className="grid grid-cols-3 gap-2 font-mono text-[10px]">
+                                        <div>
+                                            <p className="uppercase tracking-[0.18em] text-slate-500">Type</p>
+                                            <p className="text-cyan-300">{rec.type}</p>
+                                        </div>
+                                        <div>
+                                            <p className="uppercase tracking-[0.18em] text-slate-500">Host</p>
+                                            <p className="text-white">{rec.host}</p>
+                                        </div>
+                                        <div>
+                                            <p className="uppercase tracking-[0.18em] text-slate-500">Points to</p>
+                                            <p className="break-all text-emerald-300">{rec.points_to}</p>
+                                        </div>
+                                    </div>
+                                    {rec.note && <p className="mt-2 text-[11px] leading-relaxed text-slate-400">{rec.note}</p>}
+                                </div>
+                            ))}
+                        </div>
+                        <p className="mt-3 font-mono text-[9px] text-slate-500">
+                            Need help? Email <a href={`mailto:${domainResult.support_email}`} className="text-cyan-300 underline">{domainResult.support_email}</a> — we'll wire it up for you.
+                        </p>
+                    </div>
+                )}
             </div>
         );
     }
 
+    // ───── State 1 · Idle (not yet published)
     return (
-        <div data-testid="domain-intent-card"
+        <div data-testid="publish-card"
              className="rounded-md border border-cyan-500/25 bg-gradient-to-br from-cyan-500/[0.06] to-emerald-500/[0.04] p-4">
-            <button onClick={() => setOpen((p) => !p)}
-                data-testid="domain-intent-toggle"
-                className="flex w-full items-center justify-between text-left">
-                <div className="flex items-center gap-2">
-                    <Globe size={13} className="text-cyan-300" />
-                    <div>
-                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Connect a custom domain</p>
-                        <p className="font-mono text-[10px] text-slate-400">Take this site live on your own domain →</p>
-                    </div>
+            <div className="flex items-center gap-2">
+                <Rocket size={14} className="text-emerald-300" />
+                <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Publish your site</p>
+                    <p className="font-mono text-[10px] text-slate-400">Goes live instantly on a CreatorBoostAI subdomain. Free.</p>
                 </div>
-                <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">
-                    {open ? "Close" : "Get it live"}
-                </span>
-            </button>
+            </div>
 
-            {open && (
-                <div className="mt-4 space-y-3" data-testid="domain-intent-body">
-                    <div className="flex flex-wrap gap-1.5">
-                        <button onClick={() => setIntent("domain_intent")}
-                            data-testid="intent-mode-domain"
-                            className={`rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.22em] ${intent === "domain_intent" ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300" : "border-white/10 bg-ink-900 text-slate-400 hover:text-cyan-300"}`}>
-                            Connect a domain
-                        </button>
-                        <button onClick={() => setIntent("publish_intent")}
-                            data-testid="intent-mode-publish"
-                            className={`rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.22em] ${intent === "publish_intent" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-ink-900 text-slate-400 hover:text-emerald-300"}`}>
-                            Publish on a CB subdomain
-                        </button>
-                    </div>
-
-                    <div>
-                        <label className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
-                            <Mail size={9} className="mr-1 inline" /> Your email <span className="text-rose-300">*</span>
-                        </label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="you@business.com"
-                            data-testid="domain-intent-email"
-                            className="mt-1 w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
-                        />
-                    </div>
-
-                    {intent === "domain_intent" && (
-                        <div>
-                            <label className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
-                                Desired domain
-                            </label>
-                            <input
-                                value={domain}
-                                onChange={(e) => setDomain(e.target.value)}
-                                placeholder="yourbusiness.com"
-                                data-testid="domain-intent-domain"
-                                className="mt-1 w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
-                            />
-                        </div>
-                    )}
-
-                    <button
-                        onClick={submit}
-                        disabled={busy}
-                        data-testid="domain-intent-submit"
-                        className={`inline-flex w-full items-center justify-center gap-1.5 rounded-md px-4 py-2.5 font-semibold text-ink-900 ${
-                            intent === "publish_intent" ? "bg-emerald-400 hover:bg-emerald-300" : "bg-cyan-400 hover:bg-cyan-300"
-                        } disabled:opacity-60`}
-                    >
-                        {busy ? <><Loader2 size={13} className="animate-spin" /> Sending…</>
-                            : intent === "publish_intent" ? <><Send size={13} /> Request publish</>
-                            : <><Send size={13} /> Get this live on my domain</>}
-                    </button>
-                    <p className="font-mono text-[9px] text-slate-500">
-                        We'll reach out within 1 business day. No credit card. No commitment.
-                    </p>
-                </div>
-            )}
+            <div className="mt-3 space-y-2">
+                <label className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-400">
+                    <Mail size={9} className="mr-1 inline" /> Your email <span className="text-slate-500">(optional)</span>
+                </label>
+                <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@business.com"
+                    data-testid="publish-email"
+                    className="w-full rounded-md border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:outline-none"
+                />
+                <button
+                    onClick={publishNow}
+                    disabled={busy}
+                    data-testid="publish-submit"
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-ink-900 shadow-[0_0_18px_rgba(16,185,129,0.3)] hover:bg-emerald-300 disabled:opacity-60"
+                >
+                    {busy ? <><Loader2 size={13} className="animate-spin" /> Publishing…</>
+                        : <><Rocket size={13} /> Publish now (instant)</>}
+                </button>
+                <p className="font-mono text-[9px] text-slate-500">
+                    Lead-form submissions route directly into your CRM. Connect your own domain after publish.
+                </p>
+            </div>
         </div>
     );
 };

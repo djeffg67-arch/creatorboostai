@@ -16,6 +16,7 @@ export).
 from __future__ import annotations
 
 import os
+import re
 import json
 import logging
 import asyncio
@@ -300,6 +301,46 @@ class WebsiteIntentReq(BaseModel):
     industry: Optional[str] = Field(default=None, max_length=80)
 
 
+# ─────────── Iter 63 · Real Publish + Domain + Hosting ───────────
+class WebsitePublishReq(BaseModel):
+    """One-click publish of a generated `site` payload to a CB subdomain.
+    Owner email is optional (anonymous publishes get a random slug)."""
+    site: Dict[str, Any] = Field(default_factory=dict)
+    slug: Optional[str] = Field(default=None, max_length=80)
+    owner_email: Optional[str] = Field(default=None, max_length=200)
+    business_name: Optional[str] = Field(default=None, max_length=160)
+    industry: Optional[str] = Field(default=None, max_length=80)
+
+
+class PublishedLeadReq(BaseModel):
+    """Lead-form submission from a public published site."""
+    name: Optional[str] = Field(default=None, max_length=160)
+    email: Optional[str] = Field(default=None, max_length=200)
+    phone: Optional[str] = Field(default=None, max_length=40)
+    message: Optional[str] = Field(default=None, max_length=1200)
+    extra: Optional[Dict[str, str]] = Field(default=None)
+
+
+class ConnectDomainReq(BaseModel):
+    """Request to point a custom domain at an already-published site."""
+    custom_domain: str = Field(min_length=3, max_length=120)
+    email: Optional[str] = Field(default=None, max_length=200)
+
+
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _slugify(value: str, fallback: str = "site") -> str:
+    s = _SLUG_RE.sub("-", (value or "").strip().lower()).strip("-")
+    s = s[:60] or fallback
+    # Strip a trailing TLD if the slug came from a domain like "abc-com"
+    for tld in ("-com", "-net", "-io", "-co", "-org"):
+        if s.endswith(tld):
+            s = s[: -len(tld)]
+            break
+    return s or fallback
+
+
 def _build_website_user_message(p: "WebsiteGenReq") -> str:
     parts = [f"BUSINESS IDEA: {p.business_idea}"]
     if p.business_name:
@@ -525,6 +566,252 @@ def make_business_builder_router(db) -> APIRouter:
             "lead_id": lead_id,
             "intent": kind,
             "queued": "Founder will reach out to wire up your domain shortly.",
+        }
+
+    # ─────────── Iter 63 · One-click PUBLISH (CB subdomain hosting) ──────────
+    @router.post("/website-publish")
+    async def website_publish(payload: WebsitePublishReq):
+        """Persist a generated site to `published_sites` collection and
+        return its public URL on the CB subdomain. Idempotent on (slug)."""
+        site = payload.site or {}
+        if not isinstance(site, dict) or not site.get("brand"):
+            raise HTTPException(400, "Missing or invalid `site` payload (brand required)")
+
+        # Resolve slug — prefer client-provided, else use site.domain, else brand
+        raw = (payload.slug
+               or site.get("domain")
+               or site.get("brand")
+               or "site")
+        base = _slugify(str(raw), fallback="site")
+        slug = base
+        # Ensure uniqueness — append short hex if taken
+        for _ in range(5):
+            existing = await db.published_sites.find_one({"slug": slug}, {"_id": 0, "slug": 1})
+            if not existing:
+                break
+            slug = f"{base}-{uuid.uuid4().hex[:5]}"
+
+        site_id = str(uuid.uuid4())
+        now_iso = datetime.now(timezone.utc).isoformat()
+        backend_url = (
+            os.environ.get("PUBLIC_SITE_BASE_URL")
+            or os.environ.get("SITE_URL")
+            or os.environ.get("REACT_APP_BACKEND_URL", "")
+        )
+        public_url = f"{backend_url.rstrip('/')}/p/{slug}" if backend_url else f"/p/{slug}"
+
+        record = {
+            "id": site_id,
+            "slug": slug,
+            "site": site,
+            "owner_email": (payload.owner_email or "").strip().lower() or None,
+            "business_name": payload.business_name or site.get("brand"),
+            "industry": payload.industry,
+            "custom_domain": None,
+            "visit_count": 0,
+            "lead_count": 0,
+            "published_at": now_iso,
+            "updated_at": now_iso,
+            "status": "published",
+        }
+        try:
+            await db.published_sites.insert_one(record)
+        except Exception as e:
+            log.error(f"website-publish insert failed: {e}")
+            raise HTTPException(500, "Could not publish site")
+
+        # Best-effort dark-funnel event so the founder sees a publish in the audit feed
+        try:
+            await db.dark_funnel_events.insert_one({
+                "id": str(uuid.uuid4()),
+                "kind": "site_published",
+                "source": "website_builder",
+                "email": payload.owner_email,
+                "slug": slug,
+                "business_name": record["business_name"],
+                "industry": payload.industry,
+                "ts": now_iso,
+            })
+        except Exception:
+            pass
+
+        return {
+            "ok": True,
+            "slug": slug,
+            "site_id": site_id,
+            "public_url": public_url,
+            "published_at": now_iso,
+        }
+
+    @router.get("/published/{slug}")
+    async def fetch_published(slug: str):
+        """Public — fetch a published site by slug. Bumps visit counter."""
+        doc = await db.published_sites.find_one({"slug": slug}, {"_id": 0})
+        if not doc:
+            raise HTTPException(404, "Site not found or unpublished")
+        # Increment visit counter (best-effort, fire-and-forget)
+        try:
+            await db.published_sites.update_one(
+                {"slug": slug},
+                {"$inc": {"visit_count": 1},
+                 "$set": {"last_visited_at": datetime.now(timezone.utc).isoformat()}},
+            )
+        except Exception:
+            pass
+        return {
+            "ok": True,
+            "slug": slug,
+            "site": doc.get("site") or {},
+            "business_name": doc.get("business_name"),
+            "published_at": doc.get("published_at"),
+            "custom_domain": doc.get("custom_domain"),
+            "visit_count": (doc.get("visit_count") or 0) + 1,
+        }
+
+    @router.post("/published/{slug}/lead")
+    async def published_lead(slug: str, payload: PublishedLeadReq):
+        """Public — capture a lead-form submission from a published site.
+        Routes the lead into `leads_registry` so the founder picks it up in
+        the normal Ops dashboard."""
+        from lead_registry import upsert_lead
+
+        doc = await db.published_sites.find_one({"slug": slug}, {"_id": 0})
+        if not doc:
+            raise HTTPException(404, "Site not found")
+        if not (payload.email and "@" in payload.email) and not payload.phone:
+            raise HTTPException(400, "Provide an email or phone")
+
+        biz = doc.get("business_name") or "Published Site"
+        lead_id: Optional[str] = None
+        try:
+            up = await upsert_lead(db, {
+                "name": (payload.name or "Website visitor")[:160],
+                "email": (payload.email or "").strip().lower()[:200] or None,
+                "phone": (payload.phone or "").strip()[:40] or None,
+                "company": biz[:160],
+                "industry": (doc.get("industry") or "")[:80] or None,
+                "source": f"published_site:{slug}",
+                "notes": (
+                    f"Lead from published site /p/{slug} → {biz}. "
+                    f"Message: {(payload.message or '—')[:400]}"
+                ),
+            })
+            lead_id = (up.get("lead") or {}).get("lead_id")
+        except Exception as e:
+            log.warning(f"published-lead upsert failed: {e}")
+
+        # Bump per-site lead counter + record the dark-funnel event
+        now_iso = datetime.now(timezone.utc).isoformat()
+        try:
+            await db.published_sites.update_one(
+                {"slug": slug},
+                {"$inc": {"lead_count": 1}, "$set": {"last_lead_at": now_iso}},
+            )
+        except Exception:
+            pass
+        try:
+            await db.dark_funnel_events.insert_one({
+                "id": str(uuid.uuid4()),
+                "kind": "published_site_lead",
+                "source": "published_site",
+                "slug": slug,
+                "lead_id": lead_id,
+                "email": payload.email,
+                "business_name": biz,
+                "ts": now_iso,
+            })
+        except Exception:
+            pass
+
+        return {
+            "ok": True,
+            "lead_id": lead_id,
+            "thank_you": (
+                f"Thanks — {biz} will be in touch shortly."
+            ),
+        }
+
+    @router.post("/published/{slug}/connect-domain")
+    async def connect_domain(slug: str, payload: ConnectDomainReq):
+        """Capture a custom-domain pointer request for a published site.
+        Returns DNS instructions the user can hand to their registrar."""
+        doc = await db.published_sites.find_one({"slug": slug}, {"_id": 0, "slug": 1})
+        if not doc:
+            raise HTTPException(404, "Site not found")
+
+        # Normalize the requested domain
+        domain = payload.custom_domain.strip().lower()
+        domain = re.sub(r"^https?://", "", domain).rstrip("/")
+        if not re.match(r"^[a-z0-9.\-]+\.[a-z]{2,}$", domain):
+            raise HTTPException(400, "Invalid domain — use the bare host, e.g. yourbusiness.com")
+
+        backend_url = (
+            os.environ.get("PUBLIC_SITE_BASE_URL")
+            or os.environ.get("SITE_URL")
+            or os.environ.get("REACT_APP_BACKEND_URL", "")
+        )
+        host = backend_url.replace("https://", "").replace("http://", "").rstrip("/") or "creatorboostai.com"
+        target_url = f"{backend_url.rstrip('/')}/p/{slug}" if backend_url else f"/p/{slug}"
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        try:
+            await db.published_sites.update_one(
+                {"slug": slug},
+                {"$set": {
+                    "custom_domain": domain,
+                    "custom_domain_email": (payload.email or "").strip().lower() or None,
+                    "custom_domain_status": "pending_dns",
+                    "custom_domain_requested_at": now_iso,
+                    "updated_at": now_iso,
+                }},
+            )
+        except Exception as e:
+            log.error(f"connect-domain update failed: {e}")
+            raise HTTPException(500, "Could not save your domain request")
+
+        # Best-effort funnel + lead trail
+        try:
+            await db.dark_funnel_events.insert_one({
+                "id": str(uuid.uuid4()),
+                "kind": "custom_domain_requested",
+                "source": "published_site",
+                "slug": slug,
+                "custom_domain": domain,
+                "email": payload.email,
+                "ts": now_iso,
+            })
+        except Exception:
+            pass
+
+        # DNS instructions returned to the UI
+        instructions = [
+            {
+                "type": "CNAME",
+                "host": "www",
+                "points_to": host,
+                "note": "Add a CNAME record pointing www → CreatorBoostAI host.",
+            },
+            {
+                "type": "A / ALIAS",
+                "host": "@",
+                "points_to": host,
+                "note": (
+                    "For the apex (yourbusiness.com), add an ALIAS or ANAME record "
+                    "to the same host. If your registrar only supports A records, "
+                    "contact our support and we'll provision a static IP."
+                ),
+            },
+        ]
+
+        return {
+            "ok": True,
+            "slug": slug,
+            "custom_domain": domain,
+            "target_url": target_url,
+            "status": "pending_dns",
+            "verification_eta": "DNS usually propagates in 5-60 minutes.",
+            "dns_instructions": instructions,
+            "support_email": "support@creatorboostai.com",
         }
 
     return router

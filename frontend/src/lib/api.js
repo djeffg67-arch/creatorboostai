@@ -540,3 +540,16 @@ export const websiteBuilderGenerate = (payload) =>
 export const websiteBuilderIntent = (payload) =>
     api.post("/business-builder/website-intent", payload, { timeout: 15000 }).then((r) => r.data);
 
+// ---------- Iter 63 · Real Publish + Domain + Hosting ----------
+export const websiteBuilderPublish = (payload) =>
+    api.post("/business-builder/website-publish", payload, { timeout: 20000 }).then((r) => r.data);
+
+export const websiteBuilderFetchPublished = (slug) =>
+    api.get(`/business-builder/published/${encodeURIComponent(slug)}`).then((r) => r.data);
+
+export const websiteBuilderPublishedLead = (slug, payload) =>
+    api.post(`/business-builder/published/${encodeURIComponent(slug)}/lead`, payload).then((r) => r.data);
+
+export const websiteBuilderConnectDomain = (slug, payload) =>
+    api.post(`/business-builder/published/${encodeURIComponent(slug)}/connect-domain`, payload).then((r) => r.data);
+

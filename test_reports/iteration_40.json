@@ -1,0 +1,30 @@
+{
+  "summary": "Iter 63 — Website Builder one-click publish + custom domain end-to-end testing complete. All 4 new backend endpoints verified via pytest (10/10 passed). Frontend publish-first DomainIntentCard flow on /portal/website-builder works end-to-end with real Claude generation: chip → generate → preview → publish (success card with public URL, visit, copy, toggle) → connect-domain (DNS instructions with CNAME + A/ALIAS rows). Public /p/:slug route renders brand/hero/CTAs and the lead form posts successfully (published-lead-success shown). Homepage hero copy update is live with both 'Your Business Doesn't Need Another CRM' and 'Execution, Automation' phrases, and is responsive at 390px (no horizontal overflow).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter63_website_publish.py",
+    "/app/test_reports/pytest/iter63_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "business_builder.py is 821 lines — past the 700-line guideline. Consider splitting publish/lead/connect-domain endpoints into a dedicated /backend/publish_routes.py module for readability.",
+    "POST /website-publish does not authenticate the caller — anyone can publish arbitrary site JSON to a slug. Acceptable for current MVP, but slug squatting is possible (unique-resolved with hex suffix, so not a hard collision DoS, but worth tracking).",
+    "GET /published/{slug} returns visit_count = stored+1 instead of re-reading after $inc — minor, but the returned count won't match a subsequent admin query if multiple visits land in parallel (race-tolerant by design).",
+    "ConnectDomainReq validates shape with regex `^[a-z0-9.\\-]+\\.[a-z]{2,}$`. Accepts 'a.b.c.d' and 'sub.under_score-ok.com' but not IDN/punycode; OK for an MVP.",
+    "Lead form on /p/:slug only requires email-or-phone server-side; consider also rejecting obviously bogus emails (regex) — currently 'foo@bar' would slip through `'@' in email` check."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter63_website_publish.py (new)"
+  ],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% (all flows: publish, connect-domain, public site, lead form, hero copy, mobile)"},
+  "test_credentials": "N/A — all new endpoints are public",
+  "seed_data_creation": "Created several TEST_-prefixed published_sites docs during pytest run (slugs prefixed test-publish-/test-collide-/test-fetch-/test-lead-/test-domain-). One real Claude-generated site was published via UI: slug=sarah-lopez-realty.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 63 fully validated: 4 backend endpoints (/website-publish, /published/{slug}, /published/{slug}/lead, /published/{slug}/connect-domain) and the matching frontend flows in WebsiteBuilderPage.jsx + new PublishedSitePage.jsx. Public URLs return SITE_URL absolute https URLs. visit_count increments correctly. Slug collision auto-resolves with 5-hex suffix. Hero copy on HomePage.jsx (lines ~379-380) verified with new enterprise positioning."
+}
