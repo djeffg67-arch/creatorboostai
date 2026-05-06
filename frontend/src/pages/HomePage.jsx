@@ -21,8 +21,11 @@ const HERO_BG = "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=
 
 // Tiny presentational tile · used by execution-proof strip in hero
 // Animates value changes with a simple ease so updates feel "live".
-const ExecTile = ({ testid, label, value, accent = "cyan", isCurrency = false }) => {
+// `pulseAt` (epoch-ms) — when fresh (last 2.5s) the tile shows a flashing green dot.
+const ExecTile = ({ testid, label, value, accent = "cyan", isCurrency = false, pulseAt = 0 }) => {
     const [display, setDisplay] = useState(value);
+    const [pulseOn, setPulseOn] = useState(false);
+
     useEffect(() => {
         const from = display, to = value, start = performance.now();
         let raf;
@@ -37,6 +40,16 @@ const ExecTile = ({ testid, label, value, accent = "cyan", isCurrency = false })
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [value]);
 
+    useEffect(() => {
+        if (!pulseAt) return;
+        const age = Date.now() - pulseAt;
+        if (age < 2500) {
+            setPulseOn(true);
+            const t = setTimeout(() => setPulseOn(false), 2500 - age);
+            return () => clearTimeout(t);
+        }
+    }, [pulseAt]);
+
     const cls = {
         cyan:    "border-cyan-500/30 bg-cyan-500/5 text-cyan-300",
         emerald: "border-emerald-500/30 bg-emerald-500/5 text-emerald-300",
@@ -46,34 +59,78 @@ const ExecTile = ({ testid, label, value, accent = "cyan", isCurrency = false })
         ? `$${(display || 0).toLocaleString()}`
         : (display || 0).toLocaleString();
     return (
-        <div data-testid={testid} className={`rounded-md border ${cls} px-3 py-2.5`}>
+        <div data-testid={testid} className={`relative rounded-md border ${cls} px-3 py-2.5 transition-colors ${pulseOn ? "ring-1 ring-emerald-400/70 shadow-[0_0_18px_rgba(16,185,129,0.35)]" : ""}`}>
+            {/* live-pulse dot */}
+            <span
+                data-testid={`${testid}-pulse`}
+                aria-hidden
+                className={`absolute right-2 top-2 h-2 w-2 rounded-full transition-opacity ${pulseOn ? "bg-emerald-400 opacity-100 animate-ping" : "bg-emerald-400/30 opacity-50"}`}
+            />
             <p className="font-mono text-[9px] uppercase tracking-[0.22em] opacity-90">{label}</p>
             <p className="font-heading mt-1 text-xl font-semibold tabular-nums text-white">{formatted}</p>
         </div>
     );
 };
 
-// Hook: fetch live execution stats from /api/homepage/execution-stats
-// Polls every 30s. Returns floor values immediately so first render is non-empty.
+// Hook: live execution stats from /api/homepage/execution-stats (poll fallback)
+//        + /api/homepage/execution-stream (SSE pulse events).
+// Returns {leads_found, emails_sent, revenue_usd, pulses:{leads, emails, revenue}}
 const useExecutionStats = () => {
-    const [stats, setStats] = useState({ leads_found: 124, emails_sent: 412, revenue_usd: 84000 });
+    const [stats, setStats] = useState({
+        leads_found: 124, emails_sent: 412, revenue_usd: 84000,
+        pulses: { leads: 0, emails: 0, revenue: 0 },
+    });
     useEffect(() => {
         let alive = true;
-        const load = async () => {
+        // Initial snapshot via REST (works even if SSE blocked by proxies)
+        const loadOnce = async () => {
             try {
                 const r = await api.get("/homepage/execution-stats", { timeout: 8000 });
                 if (alive && r?.data?.ok) {
-                    setStats({
+                    setStats((s) => ({
+                        ...s,
                         leads_found: r.data.leads_found,
                         emails_sent: r.data.emails_sent,
                         revenue_usd: r.data.revenue_usd,
-                    });
+                    }));
                 }
             } catch { /* keep prior values */ }
         };
-        load();
-        const id = setInterval(load, 30000);
-        return () => { alive = false; clearInterval(id); };
+        loadOnce();
+
+        // SSE live stream — best-effort, falls back silently if EventSource unavailable
+        let es = null;
+        try {
+            const url = `${(process.env.REACT_APP_BACKEND_URL || "")}/api/homepage/execution-stream`;
+            es = new EventSource(url);
+            es.addEventListener("snapshot", (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    if (alive) setStats((s) => ({ ...s, leads_found: d.leads_found, emails_sent: d.emails_sent, revenue_usd: d.revenue_usd }));
+                } catch { /* noop */ }
+            });
+            es.addEventListener("pulse", (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    const now = Date.now();
+                    if (alive) setStats({
+                        leads_found:  d.leads_found,
+                        emails_sent:  d.emails_sent,
+                        revenue_usd:  d.revenue_usd,
+                        pulses: {
+                            leads:   d.deltas?.leads   > 0 ? now : 0,
+                            emails:  d.deltas?.emails  > 0 ? now : 0,
+                            revenue: d.deltas?.revenue > 0 ? now : 0,
+                        },
+                    });
+                } catch { /* noop */ }
+            });
+            es.onerror = () => { /* let browser auto-reconnect */ };
+        } catch { /* SSE not available — REST poll handles it */ }
+
+        // Polling fallback every 30s in case SSE is blocked
+        const id = setInterval(loadOnce, 30000);
+        return () => { alive = false; clearInterval(id); if (es) try { es.close(); } catch { /* noop */ } };
     }, []);
     return stats;
 };
@@ -339,9 +396,9 @@ export default function HomePage() {
                                 style={{ animationDelay: "180ms" }}
                                 data-testid="hero-execution-tiles"
                             >
-                                <ExecTile testid="tile-leads"    label="Leads found today"        value={execStats.leads_found} accent="cyan" />
-                                <ExecTile testid="tile-emails"   label="Emails sent automatically" value={execStats.emails_sent} accent="emerald" />
-                                <ExecTile testid="tile-revenue"  label="Revenue generated"        value={execStats.revenue_usd} accent="amber" isCurrency />
+                                <ExecTile testid="tile-leads"    label="Leads found today"        value={execStats.leads_found} accent="cyan"    pulseAt={execStats.pulses?.leads   || 0} />
+                                <ExecTile testid="tile-emails"   label="Emails sent automatically" value={execStats.emails_sent} accent="emerald" pulseAt={execStats.pulses?.emails  || 0} />
+                                <ExecTile testid="tile-revenue"  label="Revenue generated"        value={execStats.revenue_usd} accent="amber"   pulseAt={execStats.pulses?.revenue || 0} isCurrency />
                             </div>
 
                             <CountrySelector />
