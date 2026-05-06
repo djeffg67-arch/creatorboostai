@@ -1,8 +1,45 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-06 (Iter 68b — Phase-1 Trust-Through-Evidence Complete · Engine OPERATIONAL)
+**Last update:** 2026-05-06 (Iter 69 — Mobile Founder Ops `/m/ops`)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 69 — MOBILE FOUNDER OPS (P1)
+
+Status: SHIPPED · Live-verified at `/m/ops`
+
+User ask: one-handed iPhone view that surfaces the same engine signal + 7-question Operator View, optimized for on-the-go glances.
+
+### File added
+- `/app/frontend/src/pages/MobileOpsPage.jsx` (~360 lines · single self-contained file). No nav chrome, no marketing layout — pure tool.
+
+### What it shows
+- **Pulsing signal light** at top (green/yellow/red · animated ping when green) + label + summary.
+- **2×2 big-stat grid:** Sent today / Ready to send / Hot leads (pulsing rose dot when > 0) / Last cycle.
+- **3-pill detail row:** Sending now · Stuck >7d · Errors.
+- **Hot leads list** with score chips + "Open desktop ops" CTA (only renders when count > 0).
+- **2-block evidence panel:** Last sends + Last replies (with classification color-coded).
+- **Sticky bottom action bar:** Refresh + Pause/Resume toggle.
+- **Auto-refresh every 30s.**
+
+### Behavior
+- Reuses the same `cb_ops_session` localStorage as `/portal/ops` — sign in once, stay signed in.
+- If no session, single-input founder-key login screen.
+- Logout button in sticky header.
+- Pause/Resume directly from the bottom bar (calls `/api/ops/outbound/pause`).
+
+### Routes
+- `/m/ops` registered in `App.js` alongside `/portal/ops`.
+
+### Live data verified
+- Signal: 🟢 Operational
+- Sent today: 19 / 50 cap
+- Ready: 157 (scored & verified)
+- Hot: 2 (NY Hot Aviation + BigStore Grocery, both score 85)
+- Last cycle: 11m completed
+- Sends/Replies populated with classified entries.
 
 ---
 

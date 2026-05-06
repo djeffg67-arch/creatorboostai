@@ -45,6 +45,7 @@ import BusinessBuilderPage from "@/pages/BusinessBuilderPage";
 import WebsiteBuilderPage from "@/pages/WebsiteBuilderPage";
 import PublishedSitePage from "@/pages/PublishedSitePage";
 import HookDemoPage from "@/pages/HookDemoPage";
+import MobileOpsPage from "@/pages/MobileOpsPage";
 import AccessLinkPage from "@/pages/AccessLinkPage";
 import TeamAccessPage from "@/pages/TeamAccessPage";
 import PortalMagicPage from "@/pages/PortalMagicPage";
@@ -58,6 +59,7 @@ function App() {
                     <Route path="/" element={<HomePage />} />
                     <Route path="/demo" element={<VerticalPickerPage />} />
                     <Route path="/demo/quick/:industry" element={<HookDemoPage />} />
+                    <Route path="/m/ops" element={<MobileOpsPage />} />
                     <Route path="/demo/realtor" element={<RealtorDemoPage />} />
                     <Route path="/demo/insurance" element={<InsuranceDemoPage />} />
                     <Route path="/demo/creator" element={<CreatorDemoPage />} />
