@@ -158,11 +158,23 @@ def _per_inbox_daily_cap() -> int:
         return 45
 
 def _ramp_schedule() -> List[int]:
-    raw = os.environ.get("OUTBOUND_RAMP_SCHEDULE", "25,50,100,150,200")
+    """Domain-warming ramp · week-indexed daily cap. Default matches the
+    iter-66+ spec (Week 1 → 50/day · Week 2 → 100/day · Week 3+ → 200/day).
+    Override via OUTBOUND_RAMP_SCHEDULE env (comma-separated values, one per
+    week). The final value applies to all subsequent weeks."""
+    raw = os.environ.get("OUTBOUND_RAMP_SCHEDULE", "50,100,200")
     try:
         return [max(1, int(x.strip())) for x in raw.split(",") if x.strip()]
     except Exception:
-        return [25, 50, 100, 150, 200]
+        return [50, 100, 200]
+
+
+def _ramp_step_days() -> int:
+    """How many days each ramp step lasts. 7 = week-indexed (default)."""
+    try:
+        return max(1, int(os.environ.get("OUTBOUND_RAMP_STEP_DAYS", "7")))
+    except Exception:
+        return 7
 
 DAILY_LIMIT_DEFAULT = int(os.environ.get("OUTBOUND_DAILY_LIMIT", "10"))   # Phase A · Low Credit Execution Mode
 SEND_WINDOW_HOURS = 14                 # spread sends across 14-hour workday
@@ -989,8 +1001,10 @@ def make_outbound_router(
         if not first_send or not first_send.get("created_at"):
             return _ramp_schedule()[0]
         days_since = (now_dt() - datetime.fromisoformat(first_send["created_at"])).days
+        # Week-indexed by default (iter 66+) — advance one ramp step every
+        # `OUTBOUND_RAMP_STEP_DAYS` (default 7).
         ramp = _ramp_schedule()
-        idx = min(days_since, len(ramp) - 1)
+        idx = min(days_since // _ramp_step_days(), len(ramp) - 1)
         return ramp[idx]
 
     async def _process_queue(batch_override: Optional[int] = None) -> int:
@@ -1088,6 +1102,72 @@ def make_outbound_router(
         sent_today = await _today_sent_count()
         stats = await _deliverability_stats()
         return {"state": state, "sent_today": sent_today, "deliverability": stats}
+
+    @router.post("/warmup-status")
+    async def warmup_status(payload: OpsAuth):
+        """Domain-warming ramp status (Iter 67). Returns current week,
+        current daily cap, the full ramp schedule, days until next step."""
+        await require_founder(payload)
+        ramp = _ramp_schedule()
+        step_days = _ramp_step_days()
+        first_send = await db.outbound_events.find_one(
+            {"type": "sent"}, {"_id": 0, "created_at": 1}, sort=[("created_at", 1)],
+        )
+        state = await _state()
+        manual = bool(state.get("manual_daily_limit"))
+        current_cap = int(state.get("daily_limit") or DAILY_LIMIT_DEFAULT)
+
+        out: Dict[str, Any] = {
+            "ramp_schedule": ramp,
+            "ramp_step_days": step_days,
+            "manual_override": manual,
+            "manual_daily_limit": current_cap if manual else None,
+        }
+
+        if not first_send or not first_send.get("created_at"):
+            out.update({
+                "started": False,
+                "warmup_started_at": None,
+                "current_week": 1,
+                "current_step_index": 0,
+                "current_daily_cap": current_cap if manual else ramp[0],
+                "next_step_in_days": step_days,
+                "next_step_cap": ramp[1] if len(ramp) > 1 else ramp[0],
+                "summary": "Engine has not sent its first email yet — week 1 cap will activate on first send.",
+            })
+            return out
+
+        first_iso = first_send["created_at"]
+        days_since = (now_dt() - datetime.fromisoformat(first_iso)).days
+        idx = min(days_since // step_days, len(ramp) - 1)
+        current_week = idx + 1
+        ramp_cap = ramp[idx]
+
+        if idx + 1 < len(ramp):
+            days_in_step = days_since % step_days
+            next_step_in_days = step_days - days_in_step
+            next_step_cap = ramp[idx + 1]
+        else:
+            next_step_in_days = None
+            next_step_cap = ramp_cap  # already at terminal step
+
+        out.update({
+            "started": True,
+            "warmup_started_at": first_iso,
+            "days_since_start": days_since,
+            "current_week": current_week,
+            "current_step_index": idx,
+            "current_daily_cap": current_cap if manual else ramp_cap,
+            "ramp_calculated_cap": ramp_cap,
+            "next_step_in_days": next_step_in_days,
+            "next_step_cap": next_step_cap,
+            "summary": (
+                f"Manual override · daily cap {current_cap}." if manual
+                else f"Week {current_week} of warm-up · daily cap {ramp_cap}." +
+                     (f" Next step in {next_step_in_days}d → {next_step_cap}/day." if next_step_in_days else " At terminal step.")
+            ),
+        })
+        return out
 
     @router.post("/pause")
     async def pause_toggle(payload: PauseToggleIn):
@@ -2304,6 +2384,39 @@ def make_outbound_router(
         except Exception as e:
             log.warning(f"[dashboard] state_filings panel failed: {e}")
 
+        # Domain-warming snapshot (Iter 67)
+        warmup_panel: Dict[str, Any] = {}
+        try:
+            ramp = _ramp_schedule()
+            step_days = _ramp_step_days()
+            first_send = await db.outbound_events.find_one(
+                {"type": "sent"}, {"_id": 0, "created_at": 1}, sort=[("created_at", 1)],
+            )
+            if first_send and first_send.get("created_at"):
+                ds = (now_dt() - datetime.fromisoformat(first_send["created_at"])).days
+                idx = min(ds // step_days, len(ramp) - 1)
+                warmup_panel = {
+                    "started": True,
+                    "current_week": idx + 1,
+                    "ramp_calculated_cap": ramp[idx],
+                    "next_step_cap": ramp[idx + 1] if idx + 1 < len(ramp) else ramp[idx],
+                    "ramp_schedule": ramp,
+                    "step_days": step_days,
+                    "manual_override": bool(state.get("manual_daily_limit")),
+                }
+            else:
+                warmup_panel = {
+                    "started": False,
+                    "current_week": 1,
+                    "ramp_calculated_cap": ramp[0],
+                    "next_step_cap": ramp[1] if len(ramp) > 1 else ramp[0],
+                    "ramp_schedule": ramp,
+                    "step_days": step_days,
+                    "manual_override": bool(state.get("manual_daily_limit")),
+                }
+        except Exception as e:
+            log.warning(f"[dashboard] warmup panel failed: {e}")
+
         return {
             "kpi": {
                 "total_prospects": total,
@@ -2324,6 +2437,7 @@ def make_outbound_router(
             "last_autopilot_run": last_run,
             "sources_configured": sources_cfg,
             "state_filings": state_filings_panel,
+            "warmup": warmup_panel,
         }
 
     @router.post("/live-feed")

@@ -1,8 +1,35 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-06 (Iter 66 — Outbound Engine End-to-End: State Filings · DNS Verifier · Heuristic Enrichment)
+**Last update:** 2026-05-06 (Iter 67 — Domain-Warming Ramp · Week-Indexed Schedule + Live Warmup Status)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 67 — DOMAIN-WARMING RAMP (P0)
+
+Status: SHIPPED · Live-tested · `summary: "Week 1 of warm-up · daily cap 50. Next step in 5d → 100/day."`
+
+User brief: stage the daily cap progression — Week 1 → 40-60/day, Week 2 → 75-120/day, Week 3 → 150-200/day. Keep outbound stable while modular Koollite work waits for a real customer signal.
+
+### Files updated
+- `/app/backend/outbound.py`:
+  - `_ramp_schedule()` default → `"50,100,200"` (was `"25,50,100,150,200"`).
+  - New `_ramp_step_days()` (default 7) — ramp advances **per week**, not per day.
+  - `_ramped_daily_limit()` now uses `days_since // step_days` for week indexing.
+  - New endpoint `POST /api/ops/outbound/warmup-status` — returns full ramp config + current week + days-until-next-step + human summary.
+  - `/dashboard` extended with `warmup` panel mirroring the snapshot.
+- `/app/backend/.env`:
+  - `OUTBOUND_RAMP_SCHEDULE=50,100,200`
+  - `OUTBOUND_RAMP_STEP_DAYS=7`
+
+### What's verified live (preview)
+- First send was 2026-05-03, so engine is on day 2 of Week 1 → cap = 50/day.
+- Auto-advance to Week 2 (cap = 100) is scheduled for 5 days from now.
+- Manual override (`/admin/set-daily-limit`) still works and is correctly flagged in `manual_override: true`.
+
+### Stays modular for Koollite (queued)
+The outbound engine continues running in parallel — when Koollite gets a real customer signal, the upcoming Lighting Intelligence integrations (Supermarket scene, Airport demo, new Schools demo, ROI calculator) layer on top without disrupting the autopilot loop.
 
 ---
 
