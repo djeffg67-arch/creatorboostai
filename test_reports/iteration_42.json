@@ -1,0 +1,30 @@
+{
+  "summary": "Iter 65 cinematic 3-layer funnel · full frontend e2e. HOMEPAGE: hero-headline/tagline/sub all correct, 8 industry chips render, hero-cta-watch-demo → /demo/quick/realtor ✓. Mobile 390px: no horizontal overflow. LAYER 1 REALTOR (/demo/quick/realtor): hook-phase-label='PAIN · 01/06', headline '12 inbound leads...' ✓, 3 metric tiles render, hook-action-empty shown pre-start, Start flips to Pause, ACT-7142 + ACT-7143 reveal within 5s on activation frame, frame-dot-5 (final) shows hook-final-ctas with all 4 CTAs (watch-walkthrough, executive, switch-industry, talk-ai), behind-the-scenes surfaces ALL 8 ACT-7142..7149. LAYER 1 SUPERMARKET: 'Cooler ... drifting warm' headline ✓, OPS-2041..2048 all 8 in BTS, executive CTA → /demo/sita ✓. FALLBACKS: /demo/quick/contractor→/demo/realtor, /insurance→/demo/insurance, /airport→/demo/airport, /startup→/demo/startup, /creator→/demo/creator, /enterprise→/demo/noldus — all OK. /demo/quick/totally-fake → hook-not-found panel shown. PICKER /demo: picker-layer-1 ✓, picker-layer-2-label ✓, hook-card-realtor + hook-card-supermarket navigate correctly. REGRESSION: /demo/realtor, /demo/supermarket, /demo/noldus, /demo/sita, /demo/startup all mount with no errors. Zero page-errors, zero freezes, Web Speech did not block UI.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "VerticalPickerPage Layer 2", "issues": ["Request expected 8 vertical-card-* (realtor/insurance/creators/contractors/supermarket/airports/automotive/startup), but the page only ships 5 (realtor, insurance, creators, noldus, airports). Contractors, supermarket, automotive, startup cards are NOT rendered in Layer 2. Hook cards for realtor+supermarket cover Layer 1, but the Layer 2 grid is still the pre-existing 5-card set. If full 8-card Layer 2 was intended, VERTICALS array in /app/frontend/src/pages/VerticalPickerPage.jsx needs to be extended."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(optional) Extend VerticalPickerPage VERTICALS array to include supermarket/contractors/automotive/startup if Layer 2 should show 8 cards per spec. Current shipped state = 5 cards. Functionality otherwise fully correct."
+  ],
+  "critical_code_review_comments": [
+    "HookDemoPlayer cleanly cancels speechSynthesis + clears timers on unmount — no SSE/speech leaks observed across navigation.",
+    "INDUSTRY_CHIPS.enterprise fallback='/demo/noldus' is correct and observed live.",
+    "hook-not-found fallback renders IndustryChipRow so users are never stranded — good UX.",
+    "Final frame isFinal gates advance timer — confirmed no spontaneous loop/freeze.",
+    "HomePage.jsx is ~1070 lines — approaching splitability threshold but NOT a blocker."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100% on tested flows (hero, 2 hook demos, 6 fallbacks, not-found, picker, mobile, 5 regression demos)"},
+  "test_credentials": "N/A",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Layer 1 hook demo player at /demo/quick/:industry is fully data-driven (hookDemos.js). Adding new industries = drop config + flip hookReady=true in INDUSTRY_CHIPS. BTS testids follow pattern bts-{ACTION_ID}. Final frame is idx=5 (0-indexed). All 6 fallback routes verified. Layer 2 picker ships 5 cards (not 8) — flagged but not blocking.",
+  "rca of the issue": "No blocker bugs. Minor spec-vs-implementation gap on Layer 2 picker card count (5 shipped vs 8 requested). All cinematic player, narration, fallback, and regression flows are clean."
+}

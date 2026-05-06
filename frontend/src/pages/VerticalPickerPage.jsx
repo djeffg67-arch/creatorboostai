@@ -154,7 +154,61 @@ export default function VerticalPickerPage() {
                     </p>
                 </section>
 
-                {/* Vertical cards */}
+                {/* ─────── Layer 1 · 60-second hook demos ─────── */}
+                <section className="mt-12" data-testid="picker-layer-1">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">
+                                <Sparkles size={11} /> Layer 1 · 60-second hook
+                            </span>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Instant value · cinematic · narrated</span>
+                        </div>
+                    </div>
+                    <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <Link to="/demo/quick/realtor"
+                            data-testid="hook-card-realtor"
+                            className="group rounded-md border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent p-6 transition-all hover:border-cyan-400/60 hover:shadow-[0_0_40px_rgba(6,182,212,0.25)]">
+                            <div className="flex items-center justify-between">
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Realtor · 60s</span>
+                                <span className="rounded-sm bg-emerald-400/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-emerald-300">New</span>
+                            </div>
+                            <p className="font-heading mt-3 text-2xl font-semibold leading-tight text-white">
+                                12 inbound leads, untouched. Watch CB close the gap in 60 seconds.
+                            </p>
+                            <p className="mt-2 text-sm text-slate-300">
+                                Lead ingest → AI scoring → personalized outreach → showing booked. Across Follow Up Boss, kvCORE &amp; your calendar.
+                            </p>
+                            <span className="mt-4 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300 group-hover:text-cyan-200">
+                                <Play size={11} fill="currentColor" /> Start the 60-second hook <ArrowRight size={11} className="transition-transform group-hover:translate-x-1" />
+                            </span>
+                        </Link>
+                        <Link to="/demo/quick/supermarket"
+                            data-testid="hook-card-supermarket"
+                            className="group rounded-md border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent p-6 transition-all hover:border-emerald-400/60 hover:shadow-[0_0_40px_rgba(16,185,129,0.25)]">
+                            <div className="flex items-center justify-between">
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Grocery / C-Store · 60s</span>
+                                <span className="rounded-sm bg-emerald-400/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-emerald-300">New</span>
+                            </div>
+                            <p className="font-heading mt-3 text-2xl font-semibold leading-tight text-white">
+                                Cooler drift at 11 PM. Truck on site by 11:52. $4,200 saved.
+                            </p>
+                            <p className="mt-2 text-sm text-slate-300">
+                                IoT fault → warranty pulled → contractor dispatched → audit logged. Across NetSuite, ServiceChannel &amp; your POS.
+                            </p>
+                            <span className="mt-4 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-emerald-300 group-hover:text-emerald-200">
+                                <Play size={11} fill="currentColor" /> Start the 60-second hook <ArrowRight size={11} className="transition-transform group-hover:translate-x-1" />
+                            </span>
+                        </Link>
+                    </div>
+                </section>
+
+                {/* Layer 2 label · existing vertical walkthroughs */}
+                <section className="mt-14 mb-3 flex items-center gap-2" data-testid="picker-layer-2-label">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                        <Layers size={11} /> Layer 2 · Industry walkthrough
+                    </span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Auto-played · ~5-13 min</span>
+                </section>
                 <section className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-8" data-testid="vertical-cards">
                     {VERTICALS.map((v) => (
                         <Link

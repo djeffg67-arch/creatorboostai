@@ -7,6 +7,7 @@ import { GetLeadsSection } from "@/components/site/GetLeadsSection";
 import { OperationsLifecycleSection } from "@/components/site/OperationsLifecycleSection";
 import { RecentActivityTicker } from "@/components/site/RecentActivityTicker";
 import AvatarWidget from "@/components/avatar/AvatarWidget";
+import { IndustryChipRow } from "@/components/demo/HookDemoPlayer";
 import { INDUSTRY_IMG, DEMO_IMG, SECTION_BG } from "@/lib/images";
 import { api } from "@/lib/api";
 import {
@@ -377,39 +378,33 @@ export default function HomePage() {
                                 data-testid="hero-headline"
                             >
                                 Your Business Doesn't Need Another CRM.{" "}
-                                <span className="text-cyan-400">It Needs Execution, Automation &amp; Intelligent Software Management.</span>
+                                <span className="text-cyan-400">It Needs Execution.</span>
                             </h1>
+
+                            <p
+                                className="mt-3 max-w-2xl font-mono text-[11px] uppercase tracking-[0.22em] text-slate-400 fade-in-up"
+                                style={{ animationDelay: "120ms" }}
+                                data-testid="hero-tagline"
+                            >
+                                AI-powered execution across sales, operations, follow-up &amp; the software you already use.
+                            </p>
 
                             <p
                                 className="mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg fade-in-up"
                                 style={{ animationDelay: "160ms" }}
                                 data-testid="hero-sub"
                             >
-                                CreatorBoostAI finds leads, contacts them, follows up, and closes deals
-                                automatically — while operating across your existing software, workflows, and
-                                teams to improve execution, reduce inefficiencies, and increase measurable
-                                business performance.
+                                CreatorBoostAI finds leads, follows up automatically, coordinates workflows, and
+                                operates across the software your business already uses — Salesforce, NetSuite, Gmail,
+                                your CRM, your calendar, your back office.
                             </p>
 
-                            {/* Enterprise infrastructure / interop reinforcement */}
+                            {/* Industry chip row · personalizes the demo CTA */}
                             <div
-                                className="mt-4 max-w-2xl space-y-1.5 fade-in-up"
-                                style={{ animationDelay: "200ms" }}
-                                data-testid="hero-enterprise-positioning"
+                                className="mt-5 fade-in-up"
+                                style={{ animationDelay: "180ms" }}
                             >
-                                <p className="flex items-start gap-2 text-sm text-slate-400">
-                                    <span className="mt-2 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400/70" />
-                                    <span>
-                                        Works across CRMs, spreadsheets, operations software, service systems,
-                                        finance workflows, and internal business tools.
-                                    </span>
-                                </p>
-                                <p className="flex items-start gap-2 text-sm text-slate-400">
-                                    <span className="mt-2 h-1 w-1 flex-shrink-0 rounded-full bg-cyan-400/70" />
-                                    <span>
-                                        CB acts as an AI execution layer over the software your company already uses.
-                                    </span>
-                                </p>
+                                <IndustryChipRow testId="hero-industry-chips" />
                             </div>
 
                             {/* Execution-proof tiles · today's measurable activity */}
@@ -435,11 +430,11 @@ export default function HomePage() {
                                 data-testid="hero-ctas"
                             >
                                 <Link
-                                    to="/demo"
+                                    to="/demo/quick/realtor"
                                     data-testid="hero-cta-watch-demo"
                                     className="inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-6 py-3.5 text-sm font-semibold text-ink-900 shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all hover:bg-cyan-400 hover:shadow-[0_0_40px_rgba(6,182,212,0.6)]"
                                 >
-                                    <Play size={14} fill="currentColor" /> Watch Demo
+                                    <Play size={14} fill="currentColor" /> Watch 60-second Demo
                                 </Link>
                                 <Link
                                     to="/demo/noldus"
