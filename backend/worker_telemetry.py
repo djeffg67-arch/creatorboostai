@@ -190,11 +190,13 @@ async def compute_system_status(db, *, paused: bool = False, pause_reason: Optio
     reasons: List[str] = []
 
     if not workers:
+        # Fresh boot — no worker has ticked yet. Show as warming up (yellow)
+        # rather than red. Scheduler ticks every 5min; this resolves quickly.
         return {
-            "level": "red",
-            "label": "Unknown",
-            "summary": "No worker heartbeats yet — the engine has never reported.",
-            "reasons": ["no_heartbeats_recorded"],
+            "level": "yellow",
+            "label": "Warming up",
+            "summary": "No worker heartbeats yet — first tick lands within ~5 min of boot.",
+            "reasons": ["awaiting_first_heartbeat"],
             "workers": [],
             "worker_count": 0,
             "stale_count": 0,

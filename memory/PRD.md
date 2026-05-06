@@ -1,8 +1,50 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-06 (Iter 67b — Day-1 Cold-Start Safety Guardrail)
+**Last update:** 2026-05-06 (Iter 68 — Worker Telemetry · Heartbeats · Signal-Light Dashboard)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 68 — WORKER TELEMETRY + SIGNAL LIGHT (P0)
+
+Status: SHIPPED · 11/11 backend pytest · 6/6 Playwright assertions · Live-verified
+
+User brief: "do option A · also add a signal light status that shows that the avatar is working getting leads and more in dashboard so i know if the system is working or is stalled or paused".
+
+### Files added
+- `/app/backend/worker_telemetry.py` (~210 lines):
+  - `record_heartbeat(db, worker, ok, error, interval_sec, stale_after_sec)` — idempotent upsert per loop tick. Failures swallowed (telemetry must never crash the worker it measures).
+  - `get_all_workers(db)` — returns each registered worker + computed `is_stale` and `seconds_since_tick`.
+  - `compute_system_status(db, paused, pause_reason)` — traffic-light logic with smart handling of:
+    - Paused → yellow ("Paused" label).
+    - Fresh boot, no heartbeats yet → yellow "Warming up" (resolves in ≤ 5 min as scheduler ticks).
+    - 1 stale worker / errors > 0% / 1 expected worker missing → yellow "Degraded".
+    - 2+ stale / errors ≥ 50% / 2+ missing → red "Stalled".
+    - Otherwise → green "Operational" (animated ping pulse).
+    - **Optional/intentional-inactive workers** (e.g. `imap_poller` when IMAP env not configured, `daily_autopilot_loop` before its 24h first tick) appear in `optional_inactive[]` and DO NOT count against status.
+- `/app/backend/tests/test_iter68_worker_telemetry.py` (created by testing agent).
+
+### Files updated
+- `/app/backend/outbound.py`:
+  - Heartbeat wired into `background_scheduler_loop`, `imap_poller_loop`, `daily_autopilot_loop`, and the in-router `_autopilot_cycle` (success and failure paths).
+  - New endpoint `POST /api/ops/outbound/worker-status` (founder-only) — returns `{ok, system_status, workers, paused, pause_reason}`.
+  - `/dashboard` endpoint extended with embedded `system_status` (same structure).
+- `/app/backend/business_activation.py` — heartbeat wired into `business_activation_nurture_loop`.
+- `/app/frontend/src/pages/PortalOpsPage.jsx` — new `<SystemSignalLight>` component (~150 lines) injected at top of `OutboundTab`. data-testid pattern: `system-signal-light`, `signal-label`, `signal-summary`, `signal-toggle`, `signal-workers`, `worker-{name}`.
+
+### Verified end-to-end
+- 🟢 GREEN · Operational · "All 3 expected workers fresh · no recent errors." (animated ping)
+- 🟡 YELLOW · Paused (when operator pauses) — label/color flip within 5s of pause click.
+- 🟡 YELLOW · Warming up (fresh boot, no heartbeats yet — resolves ≤ 5 min).
+- 🔴 RED · Stalled (fault-injection test: stale workers + 50% error rate triggered correctly).
+- Worker-status endpoint requires founder auth (401 without key).
+- IMAP poller shown in "OPTIONAL · NOT RUNNING" section because IMAP env unset (intentional).
+- `daily_autopilot_loop` shown as optional until first 24h tick lands.
+- Pause flow → yellow → resume → green works in real time.
+
+### Stays modular
+The telemetry layer is independent of the engine logic. Adding a new background worker = call `record_heartbeat(db, "my_worker", ok=True)` once per tick + register it in `WORKER_DEFAULTS` if you want the system_status to track it.
 
 ---
 
