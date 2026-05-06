@@ -2668,7 +2668,12 @@ def make_outbound_router(
             {"_id": 0, "ts": 1, "email": 1, "kind": 1, "from_email": 1,
              "subject": 1, "prospect_id": 1, "created_at": 1},
         ).sort([("created_at", -1)]).limit(5)
-        recent_sends = await recent_sends_cursor.to_list(5)
+        recent_sends_raw = await recent_sends_cursor.to_list(5)
+        # Normalize: legacy events only have created_at; promise both ts + created_at uniformly.
+        recent_sends = [
+            {**e, "ts": e.get("ts") or e.get("created_at")}
+            for e in recent_sends_raw
+        ]
 
         recent_replies = await db.outbound_prospects.find(
             {"replied_at": {"$ne": None}},

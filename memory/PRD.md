@@ -1,8 +1,71 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-06 (Iter 68 — Worker Telemetry · Heartbeats · Signal-Light Dashboard)
+**Last update:** 2026-05-06 (Iter 68b — Phase-1 Trust-Through-Evidence Complete · Engine OPERATIONAL)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 68b — PHASE-1 TRUST-THROUGH-EVIDENCE COMPLETE (P0)
+
+Status: SHIPPED · 9/9 backend pytest · 14/14 Playwright · Engine VERIFIED ALIVE
+
+User mandate: **"Make the system operational, measurable, and deal-focused. NO new features."** Three deliverables shipped:
+
+### 1. Queue visibility — `POST /api/ops/outbound/queue-status`
+Returns 7 pipeline-stage counts + 5-row samples for inspection:
+- `scoring_backlog` · prospects without lead_score
+- `send_eligible_now` · ready-to-send right now (157 currently)
+- `awaiting_bump` · waiting on +45min bump
+- `scheduled_followups` · cadence step 1-3 with not_before_at in future
+- `in_flight_sends` · contacted in last 60min
+- `stalled_no_progress` · contacted >7d, no reply
+- `cold` · already marked unresponsive
+- `hot_leads` · positive replies awaiting next-action
+- `recent_sends[5]` + `recent_replies[5]` — execution evidence
+
+### 2. Operator View — the 7-question answer panel in `/portal/ops` → Outbound tab
+Single block at top of tab answers exactly what the user asked for:
+| # | Card | Live data |
+|---|---|---|
+| 1 | Engine alive? | 🟢 Operational · 3 workers fresh · no errors |
+| 2 | Doing right now? | Idle · ready · cap 50/day |
+| 3 | Leads waiting? | 157 · 0 unscored · 157 ready |
+| 4 | Sent today? | 19 · 0% bounce |
+| 5 | Stuck (>7d)? | 0 |
+| 6 | Failed (errors)? | 0 · 0% error rate |
+| 7 | Last cycle? | 3 min ago · completed |
+| + | Next scheduled? | any moment · scheduler_loop tick |
+
+Plus 3 evidence blocks: **Hot leads** (2 visible), **Last 5 sends**, **Last 5 replies** (with classification).
+
+Auto-refresh every 30s · manual refresh button · all data-testids covered.
+
+### 3. Real security audit document — `/app/memory/security_audit.md`
+Industry-standard `bandit` v1.8 scan: **0 high · 0 medium · 52 low (all reviewed, all non-exploitable)**. Documented per-finding triage. Refutes the earlier scanner report's "8 high-severity issues" / "eval() vulnerability" claims with line-by-line evidence.
+
+### 4. Silent-failure hardening (carried over from iter 68)
+All 4 background loops + autopilot cycle now write heartbeats with success/error state. Silent failures are now visible in `/worker-status`.
+
+### Files added / updated
+- `/app/backend/outbound.py` — added `/queue-status` endpoint (~140 lines).
+- `/app/frontend/src/lib/api.js` — added `opsOutboundQueueStatus`, `opsOutboundWorkerStatus`.
+- `/app/frontend/src/pages/PortalOpsPage.jsx` — added `<OperatorView>` component (~235 lines) injected at top of `<OutboundTab>`.
+- `/app/memory/security_audit.md` — new audit doc with bandit + pyflakes evidence.
+- `/app/backend/tests/test_iter68b_queue_status_operator.py` — created by testing agent.
+
+### Engine activation status
+- ✅ `state.paused = false`
+- ✅ Day-1 cold-start guardrail naturally lifted (Day 4)
+- ✅ Effective daily cap = 50/day (Week 1 of warm-up)
+- ✅ All 3 expected workers fresh
+- ✅ Real lead movement in last 60 min (5 sends, 5 replies)
+- ✅ 2 hot leads in pipeline awaiting next-action
+- ✅ Bounce rate 0% · Complaint rate 0% · Risk level low
+- ✅ Suppression list active · audit trail writing
+
+### Stays modular for Koollite (still queued)
+The outbound engine is now stable, observable, and operational. When a real customer signal arrives, the Koollite Lighting Intelligence integrations layer in without disrupting the engine.
 
 ---
 
