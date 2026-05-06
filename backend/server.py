@@ -3611,6 +3611,12 @@ from business_activation import (  # noqa: E402
 app.include_router(make_business_activation_router(db, _require_outbound_founder))
 
 
+# ---------- State Business Filings · Modular Source Adapter (Iter 66) ----------
+from state_business_filings import make_state_filings_router  # noqa: E402
+
+app.include_router(make_state_filings_router(db, _require_outbound_founder))
+
+
 @app.on_event("startup")
 async def _start_business_activation_nurture():
     asyncio.create_task(business_activation_nurture_loop(db))

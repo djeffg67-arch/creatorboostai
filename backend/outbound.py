@@ -1806,6 +1806,74 @@ def make_outbound_router(
             log.error(f"[autopilot] external sources failed: {e}")
             result["external_added"] = 0
 
+        # Step 2.5 · State business-filings promotion (Iter 66)
+        # Look for state_filings docs that are enrichment-verified but not yet
+        # forwarded into outbound_prospects. This handles filings that were
+        # ingested between cycles (e.g. an admin uploaded a CSV after the
+        # last autopilot run).
+        try:
+            from state_business_filings import _now_iso as _sf_now
+            promoted = 0
+            cursor = db.state_filings.find(
+                {"forwarded_to_outbound": False, "enrichment.email_candidate": {"$ne": None},
+                 "enrichment.email_status": "verified"},
+                {"_id": 0},
+            ).limit(50)
+            async for filing in cursor:
+                e = (filing.get("enrichment") or {})
+                email_n = (e.get("email_candidate") or "").strip().lower()
+                if not email_n or "@" not in email_n:
+                    continue
+                if await db.outbound_prospects.find_one({"email": email_n}, {"_id": 0, "id": 1}):
+                    await db.state_filings.update_one(
+                        {"id": filing["id"]},
+                        {"$set": {"forwarded_to_outbound": True, "forwarded_at": _sf_now()}},
+                    )
+                    continue
+                if await db.outbound_suppression.find_one({"email": email_n}, {"_id": 0}):
+                    continue
+                bn = (filing.get("business_name") or "")[:240]
+                p = {
+                    "id": str(uuid.uuid4()),
+                    "business_name": bn,
+                    "contact_name": filing.get("owner_name") or filing.get("registered_agent_name"),
+                    "email": email_n,
+                    "industry": e.get("industry_guess") or filing.get("industry"),
+                    "website": filing.get("website") or e.get("domain_candidate"),
+                    "location": e.get("state_full") or filing.get("state_full"),
+                    "linkedin_url": None,
+                    "notes": (
+                        f"New {filing.get('entity_type') or 'business'} registered in "
+                        f"{e.get('state_full') or filing.get('state')} on "
+                        f"{filing.get('filing_date', 'recently')}. Source: state filings."
+                    )[:500],
+                    "source": f"state_filings:{filing.get('source_state', '')}",
+                    "status": "new", "lead_score": None, "target_segment": None,
+                    "recommended_offer": None, "ai_reasoning": None,
+                    "estimated_pain": None, "suggested_pitch_angle": None,
+                    "emails_sent": 0, "email_status": None,
+                    "last_email_at": None, "replied_at": None, "reply_body": None,
+                    "reply_sentiment": None, "reply_category": None,
+                    "linkedin_connect_body": None, "linkedin_followup_body": None,
+                    "linkedin_connect_sent_at": None, "linkedin_followup_sent_at": None,
+                    "linkedin_accepted": False,
+                    "unsubscribed": False, "suppressed": False,
+                    "created_at": now_iso(), "updated_at": now_iso(),
+                }
+                try:
+                    await db.outbound_prospects.insert_one(p)
+                    await db.state_filings.update_one(
+                        {"id": filing["id"]},
+                        {"$set": {"forwarded_to_outbound": True, "forwarded_at": _sf_now()}},
+                    )
+                    promoted += 1
+                except Exception as e2:
+                    log.warning(f"[autopilot] state-filings promote failed: {e2}")
+            result["state_filings_promoted"] = promoted
+        except Exception as e:
+            log.error(f"[autopilot] state-filings promote failed: {e}")
+            result["state_filings_promoted"] = 0
+
         # Step 3 · score everything unscored
         try:
             cursor = db.outbound_prospects.find({"lead_score": None}, {"_id": 0})
@@ -2203,6 +2271,33 @@ def make_outbound_router(
             sources_cfg = configured_status()
         except Exception:
             sources_cfg = {}
+
+        # State-filings panel (Iter 66)
+        state_filings_panel: Dict[str, Any] = {}
+        try:
+            sf_total = await db.state_filings.count_documents({})
+            sf_today = await db.state_filings.count_documents({
+                "date_collected": {"$gte": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()},
+            })
+            sf_enriched = await db.state_filings.count_documents({"enrichment.email_status": "verified"})
+            sf_forwarded = await db.state_filings.count_documents({"forwarded_to_outbound": True})
+            sf_pending = await db.state_filings.count_documents({
+                "forwarded_to_outbound": False, "enrichment.email_status": "verified",
+            })
+            sf_last_run = await db.state_filing_runs.find_one(
+                {}, {"_id": 0}, sort=[("started_at", -1)]
+            )
+            state_filings_panel = {
+                "total_filings": sf_total,
+                "filings_24h": sf_today,
+                "verified_emails": sf_enriched,
+                "forwarded_to_outbound": sf_forwarded,
+                "pending_forward": sf_pending,
+                "last_run": sf_last_run,
+            }
+        except Exception as e:
+            log.warning(f"[dashboard] state_filings panel failed: {e}")
+
         return {
             "kpi": {
                 "total_prospects": total,
@@ -2222,7 +2317,91 @@ def make_outbound_router(
             "sent_today": await _today_sent_count(),
             "last_autopilot_run": last_run,
             "sources_configured": sources_cfg,
+            "state_filings": state_filings_panel,
         }
+
+    @router.post("/live-feed")
+    async def live_feed(payload: OpsAuth):
+        """Live activity feed — last 50 execution events across the system.
+        Combines: state-filings runs, autopilot runs, sends, replies, hot
+        leads, unsubscribes, suppressions. Returned newest-first so the UI
+        can render a Slack-style ticker."""
+        await require_founder(payload)
+        events: List[Dict[str, Any]] = []
+
+        # Recent state-filings runs
+        try:
+            cursor = db.state_filing_runs.find({}, {"_id": 0}).sort([("started_at", -1)]).limit(15)
+            async for r in cursor:
+                events.append({
+                    "ts": r.get("started_at"),
+                    "kind": "state_filing_run",
+                    "summary": (
+                        f"Pulled {r.get('records_found', 0)} {r.get('state', '')} filings · "
+                        f"+{r.get('records_added', 0)} added · "
+                        f"+{r.get('records_forwarded', 0)} forwarded"
+                    ),
+                    "lane": "intake",
+                    "ref": r.get("id"),
+                })
+        except Exception:
+            pass
+
+        # Recent autopilot cycles
+        try:
+            cursor = db.outbound_autopilot_runs.find({}, {"_id": 0}).sort([("started_at", -1)]).limit(10)
+            async for r in cursor:
+                res = r.get("result") or {}
+                events.append({
+                    "ts": r.get("started_at"),
+                    "kind": "autopilot_cycle",
+                    "summary": (
+                        f"Cycle: seeded {((res.get('seeded') or {}).get('added', 0))} · "
+                        f"scored {res.get('scored', 0)} · sent {res.get('sent_this_cycle', 0)}"
+                    ),
+                    "lane": "engine",
+                    "ref": r.get("id"),
+                })
+        except Exception:
+            pass
+
+        # Recent sends
+        try:
+            cursor = db.outbound_events.find(
+                {"event": {"$in": ["sent", "replied", "unsubscribed", "complained", "bounced"]}},
+                {"_id": 0},
+            ).sort([("ts", -1)]).limit(25)
+            async for ev in cursor:
+                events.append({
+                    "ts": ev.get("ts"),
+                    "kind": ev.get("event"),
+                    "summary": f"{ev.get('event', '').title()} · {ev.get('email', '')}",
+                    "lane": "outreach",
+                    "ref": ev.get("prospect_id"),
+                })
+        except Exception:
+            pass
+
+        # Recent hot leads (positive replies)
+        try:
+            cursor = db.outbound_prospects.find(
+                {"status": "replied_positive"},
+                {"_id": 0, "id": 1, "business_name": 1, "email": 1, "replied_at": 1},
+            ).sort([("replied_at", -1)]).limit(10)
+            async for p in cursor:
+                events.append({
+                    "ts": p.get("replied_at"),
+                    "kind": "hot_lead",
+                    "summary": f"Hot lead created · {p.get('business_name') or p.get('email')}",
+                    "lane": "hot",
+                    "ref": p.get("id"),
+                })
+        except Exception:
+            pass
+
+        # Sort newest first, drop None timestamps to the end
+        events.sort(key=lambda e: e.get("ts") or "", reverse=True)
+        return {"ok": True, "events": events[:50]}
 
     # Public unsubscribe — no auth, uses deterministic token.
     @router.get("/unsubscribe/{token}")
