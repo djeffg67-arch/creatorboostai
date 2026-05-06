@@ -1,0 +1,35 @@
+{
+  "summary": "End-to-end freeze sweep across all demo flows (Iter 64 task). Verified 18 routes (9 primary + 9 aliases) + the /demo picker. Zero JS page-errors, zero infinite loaders, zero navigation hangs. Page main-thread stayed responsive (1-4 ms Date.now() round-trip) before start, during auto-advance, and after scene-next clicks across every demo. Supermarket: scenes 1→9 advance cleanly on next-click with ~750 ms click-to-render latency and action ledger ticking 2→14 (agentic core fully live). Startup: Start-Demo-With-Voice starts narration, ledger increments, and scene pager auto-advances scene 1→2 at ~20 s (narration length), no UI block during speech. Education: scene 1→2 auto-advance confirmed within 8 s. Sita/Noldus/Airport/Realtor/Insurance/Creator: all mount scene-1 cleanly, agentic panels present where expected (sita/startup), no error. Picker shows all 8 demo cards and their CTAs resolve. Aliases (/demo/influencer, /demo/enterprise, /demo/airports, /demo/retail, /demo/c-store, /demo/grocery, /demo/school, /demo/schools, /demo/k12) all render the same target component without error. Only known cosmetic React hydration warning from iter 39 (<span> child of <option> in scene-jump <select>) still present — NON-BLOCKING.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "SupermarketDemoPage.jsx scene-jump <select>",
+        "issue": "React hydration warning '<span> cannot be a child of <option>' still present (carry-over from iter 39). Cosmetic only — does not freeze or block.",
+        "selector": "[data-testid='scene-jump']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/tmp/demo_freeze_results.json"
+  ],
+  "action_items": [
+    "(optional, low-priority) Clean up hydration warning in scene-jump <select> by removing emergent x-id wrapper from <option> children."
+  ],
+  "critical_code_review_comments": [
+    "All demo pages gate long-form playback behind an explicit user click (Start Demo / Start Demo With Voice) — correct for browser autoplay policy. Startup/Sita visually signal this with a 'VOICE READY · CLICK START' badge — good UX hint.",
+    "Scene-advance latency on Supermarket is ~750 ms per click (mostly transition animation). Acceptable but could be tightened with a shorter CSS transition if demos feel laggy to investors.",
+    "SSE/EventSource leak check across navigation: navigated through 9+ demos sequentially in a single page session with no progressive slowdown or memory balloon detected — clean unmount is working."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100% — no freezes, no infinite loaders, no nav hangs, no blocking JS errors across all 18 routes"},
+  "test_credentials": "N/A",
+  "seed_data_creation": "None — passive read of public demo pages only",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Freeze-sweep complete. All demo routes verified: /demo/{realtor,insurance,creator,influencer,noldus,enterprise,sita,airport,airports,supermarket,retail,c-store,grocery,education,school,schools,k12,startup}. Key signals: Supermarket click-advance 1→9 works, actions 2→14 across 8 clicks, ~750ms/click. Startup voice narration starts + scene pager auto-advances 1→2 at ~20s. Sita/Startup have visible Action ID Ledger, Live Reasoning Stream, and Revenue Counter panels mounted. One outstanding cosmetic bug (hydration warning on scene-jump <option>) is inherited from iter 39 and non-blocking. No new freeze/hang bugs found.",
+  "rca of the issue": "No bugs to RCA. Voice/autoplay gating is not a freeze — it is intentional browser-policy compliance (Chrome/Safari block autoplay audio without user gesture). Scene-1-holds-until-narration-finishes behaviour on Startup demo is by design: the scene pager advances when the current narration completes (~20 s per scene), which is consistent across scene 1→2 observed at t+20s."
+}
