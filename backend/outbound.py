@@ -731,6 +731,7 @@ def make_outbound_router(
         return {
             "window_days": days,
             "sent": counts.get("sent", 0),
+            "sent_today": counts.get("sent", 0),  # alias · matches iter-66 spec
             "bounced": bounced,
             "complained": complained,
             "replied": counts.get("replied", 0),
@@ -738,6 +739,11 @@ def make_outbound_router(
             "bounce_rate": round(bounced / sent, 4),
             "complaint_rate": round(complained / sent, 4),
             "risk": (
+                "high"   if (bounced / sent) >= BOUNCE_RATE_PAUSE_THRESHOLD or (complained / sent) >= COMPLAINT_RATE_PAUSE_THRESHOLD
+                else "medium" if (bounced / sent) >= BOUNCE_RATE_PAUSE_THRESHOLD / 2
+                else "low"
+            ),
+            "risk_level": (
                 "high"   if (bounced / sent) >= BOUNCE_RATE_PAUSE_THRESHOLD or (complained / sent) >= COMPLAINT_RATE_PAUSE_THRESHOLD
                 else "medium" if (bounced / sent) >= BOUNCE_RATE_PAUSE_THRESHOLD / 2
                 else "low"

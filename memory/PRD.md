@@ -1,8 +1,60 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-06 (Iter 65 — Cinematic 3-Layer Demo Funnel · Layer 1 hooks + Industry chips + Hero simplification)
+**Last update:** 2026-05-06 (Iter 66 — Outbound Engine End-to-End: State Filings · DNS Verifier · Heuristic Enrichment)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 66 — OUTBOUND ENGINE END-TO-END (P0)
+
+Status: SHIPPED · Tested 17/17 backend pytest cases green · Zero critical issues
+
+User brief: "CreatorBoostAI must now become a real working autonomous outbound system, not only a dashboard showing numbers." Confirmed stack 1a/2a/3a/4a/5a — modular foundation first, vendor adapters layer on later.
+
+### Files added
+- `/app/backend/state_business_filings.py` (~370 lines) — **Modular state-filings adapter**: `BaseStateAdapter` interface + `CSVStateAdapter` parser + 5 registered states (MI/TX/FL/CA/NY) + `ingest_filings` (dedup → enrich → forward) + 4 endpoints under `/api/ops/outbound/sources/states/*` (`list`, `upload-csv`, `runs`, `recent-filings`). CSV schema with synonym mapping (entity_name/business_name/company_name → business_name; etc.). 30-day lookback filter. Persists to `state_filings` collection + `state_filing_runs` audit log.
+- `/app/backend/email_verifier.py` (~140 lines) — **Zero-dependency DNS-only verifier**: syntax + disposable + consumer-domain detection + DNS A-record check (24h cache) + suppression list integration. Returns `verified | risky | invalid | unknown`. Async-safe.
+- `/app/backend/enrichment.py` (~190 lines) — **Heuristic enrichment**: domain guess from business name (strips entity suffixes), email candidate (declared > role-pattern @ guessed-domain), state-abbreviation → full-name map, 15 industry keyword classifiers. Returns `{domain_candidate, email_candidate, email_status, industry_guess, state_full, needs_enrichment, confidence, notes}`.
+
+### Files updated
+- `/app/backend/outbound.py`:
+  - Added Step 2.5 in `_autopilot_cycle`: promotes verified state-filings into `outbound_prospects` each cycle (idempotent via dedup).
+  - Extended `/dashboard` with `state_filings` panel: `total_filings`, `filings_24h`, `verified_emails`, `forwarded_to_outbound`, `pending_forward`, `last_run`.
+  - Added `/api/ops/outbound/live-feed` (founder-only): newest-first execution events across state-filings runs · autopilot cycles · sends/replies/unsubscribes · hot leads. Slack-style ticker.
+  - Added `risk_level` and `sent_today` aliases on the deliverability panel to match the spec contract.
+- `/app/backend/server.py`: mounted `make_state_filings_router(db, _require_outbound_founder)`.
+
+### What was tested (17/17)
+1. Adapter list endpoint returns 5 states.
+2. CSV upload ingests 20 rows and dedups on re-upload (skipped_duplicate=20).
+3. Enrichment payload populated on every filing (domain, email, status, industry, state_full, confidence).
+4. DNS verifier correctly flags `nonexistent-domain-xyz123.test` as `invalid` and known-good MX domains as `verified`.
+5. AI scoring runs on forwarded prospects via autopilot cycle.
+6. Send pipeline mocked correctly when `RESEND_API_KEY` missing — cycle reports clear `reasons[]` ('daily_cap_reached' / 'nothing_to_score' / 'no_eligible_prospects_to_send').
+7. Dashboard counters all return real integers across kpi/state_filings/deliverability.
+8. Reply detection wiring: `replied_positive` transitions reachable via classification path.
+9. Hot leads (status=replied_positive) surface in `dashboard.warm_leads` and `kpi.positive`.
+10. Unsubscribe link populates `outbound_suppression`, sets `unsubscribed=true`, blocks future state-filings re-forwarding.
+11. Bounce suppression prevents re-add via state-filings.
+12. Daily cap admin override works via `/admin/set-daily-limit`.
+13. `risk_level` field exposed on deliverability (low/medium/high based on bounce/complaint thresholds).
+14. **Last Cycle no longer 0/0/0** — non-zero counts achievable when fresh businesses uploaded; when zero, `reasons[]` explains why (the engine is correctly idle, not broken).
+15. `/live-feed` returns events newest-first with `kind=state_filing_run` after each upload.
+16. Existing endpoints regress clean (`/dashboard`, `/state`, `/prospects/list`).
+17. Iter 63 publish + Iter 65 hooks unchanged.
+
+### Architecture wins
+- **Vendor swap-ready**: drop an Apollo/Hunter/Clay API key → those `lead_sources.py` adapters activate; my `email_verifier.py` is the safe-default fallback.
+- **Real SoS connectors**: drop a per-state subclass (`class FloridaSunBizAPI(BaseStateAdapter)` overriding `parse_payload`) into `state_business_filings.py` → no other code changes.
+- Strict separation of concerns: ingestion / verification / enrichment / forwarding / scoring / sending all independent and individually testable.
+
+### Compliance/safety verified
+- Only `verified` emails forward to outbound automatically; `risky` (consumer domains, role accounts) are flagged but held; `invalid` are dropped permanently.
+- Disposable & known-spam-trap domains hardcoded.
+- Suppression list checked at every ingest layer (state-filings forward, autopilot cycle, manual add).
+- 30-day lookback enforced on CSV ingest — old filings are skipped.
+- Auto-pause thresholds intact (bounce ≥3% / complaint ≥0.1% over 50+ sends).
 
 ---
 
