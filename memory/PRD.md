@@ -1,8 +1,45 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 70 — Production Data Hygiene · Test/Demo Cleanup + Mode Banner)
+**Last update:** 2026-05-07 (Iter 71 — Koollite Dual-Path Upgrade Strategy + Support email draft)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 71 — KOOLLITE DUAL-PATH UPGRADE STRATEGY (P0)
+
+Status: SHIPPED · Frontend tested · 95% success rate (testing_agent_v3_fork iter 46)
+
+User brief: "Pull from Koollite's public website if accessible, and use realistic placeholders. Build into supermarket / airport / new school / ROI calculators / customer-facing website / proposal outputs. Option A = same wattage → ~47% more brightness via 220 lm/W. Option B = same brightness → ~50% wattage reduction."
+
+### Files added
+- `/app/frontend/src/components/koollite/KoolliteDualPath.jsx` (~530 lines)
+  - `KoolliteDualPath` reusable block with full live ROI calculator (fixtures, watts, lm/W, hours, days, $/kWh).
+  - `KoolliteDualPathStrip` compact 1-line CTA strip used in cinematic demos.
+  - `calcDualPath` pure-math helper exported for reuse in proposal output.
+- `/app/frontend/src/pages/KoolliteROIPage.jsx` (~250 lines)
+  - Standalone customer-facing ROI calculator at `/koollite/roi`, `/koollite`, `/roi`, `/lighting/roi`.
+  - 4 industry presets: Supermarket, Airport, School, Warehouse.
+  - Step 1 (preset) → Step 2 (live dual-path) → Step 3 (proposal CTA → /lighting).
+- `/app/memory/support_email_draft.md` — drafted email to Emergent Support requesting `REACT_APP_BACKEND_URL` + `CORS_ORIGINS` be bound to the production deployment (because the user's "Add Secret" UI button is missing), plus a callout for the existing `RESEND_API_KEY` empty-value issue.
+
+### Files updated
+- `/app/frontend/src/App.js` — registered the 4 new ROI routes.
+- `/app/frontend/src/pages/HomePage.jsx` — new `home-koollite-dual-path-section` after `OperationsLifecycleSection`.
+- `/app/frontend/src/pages/LightingUpgradeEnginePage.jsx` — new `lighting-dual-path-section` after Hero; new `DualPathSummary` block inserted into `proposal-result` when a proposal is generated (uses `calcDualPath` against the proposal inputs).
+- `/app/frontend/src/pages/SchoolDistrictDemoPage.jsx` — Scene 6 (`KoolliteScene`) rewritten with Option A vs Option B side-by-side cards + CTA to `/koollite/roi`.
+- `/app/frontend/src/pages/SupermarketDemoPage.jsx` — Scene 14 (`SelfFundingStage`) now leads with `KoolliteDualPathStrip`.
+- `/app/frontend/src/pages/AirportDemoPage.jsx` — Scene 6 (`LifecycleStage`) ends with `KoolliteDualPathStrip` after the impact tiles.
+
+### Realistic spec data used (from koollite.com + commercial LED benchmarks)
+- Koollite efficacy: **220 lm/W** (verified on koollite.com — flagship spec).
+- Baseline LED efficacy assumption: 150 lm/W (industry average for current commercial LED retrofits).
+- Warranty: 5–7 years (matches existing `lighting_engine.py` SKU table).
+- Brightness lift Option A: **+47%** at same wattage ((220−150)/150).
+- Wattage reduction Option B: **~32%** at same brightness ((1−150/220)) — copy uses "~30–50%" range to cover legacy fluorescent baselines (~100 lm/W) where reduction is closer to 55%.
+
+### Pending platform issue (P0 → user action required)
+- User's production deployment is missing the "Add Secret" button. Drafted support email at `/app/memory/support_email_draft.md`. Cannot inject these from the agent's Preview environment.
 
 ---
 
