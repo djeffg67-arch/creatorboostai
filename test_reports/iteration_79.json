@@ -1,0 +1,70 @@
+{
+  "summary": "Frontend-only testing of iter 79 silent-loop cinematic avatar fix. Homepage avatar and voice-lock behavior PASS. Demo-cinematic silent-loop video routing + hidden mute/fullscreen + non-installed voice lock + scene progression PASS. However: the 'Visual presence' chip-text contract is NOT implemented in ExecutiveAvatar.jsx — chips in silent-loop mode still show 'Live', 'Standing by', or 'Paused · Scene N'. Also 4 of 5 regression demos (supermarket/airport/noldus/realtor) do not expose a cinematic avatar with the expected `{demo}-demo-avatar` testid, so their regression could not be verified; only startup exposes it and shares the same chip-text bug.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ExecutiveAvatar.jsx (demo-cinematic variant, silent-loop mode)",
+        "issue": "Chip text does NOT contain 'Visual presence' as required by iter 79 spec. On /demo/school the chip reads 'Live · Scene 1 of 7' (and on /demo/startup 'Paused · Scene 1'). The `dynamicChip` useMemo (lines ~400-414) has no `silentLoopMode` branch — it only handles paused/speaking/default ('Standing by'). The in-file comment at line 261 even says 'Chip text shows Visual presence · Scene N of M', but the code never renders that string.",
+        "selector": "[data-testid='school-demo-avatar']",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Regression demos (supermarket/airport/noldus/realtor)",
+        "issue": "Could not locate cinematic avatar via `{demo}-demo-avatar` testid on these four demo pages. Either the convention differs or the cinematic ExecutiveAvatar is not wired in. Only /demo/school and /demo/startup expose `{demo}-demo-avatar`. Main agent should verify these demos also switched to silent-loop mode with the registry-driven source resolver.",
+        "selector": "[data-testid='supermarket-demo-avatar'] (etc.)",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results_detail": {
+    "home_/": {
+      "video_src": "avatar-desktop-opt.mp4 ✓",
+      "chip_text": "AI Executive Operator · Live ✓",
+      "mute_btn_visible": true,
+      "fullscreen_btn_visible": true,
+      "voice_pref_after_click": "1 ✓ (persisted to localStorage)",
+      "tts_fetch_rejected_with_voice_lock": true
+    },
+    "school_/demo/school": {
+      "video_src": "avatar-hero-loop.mp4 ✓ (silent loop, not homepage clip)",
+      "chip_text": "'Live · Scene 1 of 7' ✗ — expected 'Visual presence'",
+      "mute_btn_HIDDEN": true,
+      "fullscreen_btn_HIDDEN": true,
+      "tts_fetch_NOT_blocked": "status 422, no voice-lock rejection ✓",
+      "scene_index_update_on_systems_btn": "0 → 1 ✓",
+      "scene_strip_rendered": true,
+      "scene_label_rendered": true,
+      "error_boundary": false,
+      "data_variant": "demo-cinematic ✓"
+    },
+    "regression": {
+      "startup": "avatar found, silent loop ✓, chip 'Paused · Scene 1' ✗ (chip bug)",
+      "supermarket": "avatar testid not found — needs main-agent verification",
+      "airport": "avatar testid not found — needs main-agent verification",
+      "noldus": "avatar testid not found — needs main-agent verification",
+      "realtor": "avatar testid not found — needs main-agent verification"
+    }
+  },
+  "test_report_links": [],
+  "action_items": [
+    "HIGH: Add a `silentLoopMode` branch to the `dynamicChip` useMemo in /app/frontend/src/components/avatar/ExecutiveAvatar.jsx — when silentLoopMode is true, return `Visual presence · Scene ${sceneIndex+1}${sceneCount ? ' of ' + sceneCount : ''}` (the in-file comment on line 261 already documents this intent; implementation was missed).",
+    "MEDIUM: Verify /demo/supermarket, /demo/airport, /demo/noldus, /demo/realtor actually render the cinematic ExecutiveAvatar and expose the `{demo}-demo-avatar` testid. If they use a different testid, update spec; if they still use avatar-desktop-opt.mp4, they are leaking homepage-script audio."
+  ],
+  "critical_code_review_comments": [
+    "ExecutiveAvatar.jsx line 400-414: the `dynamicChip` memo does not react to `silentLoopMode`. The spec explicitly requires 'Visual presence' copy in silent mode. Simple 3-line fix.",
+    "ExecutiveAvatar.jsx silentLoopMode also should probably suppress the `speaking` animation state on the chip-dot to match the 'visual presence only, no narration' contract. Currently chip pulse still blinks based on video.playing.",
+    "demoAvatarRegistry.js is consistent: every demo has `scenes: {}` so silent-loop mode is universal — confirms that any demo rendering the cinematic avatar should display 'Visual presence' chip (strengthens the bug report).",
+    "No duplicate export default found — the iter-79 mid-iter parsing bug stays fixed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "~75% — core routing/voice-lock/silent-loop behavior works; chip-text contract violated + 4/5 regression demos unverifiable by testid"},
+  "test_credentials": "not used (founder key not required for this test)",
+  "seed_data_creation": "",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 79 silent-loop routing works; the single remaining spec gap is 'Visual presence' chip copy in ExecutiveAvatar.jsx dynamicChip memo. Also need to confirm the cinematic avatar is wired into supermarket/airport/noldus/realtor demos (testids `{demo}-demo-avatar` were absent during this run — may simply be that those demos use non-cinematic avatar variant; confirm with main agent).",
+  "rca of the issue": "RCA: Iter 79 introduced silentLoopMode flag (ExecutiveAvatar.jsx line 261) correctly for source selection (line 220-230), voice-lock gating (line 285-289), auto-unmute skip (line 307), mute/fullscreen UI hide (line 547, 562), and initial muted state (line 269). However the `dynamicChip` memo at line 400-414 was not updated — the intended 'Visual presence · Scene N of M' copy (documented in the line-261 comment) was never wired. Reproduction: open /demo/school → inspect `[data-testid='school-demo-avatar']` chip → shows 'Live · Scene 1 of 7' when demo TTS fires, 'Standing by · Scene 1 of 7' when idle, 'Paused · Scene 1' when paused. Mitigation: add `if (silentLoopMode) return \\`Visual presence · Scene ${sceneIndex + 1}${sceneCount ? ' of ' + sceneCount : ''}\\`;` as the first branch inside dynamicChip (after the `!cinematic` guard) and include `silentLoopMode` in the dependency array."
+}

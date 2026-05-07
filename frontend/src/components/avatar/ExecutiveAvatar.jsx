@@ -219,16 +219,18 @@ export const ExecutiveAvatar = ({
 
     const videoSrc = useMemo(() => {
         if (cinematic && cinematicSources) {
-            // Prefer per-scene HeyGen clip; otherwise the universal
-            // with-audio desktop/mobile asset (NEVER the no-audio loop —
-            // we want the avatar's voice to be audible).
+            // RULE: a demo avatar must NEVER speak the homepage script.
+            //   • If a per-scene HeyGen clip IS registered for this scene,
+            //     play it (with its demo-specific audio).
+            //   • If NO per-scene clip is registered yet, fall back to the
+            //     SILENT loop video (visual presence only). The legacy
+            //     demo TTS continues to narrate the correct demo script.
             return cinematicSources.hasSceneClip
                 ? cinematicSources.src
-                : (platform === "mobile" ? sources.mobile : sources.desktop);
+                : sources.heroLoop;
         }
         if (cfg.useAudioClip) {
-            // Hero / any variant that wants real audio should use
-            // the desktop/mobile with-audio clip, not the muted loop.
+            // Hero — uses the with-audio clip (homepage script is correct here)
             return platform === "mobile" ? sources.mobile : sources.desktop;
         }
         if (cfg.loopVideo && variant === "hero") return sources.heroLoop;
@@ -251,12 +253,20 @@ export const ExecutiveAvatar = ({
               ? sources.posterMobile
               : sources.posterDesktop;
 
+    // When the cinematic avatar is in silent-loop mode (no per-scene
+    // clip registered yet) we hard-mute and disable the unmute button.
+    // Otherwise the user could try to unmute the silent loop and just
+    // get nothing — and we never want them to hear the homepage script
+    // attached to a demo scene.
+    const silentLoopMode = cinematic && !cinematicHasSceneClip;
+
     const [hostRef, inView] = useInView("250px");
     const videoRef = useRef(null);
     // Initial muted state respects browser autoplay policy AND any
     // persisted user-voice preference. If the user previously enabled
     // voice (a real user gesture happened earlier), respect it.
     const [muted, setMuted] = useState(() => {
+        if (silentLoopMode) return true;
         if (autoUnmute) return false;
         if (cfg.defaultMuted && readVoicePref()) return false;
         return cfg.defaultMuted;
@@ -266,21 +276,35 @@ export const ExecutiveAvatar = ({
     const [crossfade, setCrossfade] = useState(true); // visible by default
 
     // Install global voice lock for hero / demo-cinematic variants so
-    // the legacy demo TTS (OpenAI sage + Web Speech fallback) doesn't
-    // talk over the avatar.
+    // the legacy demo TTS doesn't talk over the avatar.
+    //   • Hero: always install (homepage avatar always has audio).
+    //   • Demo-cinematic: ONLY install when a per-scene HeyGen clip is
+    //     actually registered for the current scene. Without a per-scene
+    //     clip the avatar is a silent visual loop and the legacy demo
+    //     TTS must remain free to narrate the correct demo script.
+    const shouldInstallLock = useMemo(() => {
+        if (!cfg.installVoiceLock) return false;
+        if (cinematic) return cinematicHasSceneClip;
+        return true;
+    }, [cfg.installVoiceLock, cinematic, cinematicHasSceneClip]);
+
     useEffect(() => {
-        if (!cfg.installVoiceLock) return;
+        if (!shouldInstallLock) return;
         installAvatarVoiceLock();
         return () => uninstallAvatarVoiceLock();
-    }, [cfg.installVoiceLock]);
+    }, [shouldInstallLock]);
 
     // Auto-unmute on first real user gesture anywhere on the page.
     // Browsers count clicks, taps, and keypresses as gestures — a single
     // gesture clears the autoplay-with-sound restriction for the rest of
     // the session. We piggyback any document-level interaction so the user
     // doesn't need to find our specific unmute button.
+    //
+    // Skip this entirely in silent-loop mode — there's nothing to unmute,
+    // and unmuting would let the homepage-script audio leak into a demo.
     useEffect(() => {
         if (!cfg.installVoiceLock) return;
+        if (silentLoopMode) return;
         if (!muted) return; // already unmuted, nothing to wait for
         const onGesture = () => {
             const v = videoRef.current;
@@ -520,20 +544,22 @@ export const ExecutiveAvatar = ({
                     </button>
 
                     <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={toggleMute}
-                            data-testid={`${testId}-mute-toggle`}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-ink-900/80 text-white backdrop-blur-md transition-all hover:border-cyan-400/60 hover:text-cyan-300"
-                            aria-label={muted ? "Unmute" : "Mute"}
-                        >
-                            {muted ? (
-                                <VolumeX size={14} />
-                            ) : (
-                                <Volume2 size={14} />
-                            )}
-                        </button>
-                        {cfg.showFullscreen && (
+                        {!silentLoopMode && (
+                            <button
+                                type="button"
+                                onClick={toggleMute}
+                                data-testid={`${testId}-mute-toggle`}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-ink-900/80 text-white backdrop-blur-md transition-all hover:border-cyan-400/60 hover:text-cyan-300"
+                                aria-label={muted ? "Unmute" : "Mute"}
+                            >
+                                {muted ? (
+                                    <VolumeX size={14} />
+                                ) : (
+                                    <Volume2 size={14} />
+                                )}
+                            </button>
+                        )}
+                        {cfg.showFullscreen && !silentLoopMode && (
                             <button
                                 type="button"
                                 onClick={() => setShowFullscreen(true)}
