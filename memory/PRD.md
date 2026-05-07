@@ -1,8 +1,46 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 76 — BroadcastFeed cinematic command-center overlay)
+**Last update:** 2026-05-07 (Iter 77 — Avatar narration of broadcast events)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 77 — AVATAR NARRATION OF BROADCAST EVENTS (P0)
+
+Status: SHIPPED · iter 70 retest → **100% on retest scope.** Critical bug surfaced + fixed mid-test.
+
+User brief: "Add that — let the avatar narrate the broadcast events as they fire. Hot lead detected. Coastal Realty has opened your demo three times. The system stops feeling like dashboards-and-tickers and starts feeling like an actual AI executive narrating its own work."
+
+### What was built
+- `/app/frontend/src/components/portal/BroadcastFeed.jsx` — extended:
+  - `NARRATE_LANES = {reply, hot, deal, scheduling}` filter — only high-signal lanes are narrated; outreach/demo/intake/engine never trigger speech.
+  - `narrationLineFor(event)` composer that pulls the prospect name + `$value` directly from event fields (not regex-rewriting visual summaries) → produces cinematic lines like:
+    - `"Deal closed with Realtor T, value $30,000."`
+    - `"Hot lead detected. Coastal Realty just hit a high-intent threshold."`
+    - `"Interested reply received from Coastal Realty."`
+    - `"Scheduling event confirmed for AcmeCo."`
+  - Em-dash placeholder handling — when `business_name` is missing, narration falls back gracefully (e.g. `"Deal closed, value $30,000."` without an empty name slot).
+  - `speakLine()` helper using Web Speech API with `synth.cancel()` before each utterance so the latest event takes priority.
+  - Mute toggle + global feed toggle both cancel in-flight speech via `synth.cancel()`.
+  - Avatar thumbnail in the bottom-left control rail with `data-narrating='true'/'false'` — pulses cyan glow + animate-ping when narrating.
+
+### Critical bug surfaced + fixed in iter 69 (committed in source)
+- Initial implementation referenced `narrating`, `setNarrating`, `narrateTimerRef` without declaring them via `useState`/`useRef` — caused a runtime ReferenceError caught by ErrorBoundary, replacing the entire dashboard with the fallback card.
+- Fix committed: `useState(false)` + `useRef(null)` declarations at lines 124 and 137.
+
+### Verified live
+- Login at `/portal/ops` no longer triggers ErrorBoundary.
+- 5 deal-lane narrations captured in iter 70 with the new cinematic format.
+- Mute blocks subsequent speech in 18s muted window.
+- Toggle off cancels in-flight + persists to localStorage.
+
+### Cumulative AI Command-Center Layer (production-ready)
+- HeyGen ExecutiveAvatar (homepage hero + 6 cinematic demos with scene-sync).
+- Operational signal light + worker telemetry.
+- LiveSendPulse 4s polling widget.
+- BroadcastFeed cinematic overlay with avatar narration of high-signal events.
+- Production/sandbox truthful auto-detect.
 
 ---
 

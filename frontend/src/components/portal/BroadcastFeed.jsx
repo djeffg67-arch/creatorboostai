@@ -45,11 +45,15 @@ const NARRATE_LANES = new Set(["reply", "hot", "deal", "scheduling"]);
 //   "Hot lead detected → CompanyX"
 // We always take the substring AFTER the arrow and BEFORE the first " · "
 // segment so industry/state metadata don't end up spoken aloud.
+// Returns "" for em-dash placeholders so callers can fall back gracefully.
 const _extractName = (summary) => {
     if (!summary) return "";
     const afterArrow = summary.split("→").pop() || summary;
     const firstSeg = afterArrow.split("·")[0] || afterArrow;
-    return firstSeg.trim();
+    const cleaned = firstSeg.trim();
+    // Backend uses "—" as a placeholder when no business_name and no email
+    if (!cleaned || cleaned === "—" || cleaned === "-" || cleaned === "?") return "";
+    return cleaned;
 };
 
 // Pull a "$X,000" token out of a summary if present.
@@ -61,24 +65,28 @@ const _extractValue = (summary) => {
 const narrationLineFor = (e) => {
     if (!e) return null;
     const name = _extractName(e.summary);
-    if (!name) return null;
     switch (e.lane) {
         case "hot":
+            if (!name) return null; // skip if no real prospect name
             return `Hot lead detected. ${name} just hit a high-intent threshold.`;
         case "deal": {
             const v = _extractValue(e.summary);
+            if (!name) {
+                return v ? `Deal closed, value ${v}.` : `Deal closed.`;
+            }
             return v
                 ? `Deal closed with ${name}, value ${v}.`
                 : `Deal closed with ${name}.`;
         }
         case "reply": {
-            // Heuristic: backend prefixes Interested replies with "Interested reply"
+            if (!name) return null;
             const isInterested = /^Interested/i.test(e.summary || "");
             return isInterested
                 ? `Interested reply received from ${name}.`
                 : `New reply received from ${name}.`;
         }
         case "scheduling":
+            if (!name) return `Scheduling event confirmed.`;
             return `Scheduling event confirmed for ${name}.`;
         default:
             return null;
