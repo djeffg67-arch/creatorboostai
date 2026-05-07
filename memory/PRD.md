@@ -1,8 +1,38 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 82 — Startup & Business Launch System Phase 1)
+**Last update:** 2026-05-07 (Iter 83 — Shareable launch plan permalinks + Save-as-PDF)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 83 — SHAREABLE LAUNCH PLAN PERMALINK + SAVE-AS-PDF (P1)
+
+Status: SHIPPED · live-verified at `/launch/<plan_id>` with seeded test plan · share/print buttons render, Copy-link flips to "Link copied", readonly mode hides "Run another intake".
+
+User ask: "yes add that" — Phase-1 launch plans should be shareable (URL) and exportable (PDF) so founders can forward to co-founders / investors.
+
+### Files updated
+- `/app/frontend/src/pages/StartupLaunchPage.jsx`:
+  - Added `useParams` + `useEffect` — when mounted at `/launch/:plan_id`, fetches the plan from `/api/startup-launch/plan/{plan_id}` and jumps straight to the result stage in **readonly** mode (no "Run another intake" button).
+  - Added a `loading` stage with a spinner + error message branch (used while the shared plan loads, falls back to hero on 404 / error).
+  - After a successful generate, calls `window.history.replaceState` to push the new `/launch/{plan_id}` into the URL — so refreshing or sharing always works.
+  - Result header now shows: **"Copy share link"** button (Link2 icon, flips to "Link copied" with Check icon for 1.8s; uses `navigator.clipboard.writeText` with a `document.execCommand('copy')` fallback for older browsers) + **"Save as PDF"** button (calls `window.print()`).
+  - Inline `@media print` stylesheet — hides nav/footer/header + every element marked `data-cb-no-print="true"`, forces white bg + dark text + page-break avoidance on each section. Produces a clean printable PDF via the browser's native print dialog (Cmd/Ctrl+P → Save as PDF).
+- `/app/frontend/src/App.js` — added `<Route path="/launch/:plan_id" element={<StartupLaunchPage />} />` directly under the existing `/launch` route.
+
+### Verified live (smoke + seeded-plan test)
+- ✅ Compile clean (no JSX or lint warnings).
+- ✅ `/launch/non-existent-id-12345` → loading spinner → falls back to hero on 404 (no crash).
+- ✅ Seeded a sample plan into `startup_launch_plans` and visited `/launch/demo-share-XXX`:
+  - Result view renders all 9 sections (`section-overview/-roadmap/-website/-homepage/-services/-pricing/-outreach/-leadgen/-crm`).
+  - "SHARED LAUNCH PLAN · CLAUDE-SONNET-4-5-20250929" badge correctly shows readonly label.
+  - Copy-share-link + Save-as-PDF buttons render.
+  - "Run another intake" correctly hidden in readonly mode.
+- ✅ `/startup`, `/build`, `/launch` (intake mode) regression — hero still loads, smoke screenshot confirms no compile errors.
+
+### Why this is "Phase-1 viral surface"
+Founders who generate a plan can now paste a single URL into Slack/email/investor decks — recipients see the same beautifully rendered Result view (without needing to re-run the LLM). Browser-native PDF export turns the plan into a portable artifact for offline distribution.
 
 ---
 

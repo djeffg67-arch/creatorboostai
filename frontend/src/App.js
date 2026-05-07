@@ -111,6 +111,7 @@ function App() {
                     <Route path="/startup" element={<StartupLaunchPage />} />
                     <Route path="/build" element={<StartupLaunchPage />} />
                     <Route path="/launch" element={<StartupLaunchPage />} />
+                    <Route path="/launch/:plan_id" element={<StartupLaunchPage />} />
                     <Route path="/startup/landing" element={<StartupLandingPage />} />
                     <Route path="/demo/startup" element={<StartupDemoPage />} />
                     <Route path="/portal/builder" element={<BusinessBuilderPage />} />

@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import { Layout } from "@/components/site/Layout";
 import {
     Rocket, Building2, Globe, Users, Target, MapPin, Tag, Layers,
     Sparkles, ArrowRight, ChevronRight, CheckCircle2, Loader2, Copy,
     FileText, Workflow, Network, Zap, Briefcase, DollarSign, Send,
-    LineChart,
+    LineChart, Link2, Printer, Check,
 } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -13,12 +14,14 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
  * StartupLaunchPage
  * --------------------------------------------------------------
  * Iter 82 · Phase-1 of the AI Business Operating System layer.
+ * Iter 83 · adds shareable /launch/:plan_id permalink + print-to-PDF.
  *
  *   Step 1: cinematic landing — positioning, future-phase chips
  *   Step 2: 8-field guided intake
  *   Step 3: result view — 9-section launch plan from Claude Sonnet 4.5
  *
- * Mounted at /startup, /build, /launch.
+ * Mounted at /startup, /build, /launch (intake mode) and /launch/:plan_id
+ * (read-only shareable mode).
  */
 
 const FIELDS = [
@@ -41,11 +44,33 @@ const FUTURE_PHASES = [
 ];
 
 export default function StartupLaunchPage() {
-    const [stage, setStage] = useState("hero"); // "hero" | "intake" | "result"
+    const { plan_id: routePlanId } = useParams();
+    const [stage, setStage] = useState(routePlanId ? "loading" : "hero");
     const [form, setForm] = useState(() => Object.fromEntries(FIELDS.map((f) => [f.key, ""])));
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState(null);
     const [result, setResult] = useState(null);
+
+    // Read-only mode: load plan from /launch/:plan_id
+    useEffect(() => {
+        if (!routePlanId) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/startup-launch/plan/${routePlanId}`);
+                const json = await res.json();
+                if (cancelled) return;
+                if (!res.ok || !json.ok) throw new Error(json.detail || `HTTP ${res.status}`);
+                setResult(json);
+                setStage("result");
+            } catch (e) {
+                if (cancelled) return;
+                setError(String(e?.message || e));
+                setStage("hero");
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [routePlanId]);
 
     const allFilled = useMemo(
         () => FIELDS.every((f) => (form[f.key] || "").trim().length >= 2),
@@ -69,6 +94,10 @@ export default function StartupLaunchPage() {
             }
             setResult(json);
             setStage("result");
+            // Make the generated plan shareable: push /launch/:plan_id into the URL
+            if (json.plan_id) {
+                try { window.history.replaceState({}, "", `/launch/${json.plan_id}`); } catch { /* noop */ }
+            }
             window.scrollTo({ top: 0, behavior: "smooth" });
         } catch (e) {
             setError(String(e?.message || e));
@@ -80,6 +109,14 @@ export default function StartupLaunchPage() {
     return (
         <Layout>
             <div className="mx-auto max-w-[1400px] px-4 py-10 lg:px-8 lg:py-14" data-testid="startup-launch-page">
+                {stage === "loading" && (
+                    <div className="flex min-h-[60vh] flex-col items-center justify-center text-center" data-testid="startup-launch-loading">
+                        <Loader2 size={28} className="animate-spin text-cyan-300" />
+                        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Loading shared launch plan…</p>
+                        {error && <p className="mt-4 max-w-md text-sm text-rose-300" data-testid="startup-launch-load-error">{error}</p>}
+                    </div>
+                )}
+
                 {stage === "hero" && (
                     <Hero onStart={() => setStage("intake")} />
                 )}
@@ -97,7 +134,17 @@ export default function StartupLaunchPage() {
                 )}
 
                 {stage === "result" && result && (
-                    <Result result={result} onRestart={() => { setResult(null); setForm(Object.fromEntries(FIELDS.map((f) => [f.key, ""]))); setStage("hero"); }} />
+                    <Result
+                        result={result}
+                        readonly={!!routePlanId}
+                        onRestart={() => {
+                            setResult(null);
+                            setForm(Object.fromEntries(FIELDS.map((f) => [f.key, ""])));
+                            setError(null);
+                            try { window.history.replaceState({}, "", "/startup"); } catch { /* noop */ }
+                            setStage("hero");
+                        }}
+                    />
                 )}
             </div>
         </Layout>
@@ -261,27 +308,87 @@ const Intake = ({ form, onField, onBack, onSubmit, allFilled, busy, error }) => 
 
 /* ============================ RESULT ============================ */
 
-const Result = ({ result, onRestart }) => {
+const Result = ({ result, onRestart, readonly }) => {
     const plan = result?.plan || {};
     const intake = result?.intake || {};
+    const planId = result?.plan_id || result?.id;
+    const [copied, setCopied] = useState(false);
+
+    const shareUrl = useMemo(() => {
+        if (!planId) return "";
+        try { return `${window.location.origin}/launch/${planId}`; } catch { return `/launch/${planId}`; }
+    }, [planId]);
+
+    const copyShareLink = async () => {
+        if (!shareUrl) return;
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1800);
+        } catch {
+            // Fallback: select-and-copy via temp textarea
+            const ta = document.createElement("textarea");
+            ta.value = shareUrl; document.body.appendChild(ta); ta.select();
+            try { document.execCommand("copy"); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* noop */ }
+            document.body.removeChild(ta);
+        }
+    };
+
+    const printPdf = () => {
+        try { window.print(); } catch { /* noop */ }
+    };
 
     return (
-        <div data-testid="startup-launch-result">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+        <div data-testid="startup-launch-result" className="cb-launch-printable">
+            {/* Print stylesheet — only injected on the result view */}
+            <style>{`
+                @media print {
+                    body { background: #ffffff !important; color: #0b1020 !important; }
+                    header, footer, nav, [data-cb-no-print="true"] { display: none !important; }
+                    .cb-launch-printable { color: #0b1020 !important; }
+                    .cb-launch-printable * { color: #0b1020 !important; background: transparent !important; box-shadow: none !important; border-color: #d4d4d8 !important; }
+                    .cb-launch-printable section, .cb-launch-printable .rounded-md { page-break-inside: avoid; }
+                }
+            `}</style>
+
+            <div className="flex flex-wrap items-center justify-between gap-3" data-cb-no-print="true">
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5">
                     <CheckCircle2 size={11} className="text-emerald-300" />
                     <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">
-                        Launch plan ready · {result.model}
+                        {readonly ? "Shared launch plan" : "Launch plan ready"} · {result.model}
                     </span>
                 </div>
-                <button
-                    type="button"
-                    onClick={onRestart}
-                    data-testid="result-restart"
-                    className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400 hover:text-cyan-300"
-                >
-                    Run another intake →
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                    {planId && (
+                        <button
+                            type="button"
+                            onClick={copyShareLink}
+                            data-testid="result-copy-link"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300 transition-all hover:bg-cyan-500/20"
+                        >
+                            {copied ? <Check size={11} /> : <Link2 size={11} />}
+                            {copied ? "Link copied" : "Copy share link"}
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={printPdf}
+                        data-testid="result-print-pdf"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-ink-700/60 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-200 transition-all hover:border-cyan-500/40 hover:text-cyan-300"
+                    >
+                        <Printer size={11} /> Save as PDF
+                    </button>
+                    {!readonly && (
+                        <button
+                            type="button"
+                            onClick={onRestart}
+                            data-testid="result-restart"
+                            className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400 hover:text-cyan-300"
+                        >
+                            Run another intake →
+                        </button>
+                    )}
+                </div>
             </div>
 
             <h1 className="font-heading mt-5 text-3xl font-semibold text-white sm:text-4xl">
