@@ -1,8 +1,51 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 77 — Avatar narration of broadcast events)
+**Last update:** 2026-05-07 (Iter 78 — Avatar Voice Lock · single-voice fix across demos + homepage)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 78 — AVATAR VOICE LOCK · SINGLE-VOICE EXPERIENCE (P0)
+
+Status: SHIPPED · iter 71 → **100% on 8/8 review items, zero bugs.** Live-verified on `/`, `/demo/school`, `/pricing`.
+
+User report: "in the stores i hear the old voice and the avatar is speaking with no voice. home page there is no voice coming out of her just lip movement. plus i hear breaks in voices. stop the original voices and make sure the avatar is speaking only in all demos and home pages."
+
+### Root cause analysis
+1. Demos used a separate audio path: `/api/tts/speak` (OpenAI sage) → cached blob URL → `<audio>` element → "old voice" the user heard.
+2. The cinematic avatar I'd added was hard-muted (`defaultMuted: true`) under the assumption TTS owned audio → "lip movement, no voice".
+3. Homepage hero was wired to `avatar-hero-loop.mp4` which I'd transcoded with `-an` (NO AUDIO) → silent lip movement.
+4. Scene transitions called `speechSynthesis.cancel()` mid-sentence → "breaks in voices".
+
+### Files added
+- `/app/frontend/src/lib/avatarVoiceLock.js` — refcount-based global patch:
+  - Replaces `window.speechSynthesis.speak` with a no-op for legacy utterances; passes through any utterance tagged `__cb_broadcast = true`.
+  - Replaces `window.fetch` to reject `/tts/speak` requests (`Error('avatar-voice-lock-active')`).
+  - Mutes + pauses any in-flight `<audio>` elements on install.
+  - Refcount allows hero + demo avatars to coexist on one page.
+  - Restores native originals when refcount → 0 (verified: `speak.toString() === 'function speak() { [native code] }'` after unmount).
+
+### Files updated
+- `/app/frontend/src/components/avatar/ExecutiveAvatar.jsx`:
+  - `hero` and `demo-cinematic` variants now both have `installVoiceLock:true` and `useAudioClip:true`.
+  - Hero now serves `avatar-desktop-opt.mp4` (with audio) instead of the silent `avatar-hero-loop.mp4`.
+  - Auto-unmute on first document-level click/touch/keydown (capture + passive + once) — single user gesture per session unlocks audio across the whole site.
+  - Persists to localStorage `cb_avatar_voice_enabled` — reload mounts unmuted with no second gesture required.
+  - `toggleMute` also writes the preference.
+- `/app/frontend/src/components/portal/BroadcastFeed.jsx` — `speakLine` tags utterances `u.__cb_broadcast = true` so portal alerts still narrate even with the lock active.
+- `/app/frontend/src/lib/useDemoPlayer.js` — added `avatarMode` prop that short-circuits the TTS path entirely (defensive; not yet wired into demos because they use inline state machines, but the global voice lock handles those at the patched-fetch + patched-speak layer).
+
+### Verified live (iter 71)
+- Hero `videoEl.currentSrc` → `…/avatars/avatar-desktop-opt.mp4` (with audio).
+- Click anywhere → `videoEl.muted` flips to false; localStorage persists; reload mounts unmuted.
+- Legacy `new SpeechSynthesisUtterance('test')` + `synth.speak(u)` → `synth.speaking` stays `false` (dropped).
+- `fetch('/api/tts/speak', {method:'POST', body:'{}'})` → rejects with `avatar-voice-lock-active`.
+- BroadcastFeed `__cb_broadcast` utterances still pass through.
+- Navigate `/demo/school` → `/pricing` → `speak.toString()` reverts to native; lock cleanly removed.
+
+### Known minor (NOT a regression)
+- `POST /api/ops/me` returns 422 when test agents inject hand-built `{email, token}` localStorage payloads. The `/api/ops/founder-access` response includes additional fields (role, scope) that the session validator expects. Recommend a follow-up that documents the canonical session shape OR simplifies the validator.
 
 ---
 
