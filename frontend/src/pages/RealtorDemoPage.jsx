@@ -513,8 +513,15 @@ export default function RealtorDemoPage() {
                             <div className="space-y-4 lg:col-span-4">
                                 <div className="flex justify-center">
                                     <ExecutiveAvatar
-                                        variant="demo"
-                                        chipText="AI Executive · Realtor Ops"
+                                        variant="demo-cinematic"
+                                        registry="realtor"
+                                        sceneId={current?.id}
+                                        sceneIndex={scene}
+                                        sceneCount={total}
+                                        sceneLabel={current?.section?.replace(/^Scene \d+ · /, "")}
+                                        paused={paused}
+                                        speaking={speaking}
+                                        chipAccent="cyan"
                                         testId="realtor-demo-avatar"
                                     />
                                 </div>

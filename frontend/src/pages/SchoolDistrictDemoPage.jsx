@@ -544,8 +544,15 @@ export default function SchoolDistrictDemoPage() {
                         <aside className="lg:col-span-3">
                             <div className="sticky top-4 flex justify-center lg:justify-end">
                                 <ExecutiveAvatar
-                                    variant="demo"
-                                    chipText="AI Executive · School Ops"
+                                    variant="demo-cinematic"
+                                    registry="school"
+                                    sceneId={current?.id}
+                                    sceneIndex={idx}
+                                    sceneCount={SCENES.length}
+                                    sceneLabel={current?.title || current?.eyebrow}
+                                    paused={!playing}
+                                    speaking={playing}
+                                    chipAccent="cyan"
                                     testId="school-demo-avatar"
                                 />
                             </div>

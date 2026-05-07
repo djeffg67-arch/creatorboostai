@@ -455,8 +455,14 @@ export default function StartupDemoPage() {
                     {/* Executive Avatar — startup operator briefing */}
                     <div className="mb-6 flex justify-center sm:justify-end" data-testid="startup-demo-avatar-wrap">
                         <ExecutiveAvatar
-                            variant="demo"
-                            chipText="AI Executive · Founder Operator"
+                            variant="demo-cinematic"
+                            registry="startup"
+                            sceneId={scene?.id}
+                            sceneIndex={idx}
+                            sceneCount={SCENES.length}
+                            sceneLabel={scene?.title || scene?.eyebrow}
+                            paused={!playing}
+                            speaking={playing && !muted}
                             chipAccent="emerald"
                             testId="startup-demo-avatar"
                         />

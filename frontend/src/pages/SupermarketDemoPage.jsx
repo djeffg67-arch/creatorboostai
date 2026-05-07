@@ -695,8 +695,16 @@ export default function SupermarketDemoPage() {
                             <div className="space-y-4 lg:col-span-4">
                                 <div className="flex justify-center">
                                     <ExecutiveAvatar
-                                        variant="demo"
-                                        chipText="AI Executive · Supermarket Ops"
+                                        variant="demo-cinematic"
+                                        registry="supermarket"
+                                        sceneId={current?.id}
+                                        sceneIndex={scene}
+                                        sceneCount={total}
+                                        sceneLabel={current?.section?.replace(/^Scene \d+ · /, "")}
+                                        paused={paused}
+                                        speaking={speaking}
+                                        onSceneEnd={() => { /* reserved for future auto-advance */ }}
+                                        chipAccent="cyan"
                                         testId="supermarket-demo-avatar"
                                     />
                                 </div>

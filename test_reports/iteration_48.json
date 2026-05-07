@@ -1,0 +1,35 @@
+{
+  "summary": "Frontend-only test of the new 'demo-cinematic' ExecutiveAvatar variant across all 6 priority demos + homepage hero regression. 6/7 verifications PASS. One real bug found on /demo/school: clicking school-demo-scene-btn-systems (Scene 2) does NOT advance the avatar's data-scene-index from '0' to '1' as required by the spec — clicking later-scene buttons (e.g. layer / Scene 4) does work, exposing the root cause.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "SchoolDistrictDemoPage scene-jump buttons",
+        "issue": "Clicking school-demo-scene-btn-systems (i=1) keeps data-scene-index at '0' indefinitely while playback is active. The setInterval in the playback effect (lines 463-486) captures startRef.current at mount only and recomputes idx from natural elapsed time on every 200ms tick. The button's onClick calls setIdx(i) + setElapsed(cumulative), but startRef is NEVER updated, so on the very next 200ms tick the timer recomputes ms = Date.now() - startRef.current (which still corresponds to the original mount time) and overrides the user's setIdx(1) back to whatever the timer's elapsed says. For early scenes (i=1) the timer's elapsed is still inside scene 0, so idx snaps back to 0. For later scenes (i=3, layer) enough wall-clock time has passed that the timer naturally agrees with the user's jump, masking the bug. This breaks the spec requirement: 'Click school-demo-scene-btn-systems (Scene 2) and verify wrapper data-scene-index updates to 1.'",
+        "selector": "[data-testid=\"school-demo-scene-btn-systems\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix SchoolDistrictDemoPage playback effect: when a scene-jump button fires setIdx(i) + setElapsed(target), also reset startRef.current = Date.now() - target so the timer honors the new elapsed. Recommended: extract a jumpToScene(i) helper that updates idx, elapsed AND startRef atomically. Same pattern likely exists in SupermarketDemoPage, AirportDemoPage, NoldusDemoPage, RealtorDemoPage, StartupDemoPage — please audit all 6 for the same closure/startRef desync.",
+    "Optional polish (already noted in iter 47): consider extracting the shared cinematic-demo playback loop into a useCinematicDemo() hook so this kind of state-sync bug only needs to be fixed once."
+  ],
+  "critical_code_review_comments": [
+    "ExecutiveAvatar 'demo-cinematic' variant is well-modularized: scene strip, scene label, dynamic chip text, opacity crossfade (verified opacity-0 at ~60ms after scene change, opacity-100 after) all key off the same sceneIndex prop. Clean implementation.",
+    "demoAvatarRegistry.js + resolveAvatarSources(demoKey, sceneId, platform) is a clean extension point for future per-scene HeyGen exports — no component changes will be needed when per-scene clips drop into /public/avatars/<demo>/<sceneId>.mp4.",
+    "Bug RCA above: setInterval closure captures startRef.current snapshot. setElapsed updates state but does NOT update startRef, so timer overrides user jumps. Fix is one-liner: in scene-button onClick, also do startRef.current = Date.now() - cumulative.",
+    "ExecutiveAvatar.jsx is now ~556 lines — still under 700 but climbing. Splitting FullscreenBriefing and AvatarAnnouncementStrip into their own files would help (already flagged in iter 47)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "85% (6/7 priority verifications pass; 1 deterministic-jump regression on school)"},
+  "test_credentials": "n/a - no auth flow tested",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Verified: ALL 6 priority demos render data-variant='demo-cinematic' on the avatar wrapper. Scene-progress strip dot counts match scene array length: school=7, startup=11, airport=9, noldus=14, realtor=15, supermarket=17. Scene-label band updates correctly with 'SCENE N / TOTAL' + scene title. Dynamic chip text confirmed in 3 states: 'STANDING BY · SCENE 1 OF N' (idle), 'LIVE · SCENE 1 OF N' (speaking), 'PAUSED · SCENE N' (paused). Opacity crossfade fires (video gets 'opacity-0' class) within ~60ms of sceneIndex/videoSrc change, then returns to 'opacity-100' after ~80ms — verified on school. Homepage hero avatar (home-hero-avatar) regression PASSES: still data-variant='hero', no scene-strip, no scene-label, chip = 'AI EXECUTIVE OPERATOR · LIVE'. Mute/play/fullscreen testids unchanged from iter 47 and still functional. The 4 cinematic-with-Start demos (supermarket, airport, noldus, realtor) all use start-{key}-demo-btn (or 'start-demo-btn' for realtor) and the avatar appears within ~5-30s of the Start click. School + startup render avatar immediately on page load (no Start gate). The single bug is the school scene-jump issue described above — same pattern very likely repeats in the other 5 cinematic demos.",
+  "rca of the issue": "ROOT CAUSE: SchoolDistrictDemoPage.jsx:463-486 — the playback setInterval initializes startRef.current = Date.now() - elapsed exactly once when `playing` flips to true. The interval then computes ms = Date.now() - startRef.current every 200ms and calls setIdx(target) where target is derived from cumulative scene durations. The scene-jump button onClick (line 567) does setIdx(i) + setElapsed(cumulative) but does NOT update startRef.current, so on the next 200ms tick the timer recomputes ms from the original startRef and overrides the user's idx jump back to whatever the natural wall-clock says. REPRODUCTION: 1) Open /demo/school, 2) immediately click data-testid='school-demo-scene-btn-systems', 3) wait 200ms+, 4) read [data-testid='school-demo-avatar'].getAttribute('data-scene-index') — observed '0', expected '1'. By contrast, clicking school-demo-scene-btn-layer (i=3) appears to work because ~3-5s of wall-clock time has elapsed by then, so the natural timer agrees with i=3. MITIGATION: In the scene-button onClick, set startRef.current = Date.now() - cumulative BEFORE calling setIdx/setElapsed, OR extract a jumpToScene(i) helper that updates all three (idx, elapsed, startRef) atomically. Verify the same fix is applied across SupermarketDemoPage, AirportDemoPage, NoldusDemoPage, RealtorDemoPage, StartupDemoPage."
+}

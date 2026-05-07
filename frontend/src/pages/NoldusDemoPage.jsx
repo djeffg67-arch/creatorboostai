@@ -504,8 +504,15 @@ export default function NoldusDemoPage() {
                             <div className="space-y-4 lg:col-span-4">
                                 <div className="flex justify-center">
                                     <ExecutiveAvatar
-                                        variant="demo"
-                                        chipText="AI Executive · Enterprise"
+                                        variant="demo-cinematic"
+                                        registry="noldus"
+                                        sceneId={current?.id}
+                                        sceneIndex={scene}
+                                        sceneCount={total}
+                                        sceneLabel={current?.section?.replace(/^Scene \d+ · /, "")}
+                                        paused={paused}
+                                        speaking={speaking}
+                                        chipAccent="cyan"
                                         testId="noldus-demo-avatar"
                                     />
                                 </div>

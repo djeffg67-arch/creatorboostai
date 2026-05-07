@@ -6,6 +6,7 @@ import React, {
     useCallback,
 } from "react";
 import { Volume2, VolumeX, Play, Pause, Maximize2, X } from "lucide-react";
+import { resolveAvatarSources } from "@/lib/demoAvatarRegistry";
 
 /**
  * ExecutiveAvatar
@@ -130,6 +131,16 @@ const variantConfig = {
         chipText: "Action announcement",
         chipAccent: "cyan",
     },
+    "demo-cinematic": {
+        loopVideo: true,            // loop the avatar visually while TTS owns audio
+        defaultMuted: true,         // muted (TTS is the audio source)
+        autoplay: true,
+        showFullscreen: true,
+        wrapperClass:
+            "relative aspect-[9/16] w-full max-w-[340px] overflow-hidden rounded-xl border border-cyan-500/40 bg-ink-900 shadow-[0_20px_60px_-20px_rgba(6,182,212,0.5)]",
+        chipText: "AI Executive · Cinematic Briefing",
+        chipAccent: "cyan",
+    },
 };
 
 const accentClasses = {
@@ -150,6 +161,15 @@ export const ExecutiveAvatar = ({
     className = "",
     testId = "executive-avatar",
     forcePlatform = null, // "desktop" | "mobile" | null
+    // ------- demo-cinematic specific props (ignored by other variants) -------
+    registry = null,        // demo key, e.g. "supermarket" — looks up demoAvatarRegistry
+    sceneId = null,         // current scene id (for per-scene clip lookup)
+    sceneIndex = 0,         // numeric scene index (for chip + crossfade key)
+    sceneCount = 0,         // total scene count
+    sceneLabel = "",        // optional human label for chip
+    paused = false,         // pause state from the demo
+    speaking = false,       // TTS is firing now
+    onSceneEnd = null,      // optional callback when avatar's scene clip ends
 }) => {
     const cfg = variantConfig[variant] || variantConfig.hero;
     const isMobile = useIsMobile();
@@ -161,22 +181,53 @@ export const ExecutiveAvatar = ({
         [sourcesOverride],
     );
 
+    // ------------------------------------------------------------------
+    // Source resolution
+    //   • hero  → muted hero loop
+    //   • demo-cinematic → consult registry → per-scene clip if present,
+    //     else demo's fallback desktop/mobile clip
+    //   • everything else → desktop or mobile clip
+    // ------------------------------------------------------------------
+    const cinematic = variant === "demo-cinematic";
+    const cinematicSources = useMemo(() => {
+        if (!cinematic || !registry) return null;
+        return resolveAvatarSources(registry, sceneId, platform);
+    }, [cinematic, registry, sceneId, platform]);
+
     const videoSrc = useMemo(() => {
+        if (cinematic && cinematicSources) {
+            // For cinematic mode we prefer the rich (with-audio) clip but render it muted —
+            // Web Speech still drives the audio. If a scene-specific clip exists we use it,
+            // else the loop variant gives a clean ambient feel.
+            return cinematicSources.hasSceneClip
+                ? cinematicSources.src
+                : sources.heroLoop;
+        }
         if (cfg.loopVideo && variant === "hero") return sources.heroLoop;
         if (platform === "mobile") return sources.mobile;
         return sources.desktop;
-    }, [cfg.loopVideo, variant, platform, sources]);
+    }, [
+        cinematic,
+        cinematicSources,
+        cfg.loopVideo,
+        variant,
+        platform,
+        sources,
+    ]);
 
     const poster =
-        platform === "mobile"
-            ? sources.posterMobile
-            : sources.posterDesktop;
+        cinematic && cinematicSources
+            ? cinematicSources.poster
+            : platform === "mobile"
+              ? sources.posterMobile
+              : sources.posterDesktop;
 
     const [hostRef, inView] = useInView("250px");
     const videoRef = useRef(null);
     const [muted, setMuted] = useState(cfg.defaultMuted && !autoUnmute);
     const [playing, setPlaying] = useState(false);
     const [showFullscreen, setShowFullscreen] = useState(false);
+    const [crossfade, setCrossfade] = useState(true); // visible by default
 
     const loop = loopOverride !== undefined ? loopOverride : cfg.loopVideo;
 
@@ -200,6 +251,33 @@ export const ExecutiveAvatar = ({
         return () => clearTimeout(t);
     }, [inView, cfg.autoplay, safePlay, videoSrc]);
 
+    // ------------------------------------------------------------------
+    // Cinematic scene synchronization
+    //   • paused prop → video.pause() / play()
+    //   • scene change → 280ms opacity crossfade
+    //   • the <video key> already remounts on src change so the fade
+    //     hides the load flicker
+    // ------------------------------------------------------------------
+    useEffect(() => {
+        if (!cinematic) return;
+        const v = videoRef.current;
+        if (!v) return;
+        if (paused) {
+            v.pause();
+        } else if (inView) {
+            safePlay();
+        }
+    }, [cinematic, paused, inView, safePlay]);
+
+    useEffect(() => {
+        if (!cinematic) return;
+        // Trigger crossfade out → swap → fade in. The src swap is driven
+        // by React `key={videoSrc}` so we just animate opacity.
+        setCrossfade(false);
+        const t = setTimeout(() => setCrossfade(true), 80);
+        return () => clearTimeout(t);
+    }, [cinematic, sceneIndex, videoSrc]);
+
     const togglePlay = () => {
         const v = videoRef.current;
         if (!v) return;
@@ -215,7 +293,24 @@ export const ExecutiveAvatar = ({
         if (!v.muted && v.paused) safePlay();
     };
 
-    const chipText = chipTextOverride || cfg.chipText;
+    // Dynamic chip text in cinematic mode reflects live narration state
+    const dynamicChip = useMemo(() => {
+        if (!cinematic) return chipTextOverride || cfg.chipText;
+        if (paused) return `Paused · Scene ${sceneIndex + 1}`;
+        if (speaking)
+            return `Live · Scene ${sceneIndex + 1}${sceneCount ? ` of ${sceneCount}` : ""}`;
+        return `Standing by · Scene ${sceneIndex + 1}${sceneCount ? ` of ${sceneCount}` : ""}`;
+    }, [
+        cinematic,
+        chipTextOverride,
+        cfg.chipText,
+        paused,
+        speaking,
+        sceneIndex,
+        sceneCount,
+    ]);
+
+    const chipText = dynamicChip;
     const chipAccent =
         accentClasses[chipAccentOverride || cfg.chipAccent] ||
         accentClasses.cyan;
@@ -227,6 +322,9 @@ export const ExecutiveAvatar = ({
                 data-testid={testId}
                 data-variant={variant}
                 data-platform={platform}
+                data-scene-index={cinematic ? sceneIndex : undefined}
+                data-speaking={cinematic ? String(speaking) : undefined}
+                data-paused={cinematic ? String(paused) : undefined}
                 className={`group ${cfg.wrapperClass} ${className}`}
             >
                 {/* Poster baseline (always rendered as fallback) */}
@@ -253,7 +351,9 @@ export const ExecutiveAvatar = ({
                         loop={loop}
                         playsInline
                         preload="metadata"
-                        className="absolute inset-0 h-full w-full object-cover"
+                        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+                            cinematic && !crossfade ? "opacity-0" : "opacity-100"
+                        }`}
                         onPlay={() => {
                             setPlaying(true);
                             onPlay?.();
@@ -262,6 +362,7 @@ export const ExecutiveAvatar = ({
                         onEnded={() => {
                             setPlaying(false);
                             onEnded?.();
+                            if (cinematic) onSceneEnd?.();
                         }}
                         data-testid={`${testId}-video`}
                     />
@@ -278,6 +379,43 @@ export const ExecutiveAvatar = ({
                     />
                     {chipText}
                 </div>
+
+                {/* Cinematic scene progress strip */}
+                {cinematic && sceneCount > 0 && (
+                    <div
+                        className="pointer-events-none absolute right-3 top-3 flex items-center gap-1"
+                        data-testid={`${testId}-scene-strip`}
+                    >
+                        {Array.from({ length: sceneCount }).map((_, i) => (
+                            <span
+                                key={i}
+                                className={`h-1 w-3 rounded-full transition-all duration-300 ${
+                                    i < sceneIndex
+                                        ? "bg-cyan-400/80"
+                                        : i === sceneIndex
+                                          ? "bg-cyan-300"
+                                          : "bg-white/20"
+                                }`}
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {/* Optional scene label band */}
+                {cinematic && sceneLabel && (
+                    <div
+                        className="pointer-events-none absolute inset-x-3 bottom-14 rounded-md border border-white/10 bg-ink-900/80 px-2.5 py-1.5 backdrop-blur-md"
+                        data-testid={`${testId}-scene-label`}
+                    >
+                        <p className="truncate font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-300">
+                            Scene {sceneIndex + 1}
+                            {sceneCount ? ` / ${sceneCount}` : ""}
+                        </p>
+                        <p className="truncate text-[11px] text-white">
+                            {sceneLabel}
+                        </p>
+                    </div>
+                )}
 
                 {/* Controls */}
                 <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 opacity-90">

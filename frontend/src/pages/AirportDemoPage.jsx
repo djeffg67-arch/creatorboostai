@@ -533,8 +533,15 @@ export default function AirportDemoPage() {
                             <div className="space-y-4 lg:col-span-4">
                                 <div className="flex justify-center">
                                     <ExecutiveAvatar
-                                        variant="demo"
-                                        chipText="AI Executive · Airport Ops"
+                                        variant="demo-cinematic"
+                                        registry="airport"
+                                        sceneId={current?.id}
+                                        sceneIndex={scene}
+                                        sceneCount={total}
+                                        sceneLabel={current?.section?.replace(/^Scene \d+ · /, "")}
+                                        paused={paused}
+                                        speaking={speaking}
+                                        chipAccent="cyan"
                                         testId="airport-demo-avatar"
                                     />
                                 </div>
