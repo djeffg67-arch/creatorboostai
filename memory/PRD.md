@@ -1,8 +1,48 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 80 — Demo credibility gate · suppress avatar in silent-loop mode)
+**Last update:** 2026-05-07 (Iter 81 — Master Narration single-source-of-truth)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 81 — MASTER NARRATION SINGLE-SOURCE-OF-TRUTH (P0)
+
+Status: SHIPPED · self-verified live on `/scripts`. 6 demos × 73 scenes × 51.9 min extracted.
+
+User brief: "Extract the full narration scripts from every existing demo. Format: scene number · narration · estimated duration · UI component. Goal: generate synchronized HeyGen avatar scenes from these scripts. Also: create a centralized narration script system so future edits update captions / voice / avatar / subtitles from ONE master source."
+
+### Deliverables
+
+**1. Extractor pipeline** (Python, idempotent — re-run on every SCENES change):
+- `/app/scripts/extract_demo_scripts.py` — parses each demo file's `SCENES = [...]` array, handles concatenated `"a" + "b" + "c"` narration strings, single/double/backtick quotes, line breaks. Captures `id`, `section`, `title`, `narration`, `duration_ms`. Auto-fills startup demo's per-scene 16.5s default.
+- `/app/scripts/build_master_narration.py` — emits the human-readable markdown brief AND the runtime JS module.
+
+**2. Output artefacts**:
+- `/app/memory/master_narration_scripts.json` — canonical JSON (programmatic access).
+- `/app/memory/master_narration_scripts.md` (~55KB) — formatted Markdown brief, 1 section per scene with: Scene N · ID · Section · Title · Duration target · HeyGen file path · verbatim narration script. **Hand this to HeyGen for recording.**
+- `/app/frontend/src/lib/masterNarration.js` (~57KB) — runtime ES module exporting `MASTER_NARRATION`, `getNarration(demoKey, sceneId)`, `getDemoScenes(demoKey)`. Single source-of-truth available to demos / captions / TTS / avatar layer / subtitles.
+
+**3. Founder-facing UI**:
+- `/app/frontend/src/pages/MasterNarrationScriptsPage.jsx` mounted at `/scripts`, `/portal/scripts`, `/master-narration`.
+- 6-tab demo selector with icons + scene counts + total duration.
+- Per-scene cards showing: Scene N of M chip, section, duration target, narration text, HeyGen output path, scene id, and a **"Copy script"** button that writes the verbatim narration to clipboard for HeyGen recording.
+
+### Numbers
+| Demo | Key | Scenes | Total length |
+|---|---|---:|---:|
+| Supermarket | `supermarket` | 17 | 11.4 min |
+| Airport | `airport` | 9 | 9.5 min |
+| School | `school` | 7 | 0.9 min |
+| Realtor | `realtor` | 15 | 16.8 min |
+| Enterprise (Noldus) | `noldus` | 14 | 10.3 min |
+| Startup | `startup` | 11 | 3.0 min |
+| **Total** | | **73** | **51.9 min** |
+
+### Future demo edit workflow
+1. Edit `narration:` field in the relevant demo page's `SCENES` array.
+2. Run `python3 /app/scripts/extract_demo_scripts.py && python3 /app/scripts/build_master_narration.py`.
+3. Commit. Captions, legacy TTS, avatar (when per-scene clips exist), `/scripts` viewer, and `master_narration_scripts.md` all update from the same source.
 
 ---
 

@@ -36,6 +36,7 @@ import JuryPage from "@/pages/JuryPage";
 import DownloadSignalPackPage from "@/pages/DownloadSignalPackPage";
 import LightingUpgradeEnginePage from "@/pages/LightingUpgradeEnginePage";
 import KoolliteROIPage from "@/pages/KoolliteROIPage";
+import MasterNarrationScriptsPage from "@/pages/MasterNarrationScriptsPage";
 import PortalLightingPage from "@/pages/PortalLightingPage";
 import PortalOpsPage from "@/pages/PortalOpsPage";
 import StartEnginePage from "@/pages/StartEnginePage";
@@ -100,6 +101,9 @@ function App() {
                     <Route path="/koollite" element={<KoolliteROIPage />} />
                     <Route path="/roi" element={<KoolliteROIPage />} />
                     <Route path="/lighting/roi" element={<KoolliteROIPage />} />
+                    <Route path="/scripts" element={<MasterNarrationScriptsPage />} />
+                    <Route path="/portal/scripts" element={<MasterNarrationScriptsPage />} />
+                    <Route path="/master-narration" element={<MasterNarrationScriptsPage />} />
                     <Route path="/portal/lighting" element={<PortalLightingPage />} />
                     <Route path="/portal/ops" element={<PortalOpsPage />} />
                     <Route path="/start-engine" element={<StartEnginePage />} />
