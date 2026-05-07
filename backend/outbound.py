@@ -916,6 +916,8 @@ def make_outbound_router(
                 "status": {"$in": ["new", "scored"]},
                 "unsubscribed": {"$ne": True},
                 "suppressed": {"$ne": True},
+                "is_test": {"$ne": True},
+                "skip_send": {"$ne": True},
                 "emails_sent": {"$lte": 0},
                 "lead_score": {"$gte": MIN_SCORE_TO_SEND},
                 "$or": [
@@ -949,6 +951,8 @@ def make_outbound_router(
         q = {
             "unsubscribed": {"$ne": True},
             "suppressed": {"$ne": True},
+            "is_test": {"$ne": True},
+            "skip_send": {"$ne": True},
             "replied_at": None,
             "emails_sent": 1,                       # only initial sent, no bump yet
             "bump_sent_at": {"$in": [None, False]}, # haven't already bumped
@@ -972,6 +976,8 @@ def make_outbound_router(
         q = {
             "unsubscribed": {"$ne": True},
             "suppressed": {"$ne": True},
+            "is_test": {"$ne": True},
+            "skip_send": {"$ne": True},
             "replied_at": None,
             "status": {"$in": ["contacted", "demo_sent"]},
             "last_email_at": {"$exists": True, "$ne": None},
@@ -2262,6 +2268,8 @@ def make_outbound_router(
             "status": {"$in": ["new", "scored"]},
             "unsubscribed": {"$ne": True},
             "suppressed": {"$ne": True},
+            "is_test": {"$ne": True},
+            "skip_send": {"$ne": True},
             "emails_sent": {"$lte": 0},
             "lead_score": {"$gte": MIN_SCORE_TO_SEND},
         })
@@ -2604,18 +2612,22 @@ def make_outbound_router(
                 log.warning(f"[queue_status] sample failed: {e}")
                 return []
 
-        # 1 · scoring backlog
+        # 1 · scoring backlog (production-only)
         scoring_q = {
             "lead_score": None,
             "unsubscribed": {"$ne": True},
             "suppressed": {"$ne": True},
+            "is_test": {"$ne": True},
+            "skip_send": {"$ne": True},
         }
 
-        # 2 · send-eligible right now
+        # 2 · send-eligible right now (production-only)
         send_eligible_q = {
             "status": {"$in": ["new", "scored"]},
             "unsubscribed": {"$ne": True},
             "suppressed": {"$ne": True},
+            "is_test": {"$ne": True},
+            "skip_send": {"$ne": True},
             "emails_sent": {"$lte": 0},
             "lead_score": {"$gte": MIN_SCORE_TO_SEND},
             "$or": [
@@ -2873,6 +2885,8 @@ def make_outbound_router(
             "replied_at": None,
             "unsubscribed": {"$ne": True},
             "suppressed": {"$ne": True},
+            "is_test": {"$ne": True},
+            "skip_send": {"$ne": True},
             "$or": [
                 {"last_opened_at": {"$ne": None}},
                 {"last_clicked_at": {"$ne": None}},

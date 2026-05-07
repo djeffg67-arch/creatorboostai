@@ -1,8 +1,55 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-06 (Iter 69 — Mobile Founder Ops `/m/ops`)
+**Last update:** 2026-05-07 (Iter 70 — Production Data Hygiene · Test/Demo Cleanup + Mode Banner)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 70 — PRODUCTION DATA HYGIENE (P0)
+
+Status: SHIPPED · Live-applied to current DB · 353 test records archived
+
+User brief: "outbound dashboard still appears populated by test data... please stabilize this before any real campaign runs."
+
+### What was wrong
+99.4% of the 353 prospects in `outbound_prospects` were synthetic — `internal_seed` (200), `internal_archived` (96), `demo_capture` (21), various `test_*` rows (21), `@example.com` (27), `coastalrealty.example` (1), `jane@test.com` (1). Only 6 `state_filings:MI` rows and 6 `business_activation` rows came from real inputs, and all were `is_test=true` because their emails were test domains too.
+
+### Files added
+- `/app/backend/data_hygiene.py` (~210 lines) — pattern-based test detection (email domain, prefix, business name, source) + 3 endpoints under `/api/ops/outbound/admin/data-hygiene/*`:
+  - `POST /scan` — preview counts + samples (no writes).
+  - `POST /apply` — tag `is_test=true` + archive (`status=archived_test`, `skip_send=true`) + add to `outbound_suppression`.
+  - `POST /status` — production-mode summary (production / sandbox / mixed / paused) + send-from + Resend status.
+
+### Files updated
+- `/app/backend/server.py` — mounted hygiene router under founder auth.
+- `/app/backend/outbound.py` — every send-eligibility query now also filters `is_test={$ne:true}` + `skip_send={$ne:true}`. Engine cannot accidentally email a tagged test record.
+- `/app/frontend/src/pages/PortalOpsPage.jsx` — new `<DataModeBanner>` component injected at top of `<OperatorView>`. Shows mode label, send-from, production/test/total counts, and a "Clean up test data" CTA (only visible when test records remain unarchived).
+- `/app/frontend/src/lib/api.js` — added `opsDataHygieneScan/Apply/Status` helpers.
+
+### Live-applied to current DB
+- Tagged: 353 / 353
+- Archived: 353 / 353
+- Suppressed: 251 emails added to global `outbound_suppression`
+- Production-eligible: **0**
+
+### Mode banner states
+- 🟢 **PRODUCTION** — Resend configured · no unarchived test records · engine running.
+- 🟡 **SANDBOX** — RESEND_API_KEY not configured (sends logged, not delivered).
+- 🟡 **MIXED** — test records still unarchived; clean up before running.
+- ⏸ **PAUSED** — engine intentionally stopped by operator.
+
+### Production status (preview env, this pod)
+- Mode: **🟡 SANDBOX**
+- Reason: `RESEND_API_KEY` not configured
+- Send from: `info@creatorboostai.com`
+- Production-eligible prospects: 0 (need real CSV upload via `/api/ops/outbound/sources/states/upload-csv`)
+- IMAP: not configured (intentional in dev)
+
+### How to flip to production (operator instructions)
+1. Set `RESEND_API_KEY` in production env.
+2. Upload a real state-filings CSV via the Lead Intake UI or `POST /api/ops/outbound/sources/states/upload-csv`.
+3. Banner flips to 🟢 PRODUCTION the moment both are true and at least one verified prospect is forwarded.
 
 ---
 

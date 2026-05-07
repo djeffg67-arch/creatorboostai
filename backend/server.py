@@ -3617,6 +3617,12 @@ from state_business_filings import make_state_filings_router  # noqa: E402
 app.include_router(make_state_filings_router(db, _require_outbound_founder))
 
 
+# ---------- Data Hygiene · Production-only safeguards (Iter 70) ----------
+from data_hygiene import make_data_hygiene_router  # noqa: E402
+
+app.include_router(make_data_hygiene_router(db, _require_outbound_founder))
+
+
 @app.on_event("startup")
 async def _start_business_activation_nurture():
     asyncio.create_task(business_activation_nurture_loop(db))

@@ -7,7 +7,7 @@ import {
     MessageSquare, Copy, Link2, Mail, Check, Activity, DollarSign, Target,
     ArrowRight, Sparkles, UserPlus, ShieldCheck, ChevronDown, RefreshCcw,
     UserCog, AlertTriangle, PhoneCall, KeyRound, CheckCircle2, XCircle,
-    Smartphone, Trash2, Radar, Upload, Play, Pause, Linkedin, Zap, ExternalLink,
+    Smartphone, Trash2, Radar, Upload, Play, Pause, Linkedin, Zap, ExternalLink, Loader2,
     FileText, ThumbsUp, ThumbsDown, X, Calendar, Flame,
 } from "lucide-react";
 import {
@@ -27,6 +27,7 @@ import {
     opsOutboundArchiveInternal, opsOutboundResetDaily, opsOutboundDiagnostics,
     opsOutboundSetDailyLimit,
     opsOutboundQueueStatus, opsOutboundWorkerStatus,
+    opsDataHygieneStatus, opsDataHygieneApply,
     leadsAddManual, leadsList, leadsUpdateStatus, leadsTouch, leadsRelease,
     leadsStats, leadsImportCsv,
     avatarChat,
@@ -2635,6 +2636,92 @@ const SystemSignalLight = ({ status, state }) => {
     );
 };
 
+// ─────────── Iter 70 · Production / Sandbox Mode Banner ───────────
+const DataModeBanner = ({ auth }) => {
+    const [hyg, setHyg] = React.useState(null);
+    const [busy, setBusy] = React.useState(false);
+    const refresh = React.useCallback(async () => {
+        try { setHyg(await opsDataHygieneStatus(auth)); } catch { /* noop */ }
+    }, [auth]);
+    React.useEffect(() => { refresh(); }, [refresh]);
+
+    const cleanup = async () => {
+        if (!window.confirm("Tag all detected test/demo records as is_test, archive them, and add their emails to the global suppression list?\n\nThis is idempotent and reversible (status only).")) return;
+        setBusy(true);
+        try {
+            const r = await opsDataHygieneApply({ ...auth, archive: true, add_to_suppression: true });
+            toast.success(`Tagged ${r.tagged} · Archived ${r.archived} · Suppressed +${r.suppressed_added}`);
+            await refresh();
+        } catch (e) {
+            toast.error(e?.response?.data?.detail || e?.message || "Cleanup failed");
+        } finally { setBusy(false); }
+    };
+
+    if (!hyg) return null;
+
+    const TONE = {
+        production: { bg: "bg-emerald-500/10",  border: "border-emerald-500/40",
+                      label: "text-emerald-300", dot: "bg-emerald-400" },
+        sandbox:    { bg: "bg-amber-500/10",    border: "border-amber-500/40",
+                      label: "text-amber-300",   dot: "bg-amber-400" },
+        mixed:      { bg: "bg-amber-500/10",    border: "border-amber-500/40",
+                      label: "text-amber-300",   dot: "bg-amber-400" },
+        paused:     { bg: "bg-slate-500/10",    border: "border-slate-500/40",
+                      label: "text-slate-300",   dot: "bg-slate-400" },
+    }[hyg.mode] || { bg: "bg-rose-500/10", border: "border-rose-500/40",
+                     label: "text-rose-300", dot: "bg-rose-400" };
+
+    const banner = {
+        production: "🟢 PRODUCTION · sending real emails",
+        sandbox:    "🟡 SANDBOX · sends are logged but NOT delivered",
+        mixed:      "🟡 MIXED · test records still present — clean up before live runs",
+        paused:     "⏸ PAUSED · engine intentionally stopped",
+    }[hyg.mode] || "⚪ UNKNOWN";
+
+    return (
+        <div data-testid="data-mode-banner" data-mode={hyg.mode}
+             className={`rounded-md border ${TONE.border} ${TONE.bg} px-4 py-3`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                    <span className={`inline-block h-2.5 w-2.5 rounded-full ${TONE.dot}`} />
+                    <div>
+                        <p className={`font-mono text-[10px] uppercase tracking-[0.22em] ${TONE.label}`}
+                           data-testid="data-mode-label">
+                            {banner}
+                        </p>
+                        <p className="font-mono text-[10px] text-slate-400">{hyg.mode_reason}</p>
+                    </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 font-mono text-[10px]">
+                    <span data-testid="data-mode-counts" className="text-slate-300">
+                        <span className="text-emerald-300">{hyg.totals.production_eligible}</span> production
+                        {" · "}
+                        <span className="text-amber-300">{hyg.totals.test_records}</span> test
+                        {" · "}
+                        <span className="text-slate-400">{hyg.totals.all_prospects}</span> total
+                    </span>
+                    <span className="text-slate-500">·</span>
+                    <span data-testid="data-mode-from" className="text-slate-300">
+                        from <span className={hyg.resend_configured ? "text-emerald-300" : "text-amber-300"}>
+                            {hyg.send_from}
+                        </span>
+                    </span>
+                    {hyg.totals.test_records > hyg.totals.archived_test && (
+                        <button
+                            onClick={cleanup}
+                            disabled={busy}
+                            data-testid="data-mode-cleanup"
+                            className="ml-2 inline-flex items-center gap-1 rounded-md bg-amber-400 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-ink-900 hover:bg-amber-300 disabled:opacity-60">
+                            {busy ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                            Clean up test data
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ─────────── Iter 68b · Operator View · the 7-point engine status ───────────
 // Single block answering: Is alive? What's it doing? Leads waiting? Sent? Failed?
 // Stuck? Last worker run? Next scheduled action?
@@ -2700,6 +2787,7 @@ const OperatorView = ({ auth, dash }) => {
     return (
         <div data-testid="operator-view"
              className="rounded-md border border-cyan-500/20 bg-gradient-to-br from-cyan-500/[0.04] to-emerald-500/[0.02] p-4 space-y-4">
+            <DataModeBanner auth={auth} />
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <Activity size={13} className="text-cyan-300" />

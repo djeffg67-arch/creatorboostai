@@ -387,6 +387,16 @@ export const opsOutboundQueueStatus = (auth) =>
 export const opsOutboundWorkerStatus = (auth) =>
     api.post("/ops/outbound/worker-status", auth).then((r) => r.data);
 
+// Iter 70 · Data hygiene
+export const opsDataHygieneScan = (auth) =>
+    api.post("/ops/outbound/admin/data-hygiene/scan", auth).then((r) => r.data);
+
+export const opsDataHygieneApply = (payload) =>
+    api.post("/ops/outbound/admin/data-hygiene/apply", payload).then((r) => r.data);
+
+export const opsDataHygieneStatus = (auth) =>
+    api.post("/ops/outbound/admin/data-hygiene/status", auth).then((r) => r.data);
+
 export const opsOutboundSetDailyLimit = (payload) =>
     api.post("/ops/outbound/admin/set-daily-limit", payload).then((r) => r.data);
 
