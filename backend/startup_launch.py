@@ -155,9 +155,11 @@ async def _call_claude(system: str, user_msg: str, session_id: str) -> str:
         session_id=session_id,
         system_message=system,
     ).with_model("anthropic", DEEP_MODEL)
+    # Sit just under the K8s ingress 60s gateway timeout so a slow-but-successful
+    # response surfaces a clean 504 from us, not an opaque 502 from the proxy.
     reply = await asyncio.wait_for(
         chat.send_message(LlmUserMessage(text=user_msg)),
-        timeout=60.0,
+        timeout=50.0,
     )
     return str(reply or "").strip()
 

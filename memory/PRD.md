@@ -1,8 +1,47 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 81 — Master Narration single-source-of-truth)
+**Last update:** 2026-05-07 (Iter 82 — Startup & Business Launch System Phase 1)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 82 — STARTUP & BUSINESS LAUNCH SYSTEM · PHASE 1 (P0)
+
+Status: SHIPPED · routes wired · backend healthy · frontend e2e passing · 1 minor JSX-syntax bug fixed mid-iter · LLM call temporarily blocked by upstream Anthropic 502 outage (provider-side, not code).
+
+User brief: "Build Phase 1 'Startup & Business Launch System' — a guided 8-field intake that orchestrates one Claude Sonnet 4.5 call and returns a complete 9-section launch plan. Position CreatorBoostAI as an AI Business Operating System, not a website builder. Phase 2 (website auto-generation, prompt export, deployment integrations, AI builder integrations, CRM setup automation) stays as architected placeholders."
+
+### Files added
+- `/app/backend/startup_launch.py` — `make_startup_launch_router(db)` mounting `/api/startup-launch/health`, `/generate`, `/plan/{id}`. Uses `emergentintegrations.llm.chat.LlmChat` with `claude-sonnet-4-5-20250929` via Emergent LLM Key. Strict-JSON system prompt enforcing the 9-section schema. `_strip_json` extractor handles markdown fences. Persists to `startup_launch_plans` collection. 50s timeout (sits under K8s ingress 60s).
+- `/app/frontend/src/pages/StartupLaunchPage.jsx` (~520 lines) — 3-stage page (Hero → Intake → Result):
+  - **Hero:** Phase-1 chip, "Launch and operate your business — with one AI system." headline, 3-pillar grid (Launch / Run / Scale), Phase-2/3 future-phase chips (Website gen, Prompt export, Deployment, AI builders, CRM setup), primary CTA.
+  - **Intake:** 8 fields with icons (Building2/Tag/Layers/MapPin/Target/Users/DollarSign/Sparkles). Submit gated until all 8 fields ≥ 2 chars. Shows live "N of 8 fields complete" counter and "60s · synthesizing 9 sections" status during the LLM call.
+  - **Result:** 9 sections each with their own data-testid: `section-overview`, `-roadmap`, `-website`, `-homepage`, `-services`, `-pricing`, `-outreach`, `-leadgen`, `-crm`. Plus Phase-2 placeholder card.
+
+### Files updated
+- `/app/backend/server.py` — mounts `make_startup_launch_router(db)`.
+- `/app/frontend/src/App.js` — imports `StartupLaunchPage`. New routes `/startup`, `/build`, `/launch` → StartupLaunchPage. Existing `/demo/startup` → cinematic StartupDemoPage (unchanged). Legacy StartupLandingPage relocated to `/startup/landing`.
+
+### Bug fixed mid-iter
+- `StartupLaunchPage.jsx` line 100 had a bracket/paren mismatch (`FIELDS.map((f) => [f.key, "")])` — should be `[f.key, ""]`). Caught on first smoke test (webpack compile error overlay). Fixed with one search-replace.
+
+### Tested (iter 82 testing report)
+- ✅ Backend `/api/startup-launch/health` returns `{ok:true, llm_configured:true, model:'claude-sonnet-4-5-20250929', phase_2_ready:false, future_hooks:[5]}`.
+- ✅ POST `/generate` with missing field → 422 (Pydantic validation).
+- ✅ GET `/plan/non-existent` → 404.
+- ✅ Frontend `/startup`, `/build`, `/launch` all load StartupLaunchPage with hero, all 8 input testids, submit gating, and stage transition hero→intake.
+- ✅ Frontend `/demo/startup` regression — still renders the existing cinematic demo.
+- ⚠ Live POST `/generate` test could NOT complete because Emergent's litellm proxy → Anthropic returned **502 BadGateway** on every retry during the test window. **Provider-side outage, not a code defect.** Will succeed automatically once upstream Anthropic recovers — zero code changes needed.
+
+### Architectural future hooks (Phase 2/3 placeholders, NOT yet wired)
+The result view explicitly chips out the future capability set so the system reads as an OS, not a one-shot generator: `website_generation`, `prompt_export`, `deployment_integrations`, `ai_builder_integrations`, `crm_setup_automation`. Backend `/health` mirrors the same list at `future_hooks`.
+
+### How a founder uses this today
+1. Visit `/startup`, `/build`, or `/launch`.
+2. Fill 8 intake fields → click "Generate launch plan".
+3. ~60s later, receive a 9-section plan synthesized by Claude Sonnet 4.5.
+4. Plan persists in MongoDB (`startup_launch_plans`); shareable via plan_id.
 
 ---
 
