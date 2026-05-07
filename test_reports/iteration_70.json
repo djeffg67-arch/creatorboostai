@@ -1,0 +1,60 @@
+{
+  "summary": "Retest after iter 69 fixes — avatar narration in BroadcastFeed. Critical ReferenceError (missing useState/useRef declarations) is now committed in source (lines 156 + 169) and dashboard renders cleanly with no ErrorBoundary fallback. narrationLineFor rewrite verified against live deal-lane events: spoken text matches the new cinematic format. Mute, toggle, MutationObserver-tracked narrating transitions, and avatar wiring all pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "BroadcastFeed.narrationLineFor (deal lane)",
+        "issue": "When backend live-pulse summary contains an em-dash placeholder for the company (e.g. `Deal created · $30,000 → —`), `_extractName` returns `\"—\"` and the spoken line becomes `\"Deal closed with —, value $30,000.\"`. Observed 2/5 deal narrations during this run. Suggest filtering placeholder names (em-dash, empty) and falling back to `Deal closed, value $30,000.`.",
+        "selector": "n/a (Web Speech text)",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_evidence": {
+    "login_no_errorboundary": "PASS — portal-ops-page testid present, 'SOMETHING WENT SIDEWAYS' fallback NOT in DOM",
+    "control_rail_present": true,
+    "avatar_initial_data_narrating": "false",
+    "speakCalls_observed": 5,
+    "spoken_lines_sample": [
+      "Deal closed with Realtor T, value $30,000.",
+      "Deal closed with Realtor Stop, value $30,000.",
+      "Deal closed with NY Hot Aviation, value $150,000.",
+      "Deal closed with —, value $30,000.",
+      "Deal closed with —, value $30,000."
+    ],
+    "narrationLog_via_MutationObserver": "11 entries — clean false→true→false×5 cycles, avatar attribute toggles in real time",
+    "mute_blocks_speech": "PASS — 0 speak() calls in 18s muted window; data-narrating=false",
+    "toggle_off_state": {"speaking": false, "enabled": "0", "feed_active": "false", "narrating": "false"},
+    "narrationLineFor_code_audit": {
+      "hot": "Hot lead detected. <name> just hit a high-intent threshold. — matches spec",
+      "deal_with_value": "Deal closed with <name>, value $X.  — matches spec",
+      "deal_without_value": "Deal closed with <name>.",
+      "reply_interested": "Interested reply received from <name>. — matches spec",
+      "reply_other": "New reply received from <name>. — matches spec",
+      "scheduling": "Scheduling event confirmed for <name>. — matches spec"
+    },
+    "low_signal_lanes_silent": "Code-audited: NARRATE_LANES = {reply, hot, deal, scheduling}; outreach/demo/intake/engine cannot reach speakLine. Live-pulse during test window emitted only deal events so no live-traffic counter-example to report.",
+    "lanes_observed_live": ["deal"]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "[LOW] Harden narrationLineFor for deal lane against placeholder em-dash names — when _extractName returns '—' or empty, drop the name and just say 'Deal closed, value $X.'",
+    "[OPTIONAL] Add a smoke test that mounts BroadcastFeed with mock props and asserts no ErrorBoundary fallback to guard against regressing the iter 69 ReferenceError class of bug."
+  ],
+  "critical_code_review_comments": [
+    "Iter 69 fix is correctly committed: BroadcastFeed.jsx line 156 declares `const [narrating, setNarrating] = useState(false);` and line 169 declares `const narrateTimerRef = useRef(null);`. No ReferenceError observed.",
+    "narrationLineFor now composes from event fields (`_extractName` + `_extractValue`) instead of regex-rewriting the visual summary — much cleaner and matches the spec for all four narrated lanes.",
+    "Speech override resilience: `speakLine` cancels in-flight before speaking, and the unmount/mute/disable effects all call `synth.cancel()` — correct lifecycle handling."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% on retest scope (deal lane verified live; hot/reply/scheduling verified via code audit since live-pulse emitted no events for those lanes during the 55s window)"},
+  "test_credentials": "Founder master key: jeffrey-2026-bodyiq-founder-master → POST /api/ops/founder-access",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 69 critical ReferenceError fix is committed (BroadcastFeed.jsx lines 156, 169). narrationLineFor now matches spec for all 4 narrated lanes. To re-verify hot/reply/scheduling against live events you may need to seed those event types via /api/ops/outbound/live-pulse or simulate, since the live data during this run only emitted deal events. The headless speak override pattern (window.add_init_script with a synthetic onend timeout) is required because the real Web Speech API is a no-op in headless Chromium.",
+  "rca of the issue": "Iter 69 fixes verified end-to-end. (1) Missing `narrating` useState + `narrateTimerRef` useRef now declared at lines 156 and 169 — dashboard renders without ErrorBoundary fallback. (2) `narrationLineFor` rewritten to compose from event fields: deal-lane spoken output is now 'Deal closed with <name>, value <$value>.' instead of the broken 'Deal closed. created , $30,000 for Realtor T'. Confirmed against 5 live deal events. Remaining cosmetic issue: when backend summary uses an em-dash placeholder for the company name, the spoken line includes '—' as the name; suggest filtering placeholders in _extractName."
+}

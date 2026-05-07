@@ -39,17 +39,49 @@ const STORAGE_KEY = "cb_broadcast_feed_v1";
 const NARRATE_LANES = new Set(["reply", "hot", "deal", "scheduling"]);
 
 // Generate a cinematic single-sentence narration line per event.
+// Extract the prospect/business name from a backend summary like:
+//   "Outreach sent → Coastal Realty · Real estate brokerage"
+//   "Deal created · $30,000 → Realtor T"
+//   "Hot lead detected → CompanyX"
+// We always take the substring AFTER the arrow and BEFORE the first " · "
+// segment so industry/state metadata don't end up spoken aloud.
+const _extractName = (summary) => {
+    if (!summary) return "";
+    const afterArrow = summary.split("→").pop() || summary;
+    const firstSeg = afterArrow.split("·")[0] || afterArrow;
+    return firstSeg.trim();
+};
+
+// Pull a "$X,000" token out of a summary if present.
+const _extractValue = (summary) => {
+    const m = (summary || "").match(/\$\s?[\d,]+/);
+    return m ? m[0].replace(/\s/g, "") : null;
+};
+
 const narrationLineFor = (e) => {
     if (!e) return null;
-    const summary = (e.summary || "").trim();
-    // Strip the "→" arrow used in visible summaries — it doesn't read well
-    const clean = summary.replace(/\s*→\s*/g, " for ").replace(/·/g, ",");
+    const name = _extractName(e.summary);
+    if (!name) return null;
     switch (e.lane) {
-        case "hot":        return `Hot lead detected. ${clean.replace(/^Hot lead detected for /, "")}`;
-        case "deal":       return clean.replace(/^Deal/, "Deal closed.");
-        case "reply":      return clean.replace(/^Interested reply for /, "Interested reply received from ").replace(/^Reply for /, "New reply received from ");
-        case "scheduling": return clean.replace(/^Scheduling event for /, "Scheduling event for ");
-        default:           return null;
+        case "hot":
+            return `Hot lead detected. ${name} just hit a high-intent threshold.`;
+        case "deal": {
+            const v = _extractValue(e.summary);
+            return v
+                ? `Deal closed with ${name}, value ${v}.`
+                : `Deal closed with ${name}.`;
+        }
+        case "reply": {
+            // Heuristic: backend prefixes Interested replies with "Interested reply"
+            const isInterested = /^Interested/i.test(e.summary || "");
+            return isInterested
+                ? `Interested reply received from ${name}.`
+                : `New reply received from ${name}.`;
+        }
+        case "scheduling":
+            return `Scheduling event confirmed for ${name}.`;
+        default:
+            return null;
     }
 };
 
