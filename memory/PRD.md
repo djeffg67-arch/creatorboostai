@@ -1,8 +1,45 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 75 — Live Send Pulse · command-center widget on Operator dashboard)
+**Last update:** 2026-05-07 (Iter 76 — BroadcastFeed cinematic command-center overlay)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 76 — CINEMATIC BROADCAST FEED OVERLAY (P0)
+
+Status: SHIPPED · testing_agent_v3_fork iter 68 → **100% backend (9/9 pytest), 100% frontend, zero defects.**
+
+User brief: "Add a live execution ticker across the dashboard that displays real-time outreach, reply detection, follow-up actions, demo activity, and scheduling events. Bloomberg/SOC/command-center feel — minimal, premium, enterprise-grade."
+
+### Files added
+- `/app/frontend/src/components/portal/BroadcastFeed.jsx` (~327 lines) — cinematic ticker overlay:
+  - Persistent control rail bottom-left: toggle (`Broadcast Live` / `Broadcast Off`) + mute.
+  - Cinematic bottom-center bar that slides in from below with each new event, dwells 4.5s, fades over 0.45s.
+  - Lane-coloured chip + icon (outreach·cyan / reply·emerald / demo·sky / hot·amber / deal·fuchsia / scheduling·violet / intake·slate / engine·cyan).
+  - Persisted `seen-event` hashes in localStorage so refreshes don't replay history (capped at 200).
+  - Pause-on-hover, dismiss button, accessible (aria-live polite).
+  - Independent 6s polling of the same `/api/ops/outbound/live-pulse` endpoint as LiveSendPulse — no extra API surface.
+- `/app/backend/tests/test_iter68_broadcast_feed.py` — 9 backend assertions validating broadcast_events shape, lanes, sorting, simulated flag, auth gating.
+
+### Files updated
+- `/app/backend/outbound.py` — extended `live-pulse` with `broadcast_events: list[{ts, kind, lane, summary, ref, simulated}]` (max 25, newest first). The `_broadcast_recent` helper merges 8 event types (sent, reply, demo_sent, demo_viewed, hot_lead, deal_created, scheduled, bumped) into one normalized stream.
+- `/app/frontend/src/pages/PortalOpsPage.jsx` — imports BroadcastFeed; mounts inside `<Layout>` after the main column, gated on `me.role === 'founder' || me.scopes?.can_see_settings` so it's visible on every tab (Leads / Demos / Outbound / Performance / Avatar / Admin / Revenue).
+
+### Verified live (curl + UI)
+- Backend returns 21 broadcast events across lanes deal/demo/outreach with realistic summaries.
+- UI: control rail visible across Performance/Leads/Outbound tabs; ticker displays an active event with `data-lane='deal'`, dismiss button removes immediately, toggle persists to localStorage.
+- LiveSendPulse + BroadcastFeed coexist on Outbound tab without conflict.
+
+### Cumulative AI Command-Center Layer (now in production-ready code)
+- HeyGen ExecutiveAvatar (homepage hero + 6 cinematic demos with scene-synced narration).
+- Scene-aware avatar registry ready for per-scene HeyGen exports.
+- Onsenseend hook → demo auto-progression (silent today, activates with first scene clip).
+- Operational signal light (green/yellow/red) on portal.
+- LiveSendPulse 4s polling widget on Outbound tab (mode chip, KPIs, panels, tickers).
+- BroadcastFeed cinematic overlay across all founder tabs.
+- Worker telemetry + heartbeat tracking.
+- Production-vs-sandbox truthful auto-detect.
 
 ---
 
