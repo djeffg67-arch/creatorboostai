@@ -3000,6 +3000,72 @@ def make_outbound_router(
         recent_replies = await _recent("reply", 5)
         last_send = recent_sends[0] if recent_sends else None
 
+        # ---- broadcast events · unified cinematic ticker stream ----
+        broadcast_events: List[Dict[str, Any]] = []
+
+        async def _broadcast_recent(event_type: str, lane: str, kind_label: str, limit: int = 8):
+            try:
+                cursor = (
+                    db.outbound_events.find(
+                        {"type": event_type}, {"_id": 0}
+                    )
+                    .sort([("created_at", -1)])
+                    .limit(limit)
+                )
+                async for ev in cursor:
+                    pid = ev.get("prospect_id")
+                    p = None
+                    if pid:
+                        p = await db.outbound_prospects.find_one(
+                            {"id": pid},
+                            {"_id": 0, "email": 1, "business_name": 1, "industry": 1, "state": 1},
+                        ) or {}
+                    name = (p or {}).get("business_name") or _mask((p or {}).get("email", "")) or "—"
+                    geo = " · ".join(filter(None, [(p or {}).get("industry"), (p or {}).get("state")]))
+                    if event_type == "sent":
+                        summary = f"Outreach sent → {name}{(' · ' + geo) if geo else ''}"
+                    elif event_type == "reply":
+                        cls = ev.get("reply_category") or "Reply"
+                        summary = f"{cls} reply → {name}"
+                    elif event_type == "demo_sent":
+                        summary = f"Demo link sent → {name}"
+                    elif event_type == "demo_viewed":
+                        summary = f"Demo opened → {name}"
+                    elif event_type == "hot_lead":
+                        summary = f"Hot lead detected → {name}"
+                    elif event_type == "deal_created":
+                        v = ev.get("value_usd") or 0
+                        summary = f"Deal created · ${int(v):,} → {name}"
+                    elif event_type == "scheduled":
+                        summary = f"Scheduling event → {name}"
+                    elif event_type == "bumped":
+                        summary = f"Follow-up bump → {name}"
+                    else:
+                        summary = f"{kind_label} → {name}"
+                    broadcast_events.append({
+                        "ts": ev.get("created_at"),
+                        "kind": event_type,
+                        "lane": lane,
+                        "summary": summary,
+                        "ref": pid or ev.get("id"),
+                        "simulated": bool(ev.get("simulated")),
+                    })
+            except Exception as e:
+                log.warning(f"[live_pulse] broadcast_recent {event_type} failed: {e}")
+
+        await _broadcast_recent("sent",          "outreach",   "Outreach")
+        await _broadcast_recent("reply",         "reply",      "Reply")
+        await _broadcast_recent("demo_sent",     "demo",       "Demo sent")
+        await _broadcast_recent("demo_viewed",   "demo",       "Demo viewed", limit=5)
+        await _broadcast_recent("hot_lead",      "hot",        "Hot lead", limit=5)
+        await _broadcast_recent("deal_created",  "deal",       "Deal", limit=5)
+        await _broadcast_recent("scheduled",     "scheduling", "Scheduled", limit=5)
+        await _broadcast_recent("bumped",        "outreach",   "Bump", limit=5)
+
+        # newest first, drop None ts
+        broadcast_events.sort(key=lambda e: e.get("ts") or "", reverse=True)
+        broadcast_events = broadcast_events[:25]
+
         # ---- next scheduled action ----
         next_action: Optional[Dict[str, Any]] = None
         try:
@@ -3050,6 +3116,7 @@ def make_outbound_router(
             "next_action": next_action,
             "recent_sends": recent_sends,
             "recent_replies": recent_replies,
+            "broadcast_events": broadcast_events,
         }
 
     # Public unsubscribe — no auth, uses deterministic token.

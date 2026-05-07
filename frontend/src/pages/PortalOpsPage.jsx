@@ -39,6 +39,7 @@ import {
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
 import { LiveSendPulse } from "@/components/portal/LiveSendPulse";
+import { BroadcastFeed } from "@/components/portal/BroadcastFeed";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -4406,6 +4407,14 @@ export default function PortalOpsPage() {
                     </main>
                 </div>
             </div>
+            {/* Cinematic command-center broadcast feed — visible across every tab */}
+            {(me.role === "founder" || me.scopes?.can_see_settings) && (
+                <BroadcastFeed
+                    apiBaseUrl={BACKEND_URL}
+                    authEmail={auth?.email}
+                    authToken={auth?.token}
+                />
+            )}
         </Layout>
     );
 }
