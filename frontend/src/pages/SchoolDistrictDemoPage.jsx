@@ -564,7 +564,12 @@ export default function SchoolDistrictDemoPage() {
                         {SCENES.map((s, i) => (
                             <button
                                 key={s.id}
-                                onClick={() => { setIdx(i); setElapsed(SCENES.slice(0, i).reduce((a, c) => a + c.durationMs, 0)); }}
+                                onClick={() => {
+                                    const target = SCENES.slice(0, i).reduce((a, c) => a + c.durationMs, 0);
+                                    startRef.current = Date.now() - target;
+                                    setElapsed(target);
+                                    setIdx(i);
+                                }}
                                 data-testid={`school-demo-scene-btn-${s.id}`}
                                 className={`rounded-sm px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] ${i === idx ? "border border-cyan-500/50 bg-cyan-500/10 text-cyan-300" : "border border-white/10 text-slate-400 hover:border-cyan-500/30 hover:text-cyan-300"}`}
                             >

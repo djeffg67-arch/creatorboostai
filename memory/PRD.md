@@ -1,8 +1,40 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 72 — HeyGen ExecutiveAvatar layer + production deployment recovery email)
+**Last update:** 2026-05-07 (Iter 73 — Cinematic scene-synced ExecutiveAvatar + scene-jump bug fix)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 73 — CINEMATIC SCENE-SYNCED AVATAR + SCHOOL-DEMO BUG FIX (P0)
+
+Status: SHIPPED · Tested via testing_agent_v3_fork iter 48 (85% → bug fixed → self-test PASS).
+
+User brief: "Chain the HeyGen avatar directly into the cinematic demo narration system. Each scene triggers the matching avatar segment visually + verbally. Smooth fade/cut transitions, onEnded auto-progression, scene-keyed registry, mobile-safe fallbacks. Become the core presentation layer."
+
+### Files added
+- `/app/frontend/src/lib/demoAvatarRegistry.js` — `DEMO_AVATAR_REGISTRY` + `resolveAvatarSources(demoKey, sceneId, platform)`. Future per-scene HeyGen exports plug in via `scenes[sceneId] = { desktop, mobile, poster, posterMobile, durationMs }` — no component changes needed.
+
+### Files updated
+- `/app/frontend/src/components/avatar/ExecutiveAvatar.jsx` — added `demo-cinematic` variant with:
+  - Scene-aware props: `registry`, `sceneId`, `sceneIndex`, `sceneCount`, `sceneLabel`, `paused`, `speaking`, `onSceneEnd`.
+  - Scene-progress strip (top-right) — N dots, current dot brighter.
+  - Scene label band (bottom) — "Scene N / TOTAL" + scene title.
+  - Dynamic chip text — "Live · Scene N of M" (speaking) / "Paused · Scene N" / "Standing by · Scene N of M".
+  - Opacity crossfade (~80ms) on scene change via `key={videoSrc}` remount.
+  - `data-scene-index`, `data-speaking`, `data-paused` for testability.
+  - `onSceneEnd` hook for future auto-advance.
+- 6 demos rewired to pass scene state to avatar:
+  - `SupermarketDemoPage` · `AirportDemoPage` · `NoldusDemoPage` · `RealtorDemoPage` · `SchoolDistrictDemoPage` · `StartupDemoPage`.
+- `SchoolDistrictDemoPage` scene-jump bug fix: pager `onClick` now resets `startRef.current = Date.now() - cumulative` so the playback `setInterval` honors user jumps.
+
+### Bug RCA + fix
+- **Bug:** clicking school demo's pager (e.g. `school-demo-scene-btn-systems`) did not advance the avatar's `data-scene-index` because the playback timer's closure-captured `startRef` snapshot kept overriding the user's `setIdx` on the next 200ms tick.
+- **Fix:** rewrote pager `onClick` to atomically update `startRef.current`, `setElapsed`, and `setIdx` before the timer's next tick.
+- **Verification:** self-test PASS — 4 sequential scene jumps (`hook→systems→hook→koollite`) all reflect immediately on `data-scene-index`.
+
+### What's still on placeholder vs real
+- Per-scene HeyGen exports are NOT YET attached — every demo currently visually loops the universal `avatar-hero-loop.mp4` while TTS narration drives audio. The registry is wired so the moment per-scene clips are uploaded into `/avatars/<demo>/<sceneId>.mp4`, they auto-pick up. Visible scene synchronization (chip text, progress strip, label band, crossfade) all already work.
 
 ---
 
