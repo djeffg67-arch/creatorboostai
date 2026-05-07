@@ -97,7 +97,7 @@ export default function StartupLaunchPage() {
                 )}
 
                 {stage === "result" && result && (
-                    <Result result={result} onRestart={() => { setResult(null); setForm(Object.fromEntries(FIELDS.map((f) => [f.key, "")])); setStage("hero"); }} />
+                    <Result result={result} onRestart={() => { setResult(null); setForm(Object.fromEntries(FIELDS.map((f) => [f.key, ""]))); setStage("hero"); }} />
                 )}
             </div>
         </Layout>

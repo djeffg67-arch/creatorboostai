@@ -1,0 +1,58 @@
+{
+  "summary": "Iter 82 testing for Startup & Business Launch System (Phase 1). Verified backend health, validation, fetch endpoints + frontend routes /startup, /build, /launch, hero→intake transition, all 8 inputs, submit gating, and /demo/startup regression. The actual POST /api/startup-launch/generate could NOT be successfully completed end-to-end because the upstream Claude provider (via litellm) is returning HTTP 502 BadGateway repeatedly — this is an upstream LLM infra issue, not a backend code defect. Backend code logic is sound; all other endpoints work.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/startup-launch/generate",
+        "issue": "Upstream Claude/litellm is returning 502 BadGatewayError on every attempt (2 tries used). The litellm openai.completion call retries internally, and each attempt blocks ~60s+. As a result the asyncio.wait_for(60s) timeout boundary aligns with the K8s ingress 60s gateway timeout, returning 502 to the client even though backend code is correct. Backend code is sound; provider is currently unhealthy.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/startup-launch/generate",
+        "issue": "Even when upstream succeeds, the asyncio.wait_for=60.0s sits at the K8s ingress 60s timeout boundary. Suggest tightening to ~50s and surfacing a clear 504 to the user, OR streaming partial output. Right now a slow-but-successful Claude response could lose to ingress."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Submit launch plan -> result stage",
+        "issue": "Could not be verified live due to upstream LLM 502s described above. Code path looks correct: POST {BACKEND_URL}/api/startup-launch/generate, error toast on failure, stage='result' on json.ok. Recommend retesting once upstream is healthy.",
+        "affected_selectors": ["[data-testid='intake-submit']","[data-testid='startup-launch-result']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_startup_launch.py",
+    "/app/test_reports/pytest/iter82_startup_launch.xml"
+  ],
+  "action_items": [
+    "Investigate upstream Claude/litellm provider 502 BadGateway — observed in /var/log/supervisor/backend.err.log: 'litellm.BadGatewayError: OpenAIException - Error code: 502'. Once upstream is healthy, re-run TestGenerate + frontend e2e submit flow.",
+    "Consider tightening _call_claude asyncio.wait_for from 60s to ~50s to leave headroom under the K8s ingress 60s gateway timeout, so users see backend's 504 instead of a generic ingress 502.",
+    "Optional: short-circuit/skip litellm internal retries (or cap to 1) since each attempt costs ~60s; right now a single user request can balloon to 180s+ on flaky providers."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/startup_launch.py: _strip_json regex uses non-greedy with re.DOTALL which is fine but a trailing '}' inside a string value could fool last-rfind path. Acceptable for now given strict JSON system prompt.",
+    "Mongo persistence wrapped in try/except — good. _id stripped post-insert — good.",
+    "/app/frontend/src/pages/StartupLaunchPage.jsx: trim().length >= 2 gates submit — fine. Note: textareas don't enforce maxLength matching backend (services 2000, business_goals 2000, target_customers 2000, location 200, revenue_goals 400, branding_style 400). Submitting >max would yield 422; consider client-side maxLength.",
+    "Result section uses Array.isArray() guards — robust against malformed LLM responses.",
+    "No retry/cancel UX while generating; a 60s hang with no progress indicator beyond spinner could feel broken. Consider phase progress text."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_startup_launch.py (new)"
+  ],
+  "success_rate": {
+    "backend": "60% (3 of 5 verifiable tests pass: health, validation 422, 404 path. /generate blocked by upstream 502; /plan/{id} fetch skipped because no plan_id available)",
+    "frontend": "100% (all UI/route/transition/regression checks pass)"
+  },
+  "test_credentials": "None required for these endpoints",
+  "seed_data_creation": "None — used TEST_ prefixed in-memory intake; generate never persisted due to upstream 502.",
+  "retest_needed": true,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Frontend launch page routes /startup, /build, /launch all wired correctly to StartupLaunchPage. Hero, intake, all 8 testids confirmed present and functional. /demo/startup correctly preserved as cinematic demo (returns existing CB layout, not new page). The ONLY unverified path is the actual end-to-end generate→result, blocked by upstream Claude 502. Once provider recovers, run: pytest /app/backend/tests/test_startup_launch.py -v   then run frontend submit flow (fill 8 fields with ≥2 chars each, click intake-submit, wait up to 60s for [data-testid=startup-launch-result] and 9 section testids: section-overview, section-roadmap, section-website, section-homepage, section-services, section-pricing, section-outreach, section-leadgen, section-crm + result-phase2-placeholder + result-restart).",
+  "rca of the issue": "Root cause for /generate failure: upstream LLM provider (anthropic via litellm + openai-compatible adapter) is responding with HTTP 502 BadGatewayError. Log evidence (/var/log/supervisor/backend.err.log): 'litellm.BadGatewayError: BadGatewayError: OpenAIException - Error code: 502' followed by 'Retrying request to /chat/completions in 0.426466 seconds'. litellm's internal retry logic compounds the latency past the asyncio.wait_for(60s) and the K8s ingress 60s window, so the client receives a 502 from ingress rather than the backend's intended 504. This is NOT a code bug in startup_launch.py. Reproduction: curl -m 90 http://localhost:8001/api/startup-launch/generate with valid intake — currently times out or returns 502 from upstream. Mitigation: (a) wait for provider recovery, (b) tighten internal timeout to 50s and reduce litellm retries to 1, (c) add user-facing 'AI provider temporarily unavailable, please retry' messaging."
+}

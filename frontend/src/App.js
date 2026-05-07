@@ -43,6 +43,7 @@ import StartEnginePage from "@/pages/StartEnginePage";
 import ClientPortalPage from "@/pages/ClientPortalPage";
 import StartupLandingPage from "@/pages/StartupLandingPage";
 import StartupDemoPage from "@/pages/StartupDemoPage";
+import StartupLaunchPage from "@/pages/StartupLaunchPage";
 import BusinessBuilderPage from "@/pages/BusinessBuilderPage";
 import WebsiteBuilderPage from "@/pages/WebsiteBuilderPage";
 import PublishedSitePage from "@/pages/PublishedSitePage";
@@ -107,7 +108,10 @@ function App() {
                     <Route path="/portal/lighting" element={<PortalLightingPage />} />
                     <Route path="/portal/ops" element={<PortalOpsPage />} />
                     <Route path="/start-engine" element={<StartEnginePage />} />
-                    <Route path="/startup" element={<StartupLandingPage />} />
+                    <Route path="/startup" element={<StartupLaunchPage />} />
+                    <Route path="/build" element={<StartupLaunchPage />} />
+                    <Route path="/launch" element={<StartupLaunchPage />} />
+                    <Route path="/startup/landing" element={<StartupLandingPage />} />
                     <Route path="/demo/startup" element={<StartupDemoPage />} />
                     <Route path="/portal/builder" element={<BusinessBuilderPage />} />
                     <Route path="/portal/website-builder" element={<WebsiteBuilderPage />} />
