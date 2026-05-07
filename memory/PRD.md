@@ -1,8 +1,33 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 79 — Per-demo silent-loop architecture · ends homepage-script-on-every-demo bug)
+**Last update:** 2026-05-07 (Iter 80 — Demo credibility gate · suppress avatar in silent-loop mode)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 80 — DEMO CREDIBILITY GATE (P0)
+
+Status: SHIPPED · self-test verified live on `/demo/school`, `/demo/startup`, `/`.
+
+User report: "The current avatar implementation on the demo pages is not acceptable because the avatar lip movements do not match the original demo narration audio. Remove or disable the avatar layer from all demo pages temporarily if lip sync cannot match the narration. Keep the avatar only on the homepage greeting for now."
+
+### Fix
+- One-line addition to `ExecutiveAvatar.jsx`: `if (suppressInSilentMode) return null;` where `suppressInSilentMode = cinematic && silentLoopMode`. Returns null in render path so the entire avatar host disappears from demo pages until per-scene HeyGen clips are uploaded.
+- Homepage hero (`variant='hero'`) is unaffected — it has its real audio + matching script.
+- Auto-restoration: the moment a per-scene HeyGen clip drops into `/avatars/<demoKey>/<sceneId>.mp4` AND a 1-line entry is added to `DEMO_AVATAR_REGISTRY`, that scene's `cinematicHasSceneClip` becomes true → `silentLoopMode` becomes false → avatar renders with the matching audio. **Zero further code changes required.**
+
+### Verified
+- `/demo/school` → no avatar element. Demo TTS narrates the correct school script. Demo UX is now credible.
+- `/demo/startup` → no avatar element.
+- `/` → hero avatar still renders with `data-variant='hero'`. Voice lock + auto-unmute + with-audio clip all preserved.
+
+### Re-enable path (when per-scene clips are recorded)
+Documented in `/app/memory/avatar_per_demo_upload_guide.md`:
+1. Record per-scene HeyGen clip using the demo's exact `narration` text.
+2. Drop into `/app/frontend/public/avatars/<demoKey>/<sceneId>.mp4`.
+3. Add 1-line entry to `DEMO_AVATAR_REGISTRY.scenes[sceneId]`.
+4. Avatar auto-renders with matching lip-sync.
 
 ---
 

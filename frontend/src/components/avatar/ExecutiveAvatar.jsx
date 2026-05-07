@@ -260,6 +260,15 @@ export const ExecutiveAvatar = ({
     // attached to a demo scene.
     const silentLoopMode = cinematic && !cinematicHasSceneClip;
 
+    // 🚦 Demo credibility gate (iter 80):
+    // Until per-scene HeyGen clips are uploaded for a demo, rendering a
+    // silent-looping avatar next to demo narration creates a lip-sync
+    // mismatch that hurts perceived quality. Suppress the entire avatar
+    // until a scene-specific clip is registered. The moment a per-scene
+    // clip drops into the registry, silentLoopMode becomes false and the
+    // avatar renders again automatically — zero further code changes.
+    const suppressInSilentMode = cinematic && silentLoopMode;
+
     const [hostRef, inView] = useInView("250px");
     const videoRef = useRef(null);
     // Initial muted state respects browser autoplay policy AND any
@@ -421,6 +430,14 @@ export const ExecutiveAvatar = ({
     const chipAccent =
         accentClasses[chipAccentOverride || cfg.chipAccent] ||
         accentClasses.cyan;
+
+    // 🚦 Demo credibility gate — return null when in silent-loop mode
+    // so the avatar isn't rendered with mismatched lip-sync next to
+    // unrelated demo narration. Homepage hero is unaffected because it
+    // has its real audio + script.
+    if (suppressInSilentMode) {
+        return null;
+    }
 
     return (
         <>
