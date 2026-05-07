@@ -1,8 +1,37 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 74 — Avatar-driven scene progression + final E2E regression 100%)
+**Last update:** 2026-05-07 (Iter 75 — Live Send Pulse · command-center widget on Operator dashboard)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 75 — LIVE SEND PULSE (P0)
+
+Status: SHIPPED · testing_agent_v3_fork iter 50 → **100% backend, 100% frontend.**
+
+User brief: "Add a real-time execution indicator showing outbound queue activity, current prospect being contacted, queue timing, reply detection, execution telemetry. Enterprise command-center style, not flashy."
+
+### Files added
+- `/app/backend/outbound.py` — new `POST /api/ops/outbound/live-pulse` (founder-auth) consolidates everything the dashboard needs in one low-cost call: `mode`, `mode_reason`, `paused`, `signal`, `workers[]`, `queue{in_flight, eligible_now, awaiting_bump, scheduled_followups, scoring_backlog}`, `rates{sends_last_hour, sends_today, replies_today}`, `last_send`, `next_action`, `recent_sends[]`, `recent_replies[]`. Emails are masked (`sa***@coastalrealty.example`).
+- `/app/backend/data_hygiene.py` — extracted reusable `compute_mode_summary(db)` so the live-pulse and `/data-hygiene/status` share the same truthful mode logic.
+- `/app/frontend/src/components/portal/LiveSendPulse.jsx` (~430 lines) — modular command-center widget:
+  - 4-second poll loop with in-flight dedup + clean unmount.
+  - Heart-beating signal light (green/yellow/red), mode chip ("SANDBOX · LOGGED ONLY" / "PRODUCTION · LIVE" / "PAUSED" / "MIXED"), 7-tile KPI strip, 3 panels (Last Send / Next Scheduled / Workers), 2 tickers (Recent Sends / Recent Replies), footer with mode reason + last-tick timestamp.
+  - Numeric-grid command-center aesthetic — no flashy consumer UI.
+
+### Files updated
+- `/app/frontend/src/pages/PortalOpsPage.jsx` — imports LiveSendPulse + BACKEND_URL, mounts it at the top of OutboundTab above the existing OutboundKPIStrip.
+
+### Backend pytest (iter 67)
+- `/app/backend/tests/test_iter67_live_pulse.py` — 7/7 passes covering auth gating, response shape, sandbox mode + resend_configured=false, green signal, masked emails, worker heartbeats.
+
+### Verified live (curl + UI)
+- Endpoint returns mode='sandbox' (correct), signal.level='green', 4 workers fresh, 5 recent sends with masked emails, 0 replies today.
+- UI: chip displays 'SANDBOX · LOGGED ONLY', signal light pulses, all 7 KPIs render, all panels populate, tickers show Last Send + Worker heartbeats with seconds-since-tick.
+
+### What's still platform-blocked (NOT code)
+- mode='sandbox' will auto-flip to 'production' the moment Emergent Support binds `RESEND_API_KEY` — zero further code changes from us.
 
 ---
 
