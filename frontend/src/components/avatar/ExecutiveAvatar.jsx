@@ -399,12 +399,16 @@ export const ExecutiveAvatar = ({
     // Dynamic chip text in cinematic mode reflects live narration state
     const dynamicChip = useMemo(() => {
         if (!cinematic) return chipTextOverride || cfg.chipText;
+        if (silentLoopMode) {
+            return `Visual presence · Scene ${sceneIndex + 1}${sceneCount ? ` of ${sceneCount}` : ""}`;
+        }
         if (paused) return `Paused · Scene ${sceneIndex + 1}`;
         if (speaking)
             return `Live · Scene ${sceneIndex + 1}${sceneCount ? ` of ${sceneCount}` : ""}`;
         return `Standing by · Scene ${sceneIndex + 1}${sceneCount ? ` of ${sceneCount}` : ""}`;
     }, [
         cinematic,
+        silentLoopMode,
         chipTextOverride,
         cfg.chipText,
         paused,

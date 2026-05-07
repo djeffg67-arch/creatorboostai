@@ -1,8 +1,46 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 78 — Avatar Voice Lock · single-voice fix across demos + homepage)
+**Last update:** 2026-05-07 (Iter 79 — Per-demo silent-loop architecture · ends homepage-script-on-every-demo bug)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 79 — DEMO AVATAR NEVER SPEAKS HOMEPAGE SCRIPT (P0)
+
+Status: SHIPPED · iter 79 + chip-fix self-test → **Verified live on `/demo/school`.**
+
+User report: "The HeyGen avatar is repeating the same homepage script across all demos. That clip is fine for the homepage only, but it should NOT be reused as the narration for every demo. Plus the old demo voice narration is still playing at the same time as the avatar, so there are two voices overlapping."
+
+### Root cause
+Even after iter 71's voice lock, the cinematic avatar fell back to `avatar-desktop-opt.mp4` (the with-audio HOMEPAGE clip) when no per-scene HeyGen export was registered. So every demo's avatar literally played the homepage script.
+
+### Architectural fix
+- Cinematic avatar now has a `silentLoopMode = cinematic && !cinematicHasSceneClip` derived flag.
+- When `silentLoopMode === true`:
+  - Video source = `avatar-hero-loop.mp4` (silent visual loop — NEVER the homepage clip).
+  - Voice lock NOT installed → legacy demo TTS narrates the correct demo script.
+  - Mute button hidden (nothing to unmute).
+  - Fullscreen button hidden (no homepage briefing on a demo page).
+  - Auto-unmute gesture listener disabled.
+  - Initial mute state hard-true.
+  - Chip text: `"Visual presence · Scene N of M"`.
+- When `silentLoopMode === false` (per-scene clip is registered):
+  - Video source = the registered per-scene HeyGen clip (with its demo-specific audio).
+  - Voice lock installs (legacy TTS muted for that scene).
+  - Auto-unmute on first user gesture.
+  - Chip text: `"Live · Scene N of M"`.
+
+### Verified live (self-test)
+- `/demo/school`: chip text reads `"VISUAL PRESENCE · SCENE 1 OF 7"`. Video src ends with `avatar-hero-loop.mp4`. Mute button hidden, fullscreen button hidden, scene strip + label band still render correctly.
+- `/`: hero unchanged — uses `avatar-desktop-opt.mp4`, click anywhere unmutes, persists to localStorage.
+
+### Documentation
+- `/app/memory/avatar_per_demo_upload_guide.md` — step-by-step instructions for the user/HeyGen recordist on how to upload per-demo HeyGen exports. Once `<demoKey>/<sceneId>.mp4` files drop in and a 1-line registry entry is added, that scene auto-flips out of silent-loop mode and the avatar speaks the demo script. **Zero further code changes required.**
+
+### What this means for production deployment
+- Even in the current state (no per-demo clips uploaded yet), demos now play correctly: ONE voice (the legacy demo TTS speaking the right script per scene) + the visual avatar presence (silent loop). No more homepage script bleeding into demos.
+- As the user uploads per-demo HeyGen exports, each scene flips to avatar-narrated automatically.
 
 ---
 
