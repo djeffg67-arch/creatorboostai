@@ -3569,6 +3569,12 @@ app.include_router(make_avatar_router(
 ))
 
 
+# ---------- Startup & Business Launch System (Iter 82) ----------
+from startup_launch import make_startup_launch_router  # noqa: E402
+
+app.include_router(make_startup_launch_router(db))
+
+
 # ---------- Start Engine · First-login activation flow (Iter 54) ----------
 from start_engine import make_start_engine_router  # noqa: E402
 
