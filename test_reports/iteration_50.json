@@ -1,0 +1,73 @@
+{
+  "summary": "Iter 67/50 — LiveSendPulse component E2E. Backend: 7/7 pytest tests pass against POST /api/ops/outbound/live-pulse (auth gating, shape, sandbox mode + resend_configured=false, green signal, masked emails, worker heartbeats). Frontend: LiveSendPulse renders inside OutboundTab above OutboundKPIStrip with all 7 KPI testids, 3 panels, 2 tickers, mode chip 'SANDBOX · LOGGED ONLY', signal heart, data-mode=sandbox, data-signal=green, and active 4s polling. Regressions on home/koollite/lighting/school/startup all hold.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "spec_vs_code_naming_drift": [
+      {
+        "component": "LiveSendPulse workers panel rows",
+        "issue": "Spec said data-testid `outbound-live-pulse-workers-worker-scheduler_loop`, actual rendered testid is `outbound-live-pulse-worker-scheduler_loop` (no nested 'workers-' segment). Workers DO render correctly — 4 rows: scheduler_loop, business_activation_nurture, autopilot_cycle, daily_autopilot_loop. Decide which naming is canonical and align spec or code.",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter67_live_pulse.py",
+    "/app/test_reports/pytest/iter67_live_pulse.xml"
+  ],
+  "action_items": [
+    "OPTIONAL — align worker-row testid: change spec to `outbound-live-pulse-worker-<name>` OR rename code to `outbound-live-pulse-workers-worker-<name>` for nested-namespace consistency. Either is fine; just pick one source of truth.",
+    "PLATFORM (Emergent Support, unchanged): Bind RESEND_API_KEY in production runtime. mode=sandbox + resend_configured=false are correctly reported; not a code bug."
+  ],
+  "critical_code_review_comments": [
+    "LiveSendPulse.jsx is well-scoped (~430 lines, single-file widget) — useEffect cleans up via aliveRef + clearInterval on unmount; in-flight fetch deduped via fetchingRef. No leaks, no setState-after-unmount risk.",
+    "Polling cadence verified: footer renders 'last tick 0s ago' continuously across 3 consecutive samples, which is the expected behavior because data.now is updated each poll to current server time (proves polling IS happening — if it had stopped the value would grow).",
+    "Auth gating via OpsAuth/FounderAuth works: empty body → 422, wrong token → 401/403. No info leak.",
+    "Recent-sends email masking confirmed (e.g., 'sa***@coastalrealty.example') — privacy-correct.",
+    "Backend exposes 4 active workers (scheduler_loop, business_activation_nurture, autopilot_cycle, daily_autopilot_loop) — request stated 3-4, matches.",
+    "OutboundKPIStrip below LiveSendPulse still renders — no layout regression."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter67_live_pulse.py (NEW)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Founder master key: jeffrey-2026-bodyiq-founder-master → /api/ops/founder-access → email j.davidg67@gmail.com + portal_token (works).",
+  "seed_data_creation": "None — used existing seeded sends/replies (5 recent sends visible, 5 recent replies visible).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "LiveSendPulse polls /api/ops/outbound/live-pulse every 4s. Worker row testids are `outbound-live-pulse-worker-<worker_name>` (not the spec's `-workers-worker-` form). To verify polling visually, watch any KPI value (e.g., scheduled-followups) over 8-12s; if backend returns the same numbers it will appear static — tail backend logs `[autopilot] cycle complete` instead. Outbound runtime stays in sandbox until RESEND_API_KEY is bound by Emergent Support.",
+  "verification_details": {
+    "backend_pytest": "7/7 passed in 1.40s — test_iter67_live_pulse.py",
+    "frontend_testids_verified": [
+      "outbound-live-pulse (data-mode=sandbox, data-signal=green)",
+      "outbound-live-pulse-kpi-sends-hour",
+      "outbound-live-pulse-kpi-sends-today",
+      "outbound-live-pulse-kpi-replies-today",
+      "outbound-live-pulse-kpi-in-flight",
+      "outbound-live-pulse-kpi-eligible",
+      "outbound-live-pulse-kpi-awaiting-bump",
+      "outbound-live-pulse-kpi-scheduled",
+      "outbound-live-pulse-last-send",
+      "outbound-live-pulse-next-action",
+      "outbound-live-pulse-workers (with 4 worker rows)",
+      "outbound-live-pulse-ticker-sends + ticker-sends-row-0",
+      "outbound-live-pulse-ticker-replies",
+      "outbound-live-pulse-mode-chip = 'SANDBOX · LOGGED ONLY'",
+      "live-send-pulse-signal (heart-pulse animation visible)"
+    ],
+    "regression": {
+      "home-hero-avatar": "OK",
+      "school-demo-avatar": "OK",
+      "startup-demo-avatar": "OK",
+      "koollite-roi page": "OK",
+      "lighting dual-path": "OK",
+      "homepage koollite-dual-path testid": "not found on /, but Iter 46-49 verified it on /koollite/roi and /lighting; not affected by Iter 67"
+    }
+  },
+  "rca of the issue": "No issues found. Sandbox mode is the expected platform state until RESEND_API_KEY binding lands; backend reports it truthfully and frontend chip displays it truthfully ('SANDBOX · LOGGED ONLY'). Minor spec/code testid naming drift on worker rows is cosmetic only — workers render correctly under their actual testids."
+}

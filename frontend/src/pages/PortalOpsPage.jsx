@@ -38,6 +38,9 @@ import {
     cfoCaseGenerate, darkFunnelLeadEngagement, auditLeadTrail,
 } from "@/lib/api";
 import { DemoSavesMap } from "@/components/portal/DemoSavesMap";
+import { LiveSendPulse } from "@/components/portal/LiveSendPulse";
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 const STORAGE_KEY = "cb_ops_session";
 const LEAD_STATUSES = ["new", "contacted", "qualified", "demo_sent", "proposal", "won", "lost"];
@@ -3192,6 +3195,13 @@ const OutboundTab = ({ auth }) => {
                 <p className="text-slate-400" data-testid="outbound-loading">Loading outbound engine…</p>
             ) : (
                 <>
+                    {/* Live Send Pulse — real-time command-center widget */}
+                    <LiveSendPulse
+                        apiBaseUrl={BACKEND_URL}
+                        authEmail={auth?.email}
+                        authToken={auth?.token}
+                        testId="outbound-live-pulse"
+                    />
                     <OutboundKPIStrip dash={dash} prospects={prospects} sourceView={sourceView} />
                     {/* KPI Source Toggle — Real prospects vs Internal seeds */}
                     <div className="flex flex-wrap items-center gap-2" data-testid="outbound-source-toggle">

@@ -261,4 +261,47 @@ def make_data_hygiene_router(db, require_founder) -> APIRouter:
     return router
 
 
-__all__ = ["make_data_hygiene_router", "is_test_record"]
+__all__ = ["make_data_hygiene_router", "is_test_record", "compute_mode_summary"]
+
+
+async def compute_mode_summary(db) -> Dict[str, Any]:
+    """Reusable mode probe — returns the same {mode, mode_reason, resend_configured, paused}
+    payload that `/data-hygiene/status` returns. Imported by other modules
+    (e.g. outbound `live-pulse`) to surface a truthful production/sandbox label.
+    """
+    total = await db.outbound_prospects.count_documents({})
+    test = await db.outbound_prospects.count_documents({"is_test": True})
+    archived = await db.outbound_prospects.count_documents({"status": "archived_test"})
+    production_eligible = await db.outbound_prospects.count_documents({
+        "is_test": {"$ne": True},
+        "status": {"$nin": ["archived_test", "unsubscribed"]},
+        "unsubscribed": {"$ne": True},
+        "suppressed": {"$ne": True},
+    })
+    resend_configured = bool(os.environ.get("RESEND_API_KEY"))
+    camp = await db.outbound_campaign_state.find_one({}, {"_id": 0}) or {}
+    paused = bool(camp.get("paused"))
+    if not resend_configured:
+        mode = "sandbox"
+        mode_reason = "RESEND_API_KEY not configured · sends are logged but not delivered"
+    elif paused:
+        mode = "paused"
+        mode_reason = camp.get("pause_reason") or "engine paused by operator"
+    elif test > 0 and archived < test:
+        mode = "mixed"
+        mode_reason = f"{test - archived} test records still unarchived"
+    else:
+        mode = "production"
+        mode_reason = "Live · sends from Resend · production prospects only"
+    return {
+        "mode": mode,
+        "mode_reason": mode_reason,
+        "resend_configured": resend_configured,
+        "paused": paused,
+        "totals": {
+            "all_prospects": total,
+            "test_records": test,
+            "archived_test": archived,
+            "production_eligible": production_eligible,
+        },
+    }

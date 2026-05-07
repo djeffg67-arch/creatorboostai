@@ -2850,6 +2850,208 @@ def make_outbound_router(
         events.sort(key=lambda e: e.get("ts") or "", reverse=True)
         return {"ok": True, "events": events[:50]}
 
+    @router.post("/live-pulse")
+    async def live_pulse(payload: OpsAuth):
+        """Iter 74 · founder-only consolidated dashboard pulse.
+
+        Single low-cost endpoint that the Operator dashboard polls every
+        ~4 seconds. Returns everything the Live Send Pulse UI needs in one
+        response so we don't hammer the DB with 5 separate calls:
+
+          - mode             · sandbox / production (truthful)
+          - signal           · green / yellow / red
+          - workers          · per-worker heartbeat ages
+          - queue            · counts (in_flight, eligible, awaiting_bump,
+                               scheduled_followups, scoring_backlog)
+          - last_send        · most recent `sent` event (masked email)
+          - next_action      · earliest not_before_at in the future
+          - rates            · sends_last_hour, sends_today, replies_today
+          - recent_sends     · last 5 sends (masked)
+          - recent_replies   · last 5 replies (masked)
+          - now              · server iso time (so client can compute drift)
+        """
+        await require_founder(payload)
+        from worker_telemetry import compute_system_status, get_all_workers
+        try:
+            from data_hygiene import compute_mode_summary
+        except Exception:
+            compute_mode_summary = None
+
+        state = await _state()
+        paused = bool(state.get("paused"))
+        signal = await compute_system_status(
+            db, paused=paused, pause_reason=state.get("pause_reason")
+        )
+        workers = await get_all_workers(db)
+
+        # Mode (sandbox vs production)
+        mode_payload: Dict[str, Any] = {"mode": "unknown"}
+        if compute_mode_summary:
+            try:
+                mode_payload = await compute_mode_summary(db)
+            except Exception as e:
+                log.warning(f"[live_pulse] mode summary failed: {e}")
+                mode_payload = {"mode": "unknown", "error": str(e)[:120]}
+
+        now_s = now_iso()
+        today = today_key()
+
+        # ---- queue counts (production-only, hygiene-respecting) ----
+        prod_filter: Dict[str, Any] = {
+            "unsubscribed": {"$ne": True},
+            "suppressed": {"$ne": True},
+            "is_test": {"$ne": True},
+            "skip_send": {"$ne": True},
+        }
+        async def _count(extra: Dict[str, Any]) -> int:
+            try:
+                q = {**prod_filter, **extra}
+                return await db.outbound_prospects.count_documents(q)
+            except Exception:
+                return 0
+
+        q_in_flight = await _count({"last_email_at": {"$ne": None}, "replied_at": None})
+        q_eligible = await _count({
+            "status": {"$in": ["new", "scored"]},
+            "emails_sent": {"$lte": 0},
+            "lead_score": {"$gte": MIN_SCORE_TO_SEND},
+            "$or": [
+                {"not_before_at": {"$exists": False}},
+                {"not_before_at": None},
+                {"not_before_at": {"$lte": now_s}},
+            ],
+        })
+        q_awaiting_bump = await _count({
+            "status": "contacted",
+            "last_opened_at": {"$ne": None},
+            "replied_at": None,
+            "bumped": {"$ne": True},
+        })
+        q_scheduled = await _count({
+            "not_before_at": {"$gt": now_s},
+            "cadence_step": {"$gte": 1},
+        })
+        q_scoring_backlog = await _count({"lead_score": None})
+
+        # ---- send / reply rates ----
+        async def _events_count(query: Dict[str, Any]) -> int:
+            try:
+                return await db.outbound_events.count_documents(query)
+            except Exception:
+                return 0
+
+        # last hour iso threshold
+        try:
+            from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+            hour_ago = (
+                _dt.now(_tz.utc) - _td(hours=1)
+            ).isoformat().replace("+00:00", "Z")
+        except Exception:
+            hour_ago = now_s
+
+        sends_last_hour = await _events_count(
+            {"type": "sent", "created_at": {"$gte": hour_ago}}
+        )
+        sends_today = await _events_count({"type": "sent", "day_key": today})
+        replies_today = await _events_count({"type": "reply", "day_key": today})
+
+        # ---- recent send / reply samples (masked) ----
+        def _mask(em: str) -> str:
+            if not em or "@" not in em:
+                return em or ""
+            local, _, dom = em.partition("@")
+            if len(local) <= 2:
+                return f"{local[:1]}***@{dom}"
+            return f"{local[:2]}***@{dom}"
+
+        async def _recent(event_type: str, limit: int = 5) -> List[Dict[str, Any]]:
+            try:
+                items: List[Dict[str, Any]] = []
+                cursor = (
+                    db.outbound_events.find({"type": event_type}, {"_id": 0})
+                    .sort([("created_at", -1)]).limit(limit)
+                )
+                async for ev in cursor:
+                    pid = ev.get("prospect_id")
+                    p = None
+                    if pid:
+                        p = await db.outbound_prospects.find_one(
+                            {"id": pid},
+                            {"_id": 0, "email": 1, "business_name": 1, "industry": 1, "state": 1},
+                        )
+                    items.append({
+                        "ts": ev.get("created_at"),
+                        "kind": ev.get("kind") or event_type,
+                        "subject": (ev.get("subject") or "")[:120],
+                        "simulated": bool(ev.get("simulated")),
+                        "track_id": ev.get("track_id"),
+                        "business_name": (p or {}).get("business_name"),
+                        "industry": (p or {}).get("industry"),
+                        "state": (p or {}).get("state"),
+                        "email_masked": _mask((p or {}).get("email", "")),
+                        "prospect_id": pid,
+                    })
+                return items
+            except Exception as e:
+                log.warning(f"[live_pulse] recent {event_type} failed: {e}")
+                return []
+
+        recent_sends = await _recent("sent", 5)
+        recent_replies = await _recent("reply", 5)
+        last_send = recent_sends[0] if recent_sends else None
+
+        # ---- next scheduled action ----
+        next_action: Optional[Dict[str, Any]] = None
+        try:
+            cursor = (
+                db.outbound_prospects.find(
+                    {**prod_filter, "not_before_at": {"$gt": now_s}},
+                    {"_id": 0, "id": 1, "business_name": 1, "email": 1,
+                     "industry": 1, "state": 1, "not_before_at": 1, "cadence_step": 1},
+                )
+                .sort([("not_before_at", 1)])
+                .limit(1)
+            )
+            async for nx in cursor:
+                next_action = {
+                    "ts": nx.get("not_before_at"),
+                    "business_name": nx.get("business_name"),
+                    "industry": nx.get("industry"),
+                    "state": nx.get("state"),
+                    "email_masked": _mask(nx.get("email", "")),
+                    "cadence_step": nx.get("cadence_step", 0),
+                }
+        except Exception as e:
+            log.warning(f"[live_pulse] next_action failed: {e}")
+
+        return {
+            "ok": True,
+            "now": now_s,
+            "mode": mode_payload.get("mode") or "unknown",
+            "mode_reason": mode_payload.get("mode_reason"),
+            "resend_configured": mode_payload.get("resend_configured", False),
+            "paused": paused,
+            "pause_reason": state.get("pause_reason"),
+            "signal": signal,
+            "workers": workers,
+            "queue": {
+                "in_flight": q_in_flight,
+                "eligible_now": q_eligible,
+                "awaiting_bump": q_awaiting_bump,
+                "scheduled_followups": q_scheduled,
+                "scoring_backlog": q_scoring_backlog,
+            },
+            "rates": {
+                "sends_last_hour": sends_last_hour,
+                "sends_today": sends_today,
+                "replies_today": replies_today,
+            },
+            "last_send": last_send,
+            "next_action": next_action,
+            "recent_sends": recent_sends,
+            "recent_replies": recent_replies,
+        }
+
     # Public unsubscribe — no auth, uses deterministic token.
     @router.get("/unsubscribe/{token}")
     async def unsubscribe(token: str, e: str = ""):
