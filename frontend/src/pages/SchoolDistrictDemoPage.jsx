@@ -552,6 +552,13 @@ export default function SchoolDistrictDemoPage() {
                                     sceneLabel={current?.title || current?.eyebrow}
                                     paused={!playing}
                                     speaking={playing}
+                                    onSceneEnd={() => {
+                                        const nextIdx = Math.min(idx + 1, SCENES.length - 1);
+                                        const target = SCENES.slice(0, nextIdx).reduce((a, c) => a + c.durationMs, 0);
+                                        startRef.current = Date.now() - target;
+                                        setElapsed(target);
+                                        setIdx(nextIdx);
+                                    }}
                                     chipAccent="cyan"
                                     testId="school-demo-avatar"
                                 />

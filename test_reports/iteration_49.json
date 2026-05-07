@@ -1,0 +1,57 @@
+{
+  "summary": "Iter 49 final integration regression. Verified avatar onSceneEnd wiring, all 6 priority demo cinematic avatars, school scene-jump fix (iter 48), Koollite Dual-Path (iter 46), homepage hero, and outbound backend health. All checks pass. RESEND_API_KEY remains empty in production runtime → outbound is in sandbox mode (known platform issue routed to Emergent Support, NOT a code bug).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/health", "issue": "Returns 404 (no health route mounted). /api/ root returns 200 and is used as liveness probe instead. Minor — consider adding /api/health for parity."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter66_outbound_engine.py"
+  ],
+  "action_items": [
+    "PLATFORM (Emergent Support, not code): Bind RESEND_API_KEY / STRIPE / SUPABASE secrets in production runtime. Backend correctly reports mode=sandbox with mode_reason 'RESEND_API_KEY not configured · sends are logged but not delivered'. Code is production-ready.",
+    "Optional: add /api/health route for explicit liveness (currently /api/ root is used)."
+  ],
+  "critical_code_review_comments": [
+    "ExecutiveAvatar.jsx onEnded gate is correct: `if (cinematic && cinematicHasSceneClip && !paused) onSceneEnd?.()` — so the universal hero-loop (loop=true, cinematicHasSceneClip=false) cannot prematurely advance scenes. Verified live: every cinematic demo avatar renders with the inner <video> loop attribute = true.",
+    "demoAvatarRegistry.js scenes={} for all 7 demos today — fully matches the user-stated state (only 2 universal HeyGen exports uploaded). When per-scene clips drop in /public/avatars/<demo>/<sceneId>.mp4, just register them; no component changes needed.",
+    "SchoolDistrictDemoPage scene-jump fix verified (jumpToNextSceneAtomically) — deterministic across 7 buttons.",
+    "Outbound scheduler logs '[outbound] scheduler loop starting' and '[autopilot] cycle complete' every cycle in /var/log/supervisor/backend.err.log — confirmed running.",
+    "data-hygiene/status returns truthful sandbox mode with totals (353 test records, 0 production-eligible) — exactly the honest signaling the user asked for."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Founder master key: jeffrey-2026-bodyiq-founder-master → exchanged for token at /api/ops/founder-access (works).",
+  "seed_data_creation": "None — used existing seeded prospects (353 TEST_-prefixed, all archived).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 7 cinematic demo avatars use universal /avatars/avatar-hero-loop.mp4 (loop=true) until per-scene clips drop. onSceneEnd is wired but correctly silent today. Fixed-timer scene progression is the active driver. When per-scene HeyGen exports arrive, register them in /app/frontend/src/lib/demoAvatarRegistry.js → cinematicHasSceneClip flips true → onSceneEnd auto-advances. Outbound is in sandbox mode purely because RESEND_API_KEY is empty in production runtime; do NOT chase this in code — see /app/memory/support_email_draft.md.",
+  "verification_details": {
+    "backend": {
+      "/api/ root": "200",
+      "/api/health": "404 (not mounted; non-blocking)",
+      "/api/ops/founder-access": "200 (returns email+token)",
+      "/api/ops/outbound/admin/data-hygiene/status (authed)": "200 mode=sandbox resend_configured=false production_eligible=0",
+      "scheduler": "running ([autopilot] cycle complete in backend.err.log)"
+    },
+    "frontend": {
+      "home-hero-avatar": "data-variant=hero, loop=true, chip='AI EXECUTIVE OPERATOR · LIVE'",
+      "school-demo-avatar": "data-variant=demo-cinematic, loop=true",
+      "startup-demo-avatar": "data-variant=demo-cinematic, loop=true",
+      "supermarket-demo-avatar": "data-variant=demo-cinematic, loop=true (after Start)",
+      "airport-demo-avatar": "data-variant=demo-cinematic, loop=true, data-speaking=true within 8s after Start, scene-index=0",
+      "noldus-demo-avatar": "data-variant=demo-cinematic, loop=true (after Start)",
+      "realtor-demo-avatar": "data-variant=demo-cinematic, loop=true (after Start)",
+      "school scene-jump regression": "0 → systems=1 → koollite=5 deterministic (iter 48 fix holds)",
+      "koollite-roi page": "full koollite-roi-* testid set present",
+      "lighting page": "lighting-dual-path-* testids present"
+    }
+  },
+  "rca of the issue": "No issues found in code. Outbound sandbox mode is platform-level (RESEND_API_KEY missing in production runtime). Mitigation: Emergent Support secret-binding (already drafted in /app/memory/support_email_draft.md)."
+}

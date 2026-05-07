@@ -541,6 +541,7 @@ export default function AirportDemoPage() {
                                         sceneLabel={current?.section?.replace(/^Scene \d+ · /, "")}
                                         paused={paused}
                                         speaking={speaking}
+                                        onSceneEnd={goToNext}
                                         chipAccent="cyan"
                                         testId="airport-demo-avatar"
                                     />

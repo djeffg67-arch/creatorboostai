@@ -703,7 +703,7 @@ export default function SupermarketDemoPage() {
                                         sceneLabel={current?.section?.replace(/^Scene \d+ · /, "")}
                                         paused={paused}
                                         speaking={speaking}
-                                        onSceneEnd={() => { /* reserved for future auto-advance */ }}
+                                        onSceneEnd={goToNext}
                                         chipAccent="cyan"
                                         testId="supermarket-demo-avatar"
                                     />

@@ -521,6 +521,7 @@ export default function RealtorDemoPage() {
                                         sceneLabel={current?.section?.replace(/^Scene \d+ · /, "")}
                                         paused={paused}
                                         speaking={speaking}
+                                        onSceneEnd={goToNext}
                                         chipAccent="cyan"
                                         testId="realtor-demo-avatar"
                                     />

@@ -194,6 +194,12 @@ export const ExecutiveAvatar = ({
         return resolveAvatarSources(registry, sceneId, platform);
     }, [cinematic, registry, sceneId, platform]);
 
+    // When a per-scene HeyGen clip is registered, switch from looping
+    // ambient avatar to play-once-and-fire-onSceneEnd. That makes the
+    // avatar the natural driver of scene progression (the demo's
+    // narration timing follows the executive, not a hard timer).
+    const cinematicHasSceneClip = Boolean(cinematic && cinematicSources?.hasSceneClip);
+
     const videoSrc = useMemo(() => {
         if (cinematic && cinematicSources) {
             // For cinematic mode we prefer the rich (with-audio) clip but render it muted —
@@ -229,7 +235,12 @@ export const ExecutiveAvatar = ({
     const [showFullscreen, setShowFullscreen] = useState(false);
     const [crossfade, setCrossfade] = useState(true); // visible by default
 
-    const loop = loopOverride !== undefined ? loopOverride : cfg.loopVideo;
+    const loop =
+        loopOverride !== undefined
+            ? loopOverride
+            : cinematicHasSceneClip
+              ? false
+              : cfg.loopVideo;
 
     const safePlay = useCallback(() => {
         const v = videoRef.current;
@@ -362,7 +373,14 @@ export const ExecutiveAvatar = ({
                         onEnded={() => {
                             setPlaying(false);
                             onEnded?.();
-                            if (cinematic) onSceneEnd?.();
+                            // Only drive scene progression when:
+                            //  • we're in cinematic mode
+                            //  • a real per-scene HeyGen clip is bound
+                            //    (else the universal loop would prematurely advance)
+                            //  • the demo isn't paused
+                            if (cinematic && cinematicHasSceneClip && !paused) {
+                                onSceneEnd?.();
+                            }
                         }}
                         data-testid={`${testId}-video`}
                     />

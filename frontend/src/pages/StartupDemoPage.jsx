@@ -463,6 +463,7 @@ export default function StartupDemoPage() {
                             sceneLabel={scene?.title || scene?.eyebrow}
                             paused={!playing}
                             speaking={playing && !muted}
+                            onSceneEnd={() => goToScene(Math.min(idx + 1, SCENES.length - 1))}
                             chipAccent="emerald"
                             testId="startup-demo-avatar"
                         />
