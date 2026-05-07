@@ -33,7 +33,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
 const SCENE_GAP_MS_DEFAULT = 800;
 
-export function useDemoPlayer({ scenes, demoTypeLabel = "demo", sceneGapMs = SCENE_GAP_MS_DEFAULT }) {
+export function useDemoPlayer({ scenes, demoTypeLabel = "demo", sceneGapMs = SCENE_GAP_MS_DEFAULT, avatarMode = false }) {
     const [started, setStarted] = useState(false);
     const [scene, setScene] = useState(0);
     const [muted, setMuted] = useState(false);
@@ -54,9 +54,11 @@ export function useDemoPlayer({ scenes, demoTypeLabel = "demo", sceneGapMs = SCE
     // Refs that always hold the freshest values for timer callbacks
     const pausedRef = useRef(false);
     const mutedRef = useRef(false);
+    const avatarModeRef = useRef(false);
     const audioCacheRef = useRef({});
     useEffect(() => { pausedRef.current = paused; }, [paused]);
     useEffect(() => { mutedRef.current = muted; }, [muted]);
+    useEffect(() => { avatarModeRef.current = avatarMode; }, [avatarMode]);
     useEffect(() => { audioCacheRef.current = audioCache; }, [audioCache]);
 
     const total = scenes.length;
@@ -153,6 +155,19 @@ export function useDemoPlayer({ scenes, demoTypeLabel = "demo", sceneGapMs = SCE
         maxTimer.current = setTimeout(() => {
             if (!pausedRef.current) goToNext();
         }, maxMs + 1500);
+
+        // ✨ Avatar Mode: the HeyGen avatar owns the audio. We never play
+        // the OpenAI sage TTS or the Web Speech fallback. The visual scene
+        // still progresses on its fallback_ms timer; `speaking` stays true
+        // so the avatar's chip + scene-progress strip animate as expected.
+        if (avatarModeRef.current) {
+            setSpeaking(true);
+            advanceTimer.current = setTimeout(() => {
+                setSpeaking(false);
+                if (!pausedRef.current) goToNext();
+            }, maxMs);
+            return;
+        }
 
         if (mutedRef.current) {
             setSpeaking(false);
@@ -275,6 +290,11 @@ export function useDemoPlayer({ scenes, demoTypeLabel = "demo", sceneGapMs = SCE
     const handleStart = useCallback(async () => {
         setStarted(true);
         setScene(0); setDone(false); setPaused(false);
+        // ✨ Avatar Mode: skip TTS prefetch — the avatar is the voice.
+        if (avatarModeRef.current) {
+            setTimeout(() => speakScene(0, {}), 100);
+            return;
+        }
         const cache = await prefetchAll();
         setTimeout(() => speakScene(0, cache), 200);
     }, [prefetchAll, speakScene]);

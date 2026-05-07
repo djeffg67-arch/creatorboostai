@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { Volume2, VolumeX, Play, Pause, Maximize2, X } from "lucide-react";
 import { resolveAvatarSources } from "@/lib/demoAvatarRegistry";
+import { installAvatarVoiceLock, uninstallAvatarVoiceLock } from "@/lib/avatarVoiceLock";
 
 /**
  * ExecutiveAvatar
@@ -90,16 +91,30 @@ const useInView = (rootMargin = "200px") => {
     return [ref, inView];
 };
 
+const VOICE_PREF_KEY = "cb_avatar_voice_enabled";
+const readVoicePref = () => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem(VOICE_PREF_KEY) === "1"; }
+    catch { return false; }
+};
+const writeVoicePref = (on) => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem(VOICE_PREF_KEY, on ? "1" : "0"); }
+    catch { /* noop */ }
+};
+
 const variantConfig = {
     hero: {
         loopVideo: true,
-        defaultMuted: true,
+        defaultMuted: true,         // browser autoplay policy
         autoplay: true,
         showFullscreen: true,
         wrapperClass:
             "relative aspect-[9/16] w-full max-w-[420px] overflow-hidden rounded-2xl border border-white/10 bg-ink-900 shadow-[0_20px_80px_-20px_rgba(6,182,212,0.35)]",
         chipText: "AI Executive Operator · Live",
         chipAccent: "cyan",
+        installVoiceLock: true,
+        useAudioClip: true,         // play the with-audio desktop clip
     },
     demo: {
         loopVideo: false,
@@ -132,14 +147,16 @@ const variantConfig = {
         chipAccent: "cyan",
     },
     "demo-cinematic": {
-        loopVideo: true,            // loop the avatar visually while TTS owns audio
-        defaultMuted: true,         // muted (TTS is the audio source)
+        loopVideo: true,            // loop while we don't have per-scene clips
+        defaultMuted: true,         // start muted; auto-unmute via persisted pref
         autoplay: true,
         showFullscreen: true,
         wrapperClass:
             "relative aspect-[9/16] w-full max-w-[340px] overflow-hidden rounded-xl border border-cyan-500/40 bg-ink-900 shadow-[0_20px_60px_-20px_rgba(6,182,212,0.5)]",
         chipText: "AI Executive · Cinematic Briefing",
         chipAccent: "cyan",
+        installVoiceLock: true,
+        useAudioClip: true,
     },
 };
 
@@ -202,12 +219,17 @@ export const ExecutiveAvatar = ({
 
     const videoSrc = useMemo(() => {
         if (cinematic && cinematicSources) {
-            // For cinematic mode we prefer the rich (with-audio) clip but render it muted —
-            // Web Speech still drives the audio. If a scene-specific clip exists we use it,
-            // else the loop variant gives a clean ambient feel.
+            // Prefer per-scene HeyGen clip; otherwise the universal
+            // with-audio desktop/mobile asset (NEVER the no-audio loop —
+            // we want the avatar's voice to be audible).
             return cinematicSources.hasSceneClip
                 ? cinematicSources.src
-                : sources.heroLoop;
+                : (platform === "mobile" ? sources.mobile : sources.desktop);
+        }
+        if (cfg.useAudioClip) {
+            // Hero / any variant that wants real audio should use
+            // the desktop/mobile with-audio clip, not the muted loop.
+            return platform === "mobile" ? sources.mobile : sources.desktop;
         }
         if (cfg.loopVideo && variant === "hero") return sources.heroLoop;
         if (platform === "mobile") return sources.mobile;
@@ -216,6 +238,7 @@ export const ExecutiveAvatar = ({
         cinematic,
         cinematicSources,
         cfg.loopVideo,
+        cfg.useAudioClip,
         variant,
         platform,
         sources,
@@ -230,10 +253,54 @@ export const ExecutiveAvatar = ({
 
     const [hostRef, inView] = useInView("250px");
     const videoRef = useRef(null);
-    const [muted, setMuted] = useState(cfg.defaultMuted && !autoUnmute);
+    // Initial muted state respects browser autoplay policy AND any
+    // persisted user-voice preference. If the user previously enabled
+    // voice (a real user gesture happened earlier), respect it.
+    const [muted, setMuted] = useState(() => {
+        if (autoUnmute) return false;
+        if (cfg.defaultMuted && readVoicePref()) return false;
+        return cfg.defaultMuted;
+    });
     const [playing, setPlaying] = useState(false);
     const [showFullscreen, setShowFullscreen] = useState(false);
     const [crossfade, setCrossfade] = useState(true); // visible by default
+
+    // Install global voice lock for hero / demo-cinematic variants so
+    // the legacy demo TTS (OpenAI sage + Web Speech fallback) doesn't
+    // talk over the avatar.
+    useEffect(() => {
+        if (!cfg.installVoiceLock) return;
+        installAvatarVoiceLock();
+        return () => uninstallAvatarVoiceLock();
+    }, [cfg.installVoiceLock]);
+
+    // Auto-unmute on first real user gesture anywhere on the page.
+    // Browsers count clicks, taps, and keypresses as gestures — a single
+    // gesture clears the autoplay-with-sound restriction for the rest of
+    // the session. We piggyback any document-level interaction so the user
+    // doesn't need to find our specific unmute button.
+    useEffect(() => {
+        if (!cfg.installVoiceLock) return;
+        if (!muted) return; // already unmuted, nothing to wait for
+        const onGesture = () => {
+            const v = videoRef.current;
+            if (!v) return;
+            v.muted = false;
+            setMuted(false);
+            writeVoicePref(true);
+            // Try to play in case browser paused us
+            const p = v.play(); if (p?.catch) p.catch(() => {});
+        };
+        const opts = { once: true, capture: true, passive: true };
+        document.addEventListener("click", onGesture, opts);
+        document.addEventListener("touchstart", onGesture, opts);
+        document.addEventListener("keydown", onGesture, opts);
+        return () => {
+            document.removeEventListener("click", onGesture, opts);
+            document.removeEventListener("touchstart", onGesture, opts);
+            document.removeEventListener("keydown", onGesture, opts);
+        };
+    }, [cfg.installVoiceLock, muted]);
 
     const loop =
         loopOverride !== undefined
@@ -301,6 +368,7 @@ export const ExecutiveAvatar = ({
         if (!v) return;
         v.muted = !v.muted;
         setMuted(v.muted);
+        writeVoicePref(!v.muted);
         if (!v.muted && v.paused) safePlay();
     };
 

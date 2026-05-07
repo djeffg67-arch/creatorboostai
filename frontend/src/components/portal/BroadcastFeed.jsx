@@ -104,6 +104,8 @@ const speakLine = (text, { rate = 1.0, pitch = 1.0, volume = 0.9 } = {}) => {
         u.rate = rate;
         u.pitch = pitch;
         u.volume = volume;
+        // Tag so avatarVoiceLock's patched speak() lets this through
+        u.__cb_broadcast = true;
         // Pick a calm voice if available
         const voices = synth.getVoices?.() || [];
         const preferred =
