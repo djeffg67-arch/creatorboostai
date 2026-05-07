@@ -12,6 +12,7 @@ import {
     Eye, Activity, Brain, Zap, Globe2, Send, Copy, QrCode, Cpu, Target,
     Mail, Shield, AlertTriangle, CheckCircle2, X, BarChart3, Layers,
 } from "lucide-react";
+import { ExecutiveAvatar } from "@/components/avatar/ExecutiveAvatar";
 
 // =================================================================
 // 14 scenes · ~10 min auto-played · Noldus / Enterprise / Investor cut
@@ -501,6 +502,13 @@ export default function NoldusDemoPage() {
                                 <SceneStage scene={current} />
                             </div>
                             <div className="space-y-4 lg:col-span-4">
+                                <div className="flex justify-center">
+                                    <ExecutiveAvatar
+                                        variant="demo"
+                                        chipText="AI Executive · Enterprise"
+                                        testId="noldus-demo-avatar"
+                                    />
+                                </div>
                                 <NarrationPanel
                                     narration={current.narration}
                                     speaking={speaking} muted={muted} paused={paused}

@@ -21,6 +21,7 @@ import {
     ExecutionControlPanel, SovereignVault, PortfolioCommandCenter,
 } from "@/components/agentic/AgenticExecutionCore";
 import { KoolliteDualPathStrip } from "@/components/koollite/KoolliteDualPath";
+import { ExecutiveAvatar } from "@/components/avatar/ExecutiveAvatar";
 
 // =================================================================
 // 17 scenes · Agentic Execution OS · Detected → Reasoned → Executed → Measured
@@ -692,6 +693,13 @@ export default function SupermarketDemoPage() {
                                 </div>
                             </div>
                             <div className="space-y-4 lg:col-span-4">
+                                <div className="flex justify-center">
+                                    <ExecutiveAvatar
+                                        variant="demo"
+                                        chipText="AI Executive · Supermarket Ops"
+                                        testId="supermarket-demo-avatar"
+                                    />
+                                </div>
                                 <NarrationPanel
                                     narration={current.narration}
                                     speaking={speaking} muted={muted} paused={paused}

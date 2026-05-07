@@ -17,6 +17,7 @@ import {
     Calendar, FileCheck2, BadgeCheck, Hammer, AlertCircle,
 } from "lucide-react";
 import { KoolliteDualPathStrip } from "@/components/koollite/KoolliteDualPath";
+import { ExecutiveAvatar } from "@/components/avatar/ExecutiveAvatar";
 
 // =================================================================
 // 9 FULL SCENES · ~9–10 min auto-played · SITA-Style Airport Enterprise Demo
@@ -530,6 +531,13 @@ export default function AirportDemoPage() {
                                 <SceneStage scene={current} />
                             </div>
                             <div className="space-y-4 lg:col-span-4">
+                                <div className="flex justify-center">
+                                    <ExecutiveAvatar
+                                        variant="demo"
+                                        chipText="AI Executive · Airport Ops"
+                                        testId="airport-demo-avatar"
+                                    />
+                                </div>
                                 <NarrationPanel
                                     narration={current.narration}
                                     speaking={speaking} muted={muted} paused={paused}

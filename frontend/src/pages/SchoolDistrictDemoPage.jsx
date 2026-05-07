@@ -8,6 +8,7 @@ import {
     CheckCircle2, Play, Pause, RotateCcw, ChevronRight, Lock, Mail, X,
     Sun, BatteryCharging,
 } from "lucide-react";
+import { ExecutiveAvatar } from "@/components/avatar/ExecutiveAvatar";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -530,12 +531,25 @@ export default function SchoolDistrictDemoPage() {
 
                 {/* Scene stage */}
                 <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:px-6">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{current.eyebrow}</p>
-                    <div
-                        className="min-h-[520px] rounded-lg border border-white/10 bg-ink-800/40"
-                        data-testid={`school-demo-scene-${current.id}`}
-                    >
-                        <ActiveScene />
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                        <div className="lg:col-span-9">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">{current.eyebrow}</p>
+                            <div
+                                className="mt-2 min-h-[520px] rounded-lg border border-white/10 bg-ink-800/40"
+                                data-testid={`school-demo-scene-${current.id}`}
+                            >
+                                <ActiveScene />
+                            </div>
+                        </div>
+                        <aside className="lg:col-span-3">
+                            <div className="sticky top-4 flex justify-center lg:justify-end">
+                                <ExecutiveAvatar
+                                    variant="demo"
+                                    chipText="AI Executive · School Ops"
+                                    testId="school-demo-avatar"
+                                />
+                            </div>
+                        </aside>
                     </div>
 
                     {/* Scene pager */}

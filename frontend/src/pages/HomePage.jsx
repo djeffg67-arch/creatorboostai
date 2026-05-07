@@ -17,6 +17,7 @@ import {
     UserCog, Package, Video, FileText, ShoppingCart, Fuel, Lightbulb,
 } from "lucide-react";
 import { KoolliteDualPath } from "@/components/koollite/KoolliteDualPath";
+import { ExecutiveAvatar } from "@/components/avatar/ExecutiveAvatar";
 
 // Real-world business imagery (Unsplash CDN, optimized)
 const HERO_BG = "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=2000&q=75"; // diverse team in modern office
@@ -493,7 +494,14 @@ export default function HomePage() {
                         </div>
 
                         <div className="lg:col-span-5">
-                            <AnimatedHeroDashboard />
+                            <div className="flex flex-col items-center gap-4 lg:items-end">
+                                <ExecutiveAvatar
+                                    variant="hero"
+                                    chipText="AI Executive Operator · Live"
+                                    testId="home-hero-avatar"
+                                />
+                                <AnimatedHeroDashboard />
+                            </div>
                         </div>
                     </div>
 

@@ -15,6 +15,7 @@ import {
     Network, Globe2, Lock, Database, GitBranch, Server, BarChart3,
     Briefcase, MapPin, FileText
 } from "lucide-react";
+import { ExecutiveAvatar } from "@/components/avatar/ExecutiveAvatar";
 
 // =================================================================
 // Cinematic imagery (AI-generated brand illustrations, served from /public)
@@ -510,6 +511,13 @@ export default function RealtorDemoPage() {
                                 <SceneStage scene={current} />
                             </div>
                             <div className="space-y-4 lg:col-span-4">
+                                <div className="flex justify-center">
+                                    <ExecutiveAvatar
+                                        variant="demo"
+                                        chipText="AI Executive · Realtor Ops"
+                                        testId="realtor-demo-avatar"
+                                    />
+                                </div>
                                 <AvatarPanel
                                     narration={current.narration}
                                     speaking={speaking} muted={muted} paused={paused}

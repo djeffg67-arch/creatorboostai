@@ -10,6 +10,7 @@ import {
     useAgenticEngine, ActionLedger, ReasoningStream, RevenueSavingsCounter,
     ExecutionControlPanel, SovereignVault,
 } from "@/components/agentic/AgenticExecutionCore";
+import { ExecutiveAvatar } from "@/components/avatar/ExecutiveAvatar";
 
 // Static Action IDs per scene — fired into engine on scene-mount for visible execution proof.
 const SCENE_ACTIONS = {
@@ -451,6 +452,15 @@ export default function StartupDemoPage() {
                 <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom,rgba(16,185,129,0.08),transparent_55%)]" />
 
                 <div className="mx-auto max-w-5xl px-5 py-12 sm:px-8 lg:py-16">
+                    {/* Executive Avatar — startup operator briefing */}
+                    <div className="mb-6 flex justify-center sm:justify-end" data-testid="startup-demo-avatar-wrap">
+                        <ExecutiveAvatar
+                            variant="demo"
+                            chipText="AI Executive · Founder Operator"
+                            chipAccent="emerald"
+                            testId="startup-demo-avatar"
+                        />
+                    </div>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/5 px-3 py-1.5">
                             <Rocket size={11} className="text-emerald-300" />
