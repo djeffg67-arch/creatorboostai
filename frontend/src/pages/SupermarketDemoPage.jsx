@@ -20,6 +20,7 @@ import {
     useAgenticEngine, ActionLedger, ReasoningStream, RevenueSavingsCounter,
     ExecutionControlPanel, SovereignVault, PortfolioCommandCenter,
 } from "@/components/agentic/AgenticExecutionCore";
+import { KoolliteDualPathStrip } from "@/components/koollite/KoolliteDualPath";
 
 // =================================================================
 // 17 scenes · Agentic Execution OS · Detected → Reasoned → Executed → Measured
@@ -1685,6 +1686,10 @@ const SelfFundingStage = () => {
             <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
                 Operational savings recovered every month — routed into the upgrade fund
             </p>
+            {/* Koollite Dual-Path tease */}
+            <div className="mt-3" data-testid="supermarket-koollite-strip">
+                <KoolliteDualPathStrip accent="cyan" testid="supermarket-koollite-dualpath" />
+            </div>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {flows.map((f, i) => (
                     <div key={f.label} className="rounded-sm border border-cyan-500/30 bg-cyan-500/5 p-3 fade-in-up" style={{ animationDelay: `${i * 70}ms` }}>

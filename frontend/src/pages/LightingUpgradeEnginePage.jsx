@@ -12,6 +12,7 @@ import {
     approveLightingProposal, getLightingPortfolio,
     listLightingWarrantyEvents, notifyLightingContractor, getLightingStats,
 } from "@/lib/api";
+import { KoolliteDualPath, calcDualPath } from "@/components/koollite/KoolliteDualPath";
 
 const fmtUSD = (n) => n == null ? "—" : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const fmtUSD2 = (n) => n == null ? "—" : `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -402,6 +403,9 @@ const ProposalResult = ({ result }) => {
                 <Tile Icon={Activity} label="Payback period" value={`${result.payback_period_years} yrs`} sub={`Total annual savings ${fmtUSD(result.annual_total_savings)}`} tone="amber" />
             </div>
 
+            {/* Dual-Path strategy summary tied to this proposal */}
+            <DualPathSummary result={result} />
+
             {/* Deal structure */}
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="deal-structure-block">
                 <div className={`rounded-md border p-4 ${result.deal_structure === "purchase" ? "border-cyan-500/40 bg-cyan-500/10" : "border-white/10 bg-ink-700/40"}`}>
@@ -659,6 +663,95 @@ const WarrantySystem = () => {
 };
 
 // =================================================================
+// DUAL-PATH SUMMARY — appears inside the proposal result block
+// =================================================================
+const DualPathSummary = ({ result }) => {
+    const inputs = result.inputs || {};
+    const dual = calcDualPath({
+        fixtures: inputs.fixture_count,
+        currentWatts: inputs.current_avg_watts,
+        currentEfficacy: 150,
+        koolliteEfficacy: 220,
+        hoursPerDay: inputs.operating_hours_per_day,
+        daysPerYear: inputs.operating_days_per_year,
+        energyCostPerKwh: inputs.energy_cost_per_kwh,
+    });
+    return (
+        <div
+            className="mt-6 rounded-md border border-white/10 bg-ink-900 p-5"
+            data-testid="proposal-dual-path-summary"
+        >
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                    <Sparkles size={13} className="text-cyan-300" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                        Dual-Path Strategy · Option A vs Option B · attached to {result.action_id}
+                    </span>
+                </div>
+                <a
+                    href="/koollite/roi"
+                    data-testid="proposal-dual-path-cta"
+                    className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300 hover:underline"
+                >
+                    Explore both <ArrowRight size={11} />
+                </a>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div
+                    className="rounded-md border border-cyan-500/40 bg-cyan-500/5 p-4"
+                    data-testid="proposal-dualpath-option-a"
+                >
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                        Option A · Max Brightness · same wattage
+                    </span>
+                    <p className="mt-2 text-sm text-white">
+                        Keep <span className="font-semibold">{Math.round(dual.baseline.wattsPerFixture)} W</span> per fixture.
+                        Lumens climb to{" "}
+                        <span className="font-semibold">
+                            {Math.round(dual.optionA.lumensPerFixture).toLocaleString()}
+                        </span>{" "}
+                        — a{" "}
+                        <span className="font-semibold text-cyan-300">
+                            +{Math.round(dual.optionA.brightnessLift * 100)}%
+                        </span>{" "}
+                        brightness gain across the site.
+                    </p>
+                    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                        Energy delta: $0 · Same operating cost.
+                    </p>
+                </div>
+                <div
+                    className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-4"
+                    data-testid="proposal-dualpath-option-b"
+                >
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">
+                        Option B · Max Savings · same brightness
+                    </span>
+                    <p className="mt-2 text-sm text-white">
+                        Drop to{" "}
+                        <span className="font-semibold">
+                            {dual.optionB.wattsPerFixture.toFixed(1)} W
+                        </span>{" "}
+                        per fixture (
+                        <span className="font-semibold text-emerald-300">
+                            −{Math.round(dual.optionB.wattReductionPct * 100)}%
+                        </span>
+                        ) while preserving today's light levels.
+                    </p>
+                    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                        Saves{" "}
+                        <span className="text-emerald-300">
+                            {Math.round(dual.optionB.kwhSaved).toLocaleString()} kWh
+                        </span>{" "}
+                        · {fmtUSD(dual.optionB.costSaved)} / yr.
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// =================================================================
 // PAGE
 // =================================================================
 export default function LightingUpgradeEnginePage() {
@@ -678,6 +771,23 @@ export default function LightingUpgradeEnginePage() {
         <Layout>
             <div className="bg-ink-900" data-testid="lighting-upgrade-engine-page">
                 <Hero stats={stats} />
+
+                {/* Dual-Path Strategy — Option A vs Option B */}
+                <section
+                    id="dual-path"
+                    className="border-b border-white/5 bg-ink-800/30 py-14 lg:py-20"
+                    data-testid="lighting-dual-path-section"
+                >
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                        <KoolliteDualPath
+                            industry="Multi-site Operator"
+                            accent="cyan"
+                            ctaHref="/koollite/roi"
+                            testIdPrefix="lighting-dual-path"
+                        />
+                    </div>
+                </section>
+
                 <ThreeLayer />
                 {skuMemo.length > 0 && <KoolliteCatalog skus={skuMemo} />}
                 <Calculator2 skus={skuMemo} />

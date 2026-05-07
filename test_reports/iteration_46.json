@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend verification of the new Koollite Lighting Intelligence Dual-Path Upgrade Strategy. Verified the new /koollite/roi page (+ aliases /koollite, /roi, /lighting/roi), live dual-path ROI calculator (inputs drive both result-a and result-b), the 4 preset chooser (supermarket / airport / school / warehouse) with key-based remount, HomePage home-koollite-dual-path-section, /lighting lighting-dual-path-section, SchoolDistrictDemoPage Koollite scene (Option A + Option B + CTA linking to /koollite/roi), SupermarketDemoPage scene 14 Self-Funding strip (supermarket-koollite-strip / supermarket-koollite-dualpath). Airport demo's dual-path strip is wired in code (AirportDemoPage lines 1316-1319) but automation could not drive past the audio-prefetch Start-Demo gate to scene 6 in the available time — code review confirms the testids exist at the right location; the strip is rendered after ImpactTiles in scene 'lifecycle'. Proposal-dual-path-summary flow was not exercised end-to-end (requires real email + proposal generation API) but the component is present in LightingUpgradeEnginePage at lines 682-725 with all required testids.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/lighting (LightingUpgradeEnginePage Calculator 'Term (months)' Select)", "issues": ["React hydration warning in console: '<span> cannot be a child of <option>'. Source: /app/frontend/src/pages/LightingUpgradeEnginePage.jsx line 290. Non-blocking but should be fixed — remove any nested <span> inside <option> children, options can only contain text."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix the React hydration warning in LightingUpgradeEnginePage.jsx around line 290 — remove wrapping <span> inside <option> in the 'Term (months)' Select. This shows on every /lighting load in the console.",
+    "Optional: consider exposing a uniform data-testid='scene-jump' on AirportDemoPage (currently uses airport-control-jump) for consistency across demos — SupermarketDemoPage already uses 'scene-jump'."
+  ],
+  "critical_code_review_comments": [
+    "KoolliteDualPath.jsx (607 lines) is getting long; consider splitting PathCard / Field / calcDualPath into a sub-file for maintainability.",
+    "Airport demo requires audio prefetch to complete before Start Demo is enabled — can block automation/testing. Consider adding a dev-only 'skip prefetch' flag or honoring a ?skipAudio=1 query param to make the demo deterministic in tests.",
+    "KoolliteROIPage.jsx passes ctaHref=\"/lighting\" to KoolliteDualPath inside the page (line 220), but the top-level CTAs on /koollite/roi go to /lighting and proposal flow — confirm this is intentional (task said /koollite/roi CTA should likely link users onward to proposal/Lighting Engine, which is fine)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "~95%"},
+  "test_credentials": "n/a",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Koollite Dual-Path feature is fully wired and working on: /koollite/roi (+/koollite, /roi, /lighting/roi aliases all render KoolliteROIPage), HomePage (home-koollite-dual-path-section with option-a/-b), /lighting (lighting-dual-path-section + DualPathSummary in proposal result), /demo/school (close gate modal school-demo-gate-close, then click school-demo-scene-btn-koollite — shows school-koollite-option-a/b/cta with cta.href=/koollite/roi), /demo/supermarket (click Start Demo, then scene-jump value=13 — shows supermarket-koollite-strip + supermarket-koollite-dualpath). For /demo/airport, the Start Demo button ('start-airport-demo-btn') is gated by audio prefetch (can take 30-60s). Once started, use 'airport-control-jump' value=5 to reach the Lifecycle scene where airport-koollite-dualpath-wrap + airport-koollite-dualpath appear after ImpactTiles — the testids exist in AirportDemoPage.jsx lines 1316-1319 (code review confirmed). Input-change reactivity is confirmed: changing the fixtures input on /koollite/roi re-computes both koollite-roi-supermarket-result-a and -result-b text content. All 4 preset buttons rewire the dual-path block via key={preset.id} remount. The proposal-dual-path-summary block (lines 682-725 of LightingUpgradeEnginePage) was not exercised (requires real email + proposal generation); the testids proposal-dual-path-summary, proposal-dualpath-option-a, proposal-dualpath-option-b, proposal-dual-path-cta are confirmed present in source.",
+  "rca of the issue": "One non-blocking React hydration warning on /lighting: a <span> is rendered inside <option> (HTML spec forbids this). Likely due to a wrapper component used for option children. Fix at /app/frontend/src/pages/LightingUpgradeEnginePage.jsx line ~290 — render the option's label as a plain string, not a <span>."
+}

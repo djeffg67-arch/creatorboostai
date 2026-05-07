@@ -16,6 +16,7 @@ import {
     ClipboardList, PiggyBank, Crown, Trophy, Handshake, LineChart, Bell,
     Calendar, FileCheck2, BadgeCheck, Hammer, AlertCircle,
 } from "lucide-react";
+import { KoolliteDualPathStrip } from "@/components/koollite/KoolliteDualPath";
 
 // =================================================================
 // 9 FULL SCENES · ~9–10 min auto-played · SITA-Style Airport Enterprise Demo
@@ -1309,6 +1310,14 @@ const LifecycleStage = () => {
                 <ImpactTile Icon={Bell}       value="47"    label="EOL alerts · this quarter" tone="amber" />
                 <ImpactTile Icon={Hammer}     value="124"   label="Upgrades approved · queued" tone="cyan" />
                 <ImpactTile Icon={DollarSign} value="$184K" label="De-icing · saved YoY" tone="cyan" />
+            </div>
+
+            {/* Koollite Dual-Path strip — surfaces the LGT-T2 lighting opportunity above */}
+            <div className="mt-5" data-testid="airport-koollite-dualpath-wrap">
+                <KoolliteDualPathStrip
+                    accent="cyan"
+                    testid="airport-koollite-dualpath"
+                />
             </div>
         </div>
     );

@@ -16,6 +16,7 @@ import {
     Network, Activity, Sparkles, CheckCircle2, Workflow, Users, Scale,
     UserCog, Package, Video, FileText, ShoppingCart, Fuel, Lightbulb,
 } from "lucide-react";
+import { KoolliteDualPath } from "@/components/koollite/KoolliteDualPath";
 
 // Real-world business imagery (Unsplash CDN, optimized)
 const HERO_BG = "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=2000&q=75"; // diverse team in modern office
@@ -511,6 +512,25 @@ export default function HomePage() {
 
             {/* OPERATIONS · MAINTENANCE · EQUIPMENT LIFECYCLE */}
             <OperationsLifecycleSection />
+
+            {/* KOOLLITE DUAL-PATH UPGRADE STRATEGY */}
+            <section
+                id="koollite-dual-path"
+                className="relative isolate border-b border-white/5 bg-ink-800/30 py-16 lg:py-24"
+                data-testid="home-koollite-dual-path-section"
+            >
+                <div className="absolute inset-0 -z-10">
+                    <div className="absolute inset-0 ambient-grid opacity-30" />
+                </div>
+                <div className="mx-auto max-w-7xl px-5 lg:px-8">
+                    <KoolliteDualPath
+                        industry="Multi-site Operator"
+                        accent="cyan"
+                        ctaHref="/koollite/roi"
+                        testIdPrefix="home-koollite-dual-path"
+                    />
+                </div>
+            </section>
 
             {/* INDUSTRIES */}
             <section id="industries" className="relative isolate border-b border-white/5 py-20" data-testid="industries-section">

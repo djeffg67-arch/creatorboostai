@@ -6,6 +6,7 @@ import {
     GraduationCap, Activity, Zap, Wallet, Wrench, Zap as ZapIcon,
     Lightbulb, TrendingDown, Building2, Network, AlertTriangle,
     CheckCircle2, Play, Pause, RotateCcw, ChevronRight, Lock, Mail, X,
+    Sun, BatteryCharging,
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -210,27 +211,51 @@ const ExecutionScene = () => {
 };
 
 const KoolliteScene = () => (
-    <div className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
-        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-amber-300">Scene 6 · Facilities Example</span>
-        <Lightbulb size={48} className="text-amber-300" />
-        <h2 className="font-heading max-w-3xl text-3xl font-semibold text-white sm:text-4xl">
-            Lighting inefficiencies across facilities.
+    <div className="flex h-full flex-col items-center justify-center gap-5 overflow-y-auto p-6 text-center" data-testid="school-koollite-scene">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-amber-300">Scene 6 · Koollite Tie-In · Dual-Path Strategy</span>
+        <Lightbulb size={40} className="text-amber-300" />
+        <h2 className="font-heading max-w-3xl text-2xl font-semibold text-white sm:text-3xl">
+            Two upgrade paths. <span className="text-amber-300">Same Koollite product.</span>
         </h2>
-        <div className="grid w-full max-w-2xl grid-cols-3 gap-3">
-            {[
-                ["42%",  "Energy reduction"],
-                ["$184K","Annual savings"],
-                ["18mo", "Payback period"],
-            ].map(([v, l]) => (
-                <div key={l} className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4">
-                    <p className="font-heading text-2xl font-semibold text-amber-200">{v}</p>
-                    <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-300">{l}</p>
-                </div>
-            ))}
-        </div>
-        <p className="max-w-xl text-base text-slate-300">
-            The system identifies upgrade opportunities and triggers vendor solutions that reduce operating costs.
+        <p className="max-w-2xl text-sm text-slate-300 sm:text-base">
+            Koollite's 220 lm/W LED platform lets every district choose between
+            <span className="text-white"> brighter classrooms</span> at the same wattage,
+            or <span className="text-white">dramatic energy savings</span> at the same brightness.
+            CreatorBoostAI runs both options against the district's actual fixtures and triggers a contractor proposal.
         </p>
+        <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-md border border-cyan-500/40 bg-cyan-500/10 p-4 text-left" data-testid="school-koollite-option-a">
+                <div className="flex items-center gap-2">
+                    <Sun size={14} className="text-cyan-300" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Option A · Max Brightness</span>
+                </div>
+                <p className="mt-2 text-sm text-white">Same wattage. ~47% more lumens.</p>
+                <ul className="mt-2 space-y-1 text-xs text-slate-300">
+                    <li>• Brighter classrooms, gyms, hallways</li>
+                    <li>• Improved camera + safety compliance</li>
+                    <li>• Zero increase in the energy bill</li>
+                </ul>
+            </div>
+            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-4 text-left" data-testid="school-koollite-option-b">
+                <div className="flex items-center gap-2">
+                    <BatteryCharging size={14} className="text-emerald-300" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Option B · Max Savings</span>
+                </div>
+                <p className="mt-2 text-sm text-white">Same brightness. ~50% less wattage.</p>
+                <ul className="mt-2 space-y-1 text-xs text-slate-300">
+                    <li>• Direct annual energy savings</li>
+                    <li>• Funds reallocated to academics</li>
+                    <li>• Lower HVAC load + ESG impact</li>
+                </ul>
+            </div>
+        </div>
+        <a
+            href="/koollite/roi"
+            data-testid="school-koollite-cta"
+            className="inline-flex items-center gap-2 rounded-md bg-amber-400 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.22em] text-ink-900 transition-colors hover:bg-amber-300"
+        >
+            Run dual-path ROI for my district <ChevronRight size={12} />
+        </a>
     </div>
 );
 

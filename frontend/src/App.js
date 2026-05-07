@@ -35,6 +35,7 @@ import ReportPage from "@/pages/ReportPage";
 import JuryPage from "@/pages/JuryPage";
 import DownloadSignalPackPage from "@/pages/DownloadSignalPackPage";
 import LightingUpgradeEnginePage from "@/pages/LightingUpgradeEnginePage";
+import KoolliteROIPage from "@/pages/KoolliteROIPage";
 import PortalLightingPage from "@/pages/PortalLightingPage";
 import PortalOpsPage from "@/pages/PortalOpsPage";
 import StartEnginePage from "@/pages/StartEnginePage";
@@ -95,6 +96,10 @@ function App() {
                     <Route path="/download/signal-pack" element={<DownloadSignalPackPage />} />
                     <Route path="/lighting-upgrade-engine" element={<LightingUpgradeEnginePage />} />
                     <Route path="/lighting" element={<LightingUpgradeEnginePage />} />
+                    <Route path="/koollite/roi" element={<KoolliteROIPage />} />
+                    <Route path="/koollite" element={<KoolliteROIPage />} />
+                    <Route path="/roi" element={<KoolliteROIPage />} />
+                    <Route path="/lighting/roi" element={<KoolliteROIPage />} />
                     <Route path="/portal/lighting" element={<PortalLightingPage />} />
                     <Route path="/portal/ops" element={<PortalOpsPage />} />
                     <Route path="/start-engine" element={<StartEnginePage />} />
