@@ -34,6 +34,50 @@ const DWELL_MS = 4500;
 const FADE_MS = 450;
 const STORAGE_KEY = "cb_broadcast_feed_v1";
 
+// Lanes the AI Executive should speak out loud. Demo views / outbound sends
+// would be too chatty — we narrate only meaningful operational moments.
+const NARRATE_LANES = new Set(["reply", "hot", "deal", "scheduling"]);
+
+// Generate a cinematic single-sentence narration line per event.
+const narrationLineFor = (e) => {
+    if (!e) return null;
+    const summary = (e.summary || "").trim();
+    // Strip the "→" arrow used in visible summaries — it doesn't read well
+    const clean = summary.replace(/\s*→\s*/g, " for ").replace(/·/g, ",");
+    switch (e.lane) {
+        case "hot":        return `Hot lead detected. ${clean.replace(/^Hot lead detected for /, "")}`;
+        case "deal":       return clean.replace(/^Deal/, "Deal closed.");
+        case "reply":      return clean.replace(/^Interested reply for /, "Interested reply received from ").replace(/^Reply for /, "New reply received from ");
+        case "scheduling": return clean.replace(/^Scheduling event for /, "Scheduling event for ");
+        default:           return null;
+    }
+};
+
+const speakLine = (text, { rate = 1.0, pitch = 1.0, volume = 0.9 } = {}) => {
+    if (typeof window === "undefined") return;
+    const synth = window.speechSynthesis;
+    if (!synth || !window.SpeechSynthesisUtterance) return;
+    try {
+        // Cancel any in-progress speech so the latest event takes priority
+        synth.cancel();
+        const u = new window.SpeechSynthesisUtterance(text);
+        u.rate = rate;
+        u.pitch = pitch;
+        u.volume = volume;
+        // Pick a calm voice if available
+        const voices = synth.getVoices?.() || [];
+        const preferred =
+            voices.find((v) => /Google US English|Samantha|Daniel|Karen/i.test(v.name)) ||
+            voices.find((v) => v.lang === "en-US") ||
+            voices[0];
+        if (preferred) u.voice = preferred;
+        synth.speak(u);
+        return u;
+    } catch {
+        return null;
+    }
+};
+
 const LANE_STYLE = {
     outreach:   { color: "text-cyan-300",    bg: "bg-cyan-500/10",    border: "border-cyan-500/30",    Icon: Send,            label: "OUTREACH" },
     reply:      { color: "text-emerald-300", bg: "bg-emerald-500/10", border: "border-emerald-500/30", Icon: MessageSquare,   label: "REPLY" },
@@ -76,6 +120,8 @@ export const BroadcastFeed = ({
         }
     });
     const [muted, setMuted] = useState(false);
+    // narration state — flips true while AI Executive avatar speaks an event
+    const [narrating, setNarrating] = useState(false);
 
     // queue of events waiting to slide in
     const queueRef = useRef([]);
@@ -88,6 +134,7 @@ export const BroadcastFeed = ({
     const fetchingRef = useRef(false);
     const dwellTimerRef = useRef(null);
     const fadeTimerRef = useRef(null);
+    const narrateTimerRef = useRef(null);
 
     /* -------------- persistence of seen ids (shallow, last 200) -------------- */
     useEffect(() => {
@@ -176,6 +223,29 @@ export const BroadcastFeed = ({
         if (hoverRef.current) return;
         clearTimeout(dwellTimerRef.current);
         clearTimeout(fadeTimerRef.current);
+
+        // Avatar narration — only for high-signal events, only when not muted.
+        if (!muted && enabled && NARRATE_LANES.has(current.lane)) {
+            const line = narrationLineFor(current);
+            if (line) {
+                const u = speakLine(line);
+                if (u) {
+                    setNarrating(true);
+                    u.onend = () => {
+                        if (aliveRef.current) setNarrating(false);
+                    };
+                    u.onerror = () => {
+                        if (aliveRef.current) setNarrating(false);
+                    };
+                    // Safety reset in case onend never fires (some engines silently fail)
+                    clearTimeout(narrateTimerRef.current);
+                    narrateTimerRef.current = setTimeout(() => {
+                        if (aliveRef.current) setNarrating(false);
+                    }, DWELL_MS + 1500);
+                }
+            }
+        }
+
         dwellTimerRef.current = setTimeout(() => {
             setShowing(false);
             fadeTimerRef.current = setTimeout(() => setCurrent(null), FADE_MS);
@@ -183,8 +253,23 @@ export const BroadcastFeed = ({
         return () => {
             clearTimeout(dwellTimerRef.current);
             clearTimeout(fadeTimerRef.current);
+            clearTimeout(narrateTimerRef.current);
         };
-    }, [current]);
+    }, [current, muted, enabled]);
+
+    // Cancel any in-flight narration when feed disabled / muted
+    useEffect(() => {
+        if (!muted && enabled) return;
+        try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
+        setNarrating(false);
+    }, [muted, enabled]);
+
+    // Cancel narration when the component unmounts
+    useEffect(() => {
+        return () => {
+            try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
+        };
+    }, []);
 
     // Mark dismiss → instant
     const dismiss = () => {
@@ -231,6 +316,30 @@ export const BroadcastFeed = ({
                 className="fixed bottom-3 left-3 z-[80] flex items-center gap-1.5"
                 data-testid={`${testId}-control-rail`}
             >
+                {/* AI Executive avatar thumbnail — pulses + glows when narrating */}
+                <div
+                    className={`relative h-7 w-7 overflow-hidden rounded-full border transition-all ${
+                        narrating
+                            ? "border-cyan-400 shadow-[0_0_18px_rgba(6,182,212,0.7)]"
+                            : "border-white/15 opacity-80"
+                    }`}
+                    aria-hidden="true"
+                    data-testid={`${testId}-avatar`}
+                    data-narrating={narrating ? "true" : "false"}
+                >
+                    {narrating && (
+                        <span className="absolute inset-0 animate-ping rounded-full bg-cyan-400/30" />
+                    )}
+                    <img
+                        src="/avatars/poster-mobile.jpg"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className={`relative h-full w-full object-cover ${
+                            narrating ? "scale-105" : "scale-100"
+                        } transition-transform duration-300`}
+                    />
+                </div>
                 <button
                     type="button"
                     onClick={toggleEnabled}
