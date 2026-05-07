@@ -1,8 +1,50 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 71 — Koollite Dual-Path Upgrade Strategy + Support email draft)
+**Last update:** 2026-05-07 (Iter 72 — HeyGen ExecutiveAvatar layer + production deployment recovery email)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 72 — HEYGEN AVATAR LAYER + PROD RECOVERY EMAIL (P0)
+
+Status: SHIPPED · Frontend tested · 100% success (testing_agent_v3_fork iter 47)
+
+User brief: "Use the larger/high-quality version as primary cinematic desktop avatar (homepage hero, enterprise demos, command-center scenes, investor flows). Use the smaller/lighter for mobile + fallback + onboarding + faster autoplay. Position as AI Executive Operator (not chatbot). Build modular for future contextual responses, real-time conversation, voice interaction, multi-avatar per industry."
+
+### Files added
+- `/app/frontend/src/components/avatar/ExecutiveAvatar.jsx` (~430 lines)
+  - Modular component with 4 variants: `hero` (cinematic homepage loop, muted autoplay) / `demo` (sidebar avatar inside cinematic demos, with audio) / `onboarding` / `announcement`.
+  - `AvatarAnnouncementStrip` companion component for inline "AI is now executing" callouts.
+  - Lazy-mounted via IntersectionObserver. Auto-swaps desktop↔mobile asset on ≤768px viewport. preload=metadata. Poster fallback. Fullscreen briefing modal with Escape + backdrop close.
+- `/app/frontend/public/avatars/` — 5 production-ready assets (13MB total):
+  - `avatar-hero-loop.mp4` (1.9 MB, 720x1280, no audio) — homepage muted-autoplay loop
+  - `avatar-desktop-opt.mp4` (8.5 MB, 1080x1920, with audio) — primary desktop, full intro
+  - `avatar-mobile-opt.mp4` (1.9 MB, 720x1280, with audio) — mobile/fallback
+  - `poster-desktop.jpg` (30 KB), `poster-mobile.jpg` (20 KB) — first-frame fallbacks
+  - Source 50 MB + 31 MB originals were transcoded to web-optimized + then deleted from public dir.
+- `/app/memory/support_email_draft.md` (rewritten/expanded) — comprehensive ticket covering both the missing "Add Secret" UI button AND the larger production deployment recovery (domain still pointing at OLD site, missing Stripe/Supabase/Resend prod secrets, sandbox values bound).
+
+### Files updated
+- `/app/frontend/src/pages/HomePage.jsx` — `<ExecutiveAvatar variant="hero">` placed in lg:col-span-5 right column above AnimatedHeroDashboard.
+- `/app/frontend/src/pages/SupermarketDemoPage.jsx` — `<ExecutiveAvatar variant="demo">` at top of NarrationPanel sidebar.
+- `/app/frontend/src/pages/AirportDemoPage.jsx` — same pattern.
+- `/app/frontend/src/pages/SchoolDistrictDemoPage.jsx` — sticky aside avatar in lg:col-span-3.
+- `/app/frontend/src/pages/NoldusDemoPage.jsx` — sidebar avatar.
+- `/app/frontend/src/pages/RealtorDemoPage.jsx` — sidebar avatar.
+- `/app/frontend/src/pages/StartupDemoPage.jsx` — emerald-accent variant at top.
+
+### Test results (iter 47)
+- All 7 avatar surfaces render with correct testids, posters, controls, chip text.
+- Fullscreen briefing modal: open via fullscreen button, close via X button / backdrop / Escape — all work.
+- Mobile viewport switch: data-platform="mobile" at ≤768px, swaps to mobile asset.
+- All 5 `/avatars/*` static assets return 200.
+- Koollite Dual-Path regression (iter 46) still passes.
+
+### Future architecture hooks ready
+- `sourceOverride` prop accepts custom desktop+mobile pair → wire per-industry HeyGen exports later.
+- `onEnded` / `onPlay` callbacks for chaining ("AI is now executing" announcements).
+- Component exposes the underlying `<video>` ref pattern for future real-time conversation / voice-interaction layers.
 
 ---
 
