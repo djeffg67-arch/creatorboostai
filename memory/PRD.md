@@ -1,8 +1,50 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 90 — SSE wired into Operator Dashboard + final code review pass)
+**Last update:** 2026-05-08 (Iter 91 — Truthful active-connection counter on SSE channel)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 91 — TRUTHFUL ACTIVE-CONNECTION COUNTER ON SSE (P1)
+
+Status: SHIPPED · live-verified · counter is real, atomic, never inflated · zero new lint warnings.
+
+User ask: "Show real active viewers/sessions only. Do not artificially inflate counts. Display subtle live indicators: 'Streaming Live' / 'N Connected' / 'Live Operator Sessions' / 'Active AI Execution Feed'. Minimal, enterprise-grade. Across homepage hero + operator dashboard + command center UI. Smooth low-latency updates without excessive animation."
+
+### Files updated
+- `/app/backend/public_pulse.py`:
+  - **Truthful module-level counter** `_conn_state["count"]` inside the router closure. **Increment on SSE connect** (top of `_gen()` async generator), **decrement in `finally`** so closed tabs / dropped sockets / cancellations all release their slot. Zero inflation possible by construction. Single asyncio loop = no lock needed.
+  - **`connected_count`** now broadcast in:
+    - `event: ready` payload (instant on connect).
+    - `event: heartbeat` payload (every 15s).
+    - `GET /api/public/system-pulse` JSON response.
+  - GET requests to `/system-pulse` do NOT increment the counter — only the live `/stream` SSE channel does.
+- `/app/frontend/src/components/home/MasterCommandCenterHero.jsx`:
+  - `pulse.connected_count` added to state.
+  - SSE `ready` + `heartbeat` listeners now parse `connected_count` from the payload and update state.
+  - GET poll seeds initial count (only on first paint; SSE owns it after).
+  - Feed-status chip updated to **"● Streaming Live · N Connected"** (subtle slate dot for the count, emerald for the label). data-testid `mcc-connected-count`.
+- `/app/frontend/src/components/portal/LiveSendPulse.jsx`:
+  - `connectedCount` state added.
+  - SSE `ready` + `heartbeat` listeners parse `connected_count`.
+  - Header chip: **"● Streaming Live · N Connected"** (testid `live-send-pulse-connected-count`).
+  - SSE strip header renamed: **"Active AI Execution Feed · sub-second push"** with the right-side chip showing **"● Streaming Live · N connected"**.
+
+### Verified truthful
+- Step 1 (no SSE clients): `GET /system-pulse` returned `connected_count: 0`. ✅
+- Step 2 (opened 2 background `curl -sN` SSE clients): GET returned `connected_count: 2`. SSE `ready` payload `{"streaming": true, ..., "connected_count": 2}`. ✅
+- Step 3 (waited for both clients to disconnect): GET returned `connected_count: 0`. **The `finally` decrement worked correctly.** ✅
+- Step 4 (live browser test with 1 tab open, then 2): hero chip read **"● STREAMING LIVE · 1 CONNECTED"** at t=0; opened a 2nd background SSE viewer; chip flipped to **"● STREAMING LIVE · 2 CONNECTED"** at t+12s (driven by the next 15s heartbeat tick). ✅
+- Zero console errors / warnings. Backend lint 100% clean. Frontend lint 100% clean.
+
+### Aesthetic
+- Subtle: emerald label, slate "·" separator, smaller font for the count. Matches the rest of the enterprise command-center palette.
+- No excessive animation: only the existing 1.5px pulsing dot from prior iters. No bouncing numbers, no fanfare on count change.
+- Same indicator on homepage hero + operator dashboard for visual consistency. Both surfaces read from the SAME endpoint so they always agree on the count.
+
+### Why "viewers" not "sessions"
+Each browser tab opens 1 EventSource → 1 SSE connection → +1 count. A user with 2 tabs = 2 connections. This is intentional and truthful: it's literally "how many open windows are watching the live feed right now," which is the most accurate, verifiable interpretation. No cookies, no fingerprinting, no cross-tab dedup needed.
 
 ---
 

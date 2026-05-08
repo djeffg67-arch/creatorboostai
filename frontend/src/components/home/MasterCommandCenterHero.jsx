@@ -71,6 +71,7 @@ export const MasterCommandCenterHero = () => {
         ai_actions_today: 287,
         systems_operational: true,
         streaming: true,
+        connected_count: 0,
         live: false, /* true once we get a successful response */
     });
 
@@ -97,6 +98,7 @@ export const MasterCommandCenterHero = () => {
                     ai_actions_today: Number(json.ai_actions_today) || 287,
                     systems_operational: !!json.systems_operational,
                     streaming: !!json.streaming,
+                    connected_count: prev.live ? prev.connected_count : Number(json.connected_count) || 0,
                     live: prev.live, // SSE controls the "live" badge
                 }));
             } catch {
@@ -130,14 +132,18 @@ export const MasterCommandCenterHero = () => {
                 return;
             }
 
-            es.addEventListener("ready", () => {
+            es.addEventListener("ready", (e) => {
                 if (cancelled) return;
-                setPulse((prev) => ({ ...prev, live: true, streaming: true }));
+                let count = 0;
+                try { count = Number(JSON.parse(e.data).connected_count) || 0; } catch { /* noop */ }
+                setPulse((prev) => ({ ...prev, live: true, streaming: true, connected_count: count }));
             });
 
-            es.addEventListener("heartbeat", () => {
+            es.addEventListener("heartbeat", (e) => {
                 if (cancelled) return;
-                setPulse((prev) => ({ ...prev, live: true, streaming: true }));
+                let count = 0;
+                try { count = Number(JSON.parse(e.data).connected_count) || 0; } catch { /* noop */ }
+                setPulse((prev) => ({ ...prev, live: true, streaming: true, connected_count: count }));
             });
 
             es.addEventListener("pulse", (e) => {
@@ -318,9 +324,15 @@ export const MasterCommandCenterHero = () => {
                                 <span
                                     className={`inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.22em] ${pulse.live ? "text-emerald-300" : "text-slate-400"}`}
                                     data-testid="mcc-feed-status"
+                                    title={pulse.live ? "Subscribed to /api/public/system-pulse/stream" : "Reconnecting…"}
                                 >
                                     <span className={`h-1.5 w-1.5 rounded-full ${pulse.live ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
-                                    {pulse.live ? "Streaming" : "Connecting…"}
+                                    {pulse.live ? "Streaming Live" : "Connecting…"}
+                                    {pulse.live && pulse.connected_count > 0 && (
+                                        <span className="text-slate-500" data-testid="mcc-connected-count">
+                                            · {pulse.connected_count.toLocaleString()} connected
+                                        </span>
+                                    )}
                                 </span>
                             </div>
                             <ul className="mt-2 space-y-2">

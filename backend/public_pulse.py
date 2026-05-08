@@ -70,6 +70,14 @@ def _utcnow() -> datetime:
 def make_public_pulse_router(db) -> APIRouter:
     router = APIRouter(prefix="/api/public", tags=["public-pulse"])
 
+    # Iter 91 · Real active SSE-connection counter. Truthful by construction:
+    # increment on connect, decrement in the generator's `finally` block —
+    # never artificially inflated. Single asyncio event loop = no lock needed.
+    _conn_state: Dict[str, int] = {"count": 0}
+
+    def _connection_count() -> int:
+        return max(0, int(_conn_state["count"]))
+
     @router.get("/system-pulse")
     async def system_pulse() -> Dict[str, Any]:
         """Anonymized homepage feed.
@@ -188,6 +196,7 @@ def make_public_pulse_router(db) -> APIRouter:
             "server_time": now.isoformat().replace("+00:00", "Z"),
             "ai_actions_today": ai_actions_today,
             "systems_operational": systems_operational,
+            "connected_count": _connection_count(),
             "events": events,
             "kpis": kpis,
         }
@@ -215,14 +224,19 @@ def make_public_pulse_router(db) -> APIRouter:
             last_seen = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             last_heartbeat = datetime.now(timezone.utc)
 
-            # Send an immediate hello so the client flips to "Streaming"
-            # instantly without waiting for the first heartbeat tick.
-            yield (
-                "event: ready\n"
-                f"data: {json.dumps({'streaming': True, 'server_time': last_seen})}\n\n"
-            )
-
+            # Iter 91 · increment the truthful active-connection counter for
+            # the lifetime of this generator. Decrement runs in the finally
+            # block so closed tabs / dropped sockets / cancellations all
+            # correctly release their slot. Never inflated.
+            _conn_state["count"] = _conn_state["count"] + 1
             try:
+                # Send an immediate hello so the client flips to "Streaming"
+                # instantly without waiting for the first heartbeat tick.
+                yield (
+                    "event: ready\n"
+                    f"data: {json.dumps({'streaming': True, 'server_time': last_seen, 'connected_count': _connection_count()})}\n\n"
+                )
+
                 while True:
                     # Bail if the client closed the tab — FastAPI sets
                     # `is_disconnected()` once the underlying transport closes.
@@ -270,18 +284,24 @@ def make_public_pulse_router(db) -> APIRouter:
                             f"data: {json.dumps(ev)}\n\n"
                         )
 
-                    # Heartbeat every 15s
+                    # Heartbeat every 15s — also carries the live connection
+                    # count so clients can render "● Streaming · N connected"
+                    # without an additional fetch.
                     now = datetime.now(timezone.utc)
                     if (now - last_heartbeat).total_seconds() >= 15:
                         last_heartbeat = now
                         yield (
                             "event: heartbeat\n"
-                            f"data: {json.dumps({'server_time': now.isoformat().replace('+00:00', 'Z'), 'streaming': True})}\n\n"
+                            f"data: {json.dumps({'server_time': now.isoformat().replace('+00:00', 'Z'), 'streaming': True, 'connected_count': _connection_count()})}\n\n"
                         )
 
                     await asyncio.sleep(1.0)
             except asyncio.CancelledError:  # pragma: no cover · client closed
                 pass
+            finally:
+                # Truthful decrement — runs whether the loop exited cleanly,
+                # the client disconnected, or the task was cancelled.
+                _conn_state["count"] = max(0, _conn_state["count"] - 1)
 
         headers = {
             "Cache-Control": "no-cache, no-transform",

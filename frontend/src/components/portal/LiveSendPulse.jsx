@@ -74,6 +74,7 @@ export const LiveSendPulse = ({
     const [loading, setLoading] = useState(true);
     const [liveEvents, setLiveEvents] = useState([]);
     const [sseLive, setSseLive] = useState(false);
+    const [connectedCount, setConnectedCount] = useState(0);
     const aliveRef = useRef(true);
     const fetchingRef = useRef(false);
 
@@ -95,11 +96,15 @@ export const LiveSendPulse = ({
             } catch {
                 return; // EventSource unavailable in this browser
             }
-            es.addEventListener("ready", () => {
-                if (!cancelled) setSseLive(true);
+            es.addEventListener("ready", (e) => {
+                if (cancelled) return;
+                setSseLive(true);
+                try { setConnectedCount(Number(JSON.parse(e.data).connected_count) || 0); } catch { /* noop */ }
             });
-            es.addEventListener("heartbeat", () => {
-                if (!cancelled) setSseLive(true);
+            es.addEventListener("heartbeat", (e) => {
+                if (cancelled) return;
+                setSseLive(true);
+                try { setConnectedCount(Number(JSON.parse(e.data).connected_count) || 0); } catch { /* noop */ }
             });
             es.addEventListener("pulse", (e) => {
                 if (cancelled) return;
@@ -211,7 +216,12 @@ export const LiveSendPulse = ({
                         title={sseLive ? "Subscribed to /api/public/system-pulse/stream" : "SSE disconnected · falling back to telemetry poll"}
                     >
                         <span className={cls("h-1.5 w-1.5 rounded-full", sseLive ? "bg-emerald-400 animate-pulse" : "bg-slate-500")} />
-                        {sseLive ? "Streaming" : "Reconnecting…"}
+                        {sseLive ? "Streaming Live" : "Reconnecting…"}
+                        {sseLive && connectedCount > 0 && (
+                            <span className="text-slate-300" data-testid={`${testId}-connected-count`}>
+                                · {connectedCount.toLocaleString()} connected
+                            </span>
+                        )}
                     </span>
                     <span
                         className={cls(
@@ -370,7 +380,7 @@ export const LiveSendPulse = ({
             <div className="border-t border-white/5 bg-ink-700/30 px-4 py-3" data-testid={`${testId}-sse-strip`}>
                 <div className="mb-2 flex items-center justify-between">
                     <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
-                        Live event stream · sub-second push
+                        Active AI Execution Feed · sub-second push
                     </span>
                     <span
                         className={cls(
@@ -379,7 +389,9 @@ export const LiveSendPulse = ({
                         )}
                     >
                         <span className={cls("h-1.5 w-1.5 rounded-full", sseLive ? "bg-emerald-400 animate-pulse" : "bg-slate-500")} />
-                        {sseLive ? `Connected · ${liveEvents.length} buffered` : "Reconnecting…"}
+                        {sseLive
+                            ? `Streaming Live${connectedCount > 0 ? ` · ${connectedCount.toLocaleString()} connected` : ""}`
+                            : "Reconnecting…"}
                     </span>
                 </div>
                 {liveEvents.length === 0 ? (
