@@ -378,11 +378,24 @@ export default function HomePage() {
             {/* 1 · CINEMATIC HERO with master dashboard centerpiece */}
             <MasterExperienceShell />
 
-            {/* 2 · INDUSTRY SELECTOR */}
-            <IndustrySelectorMaster />
-
-            {/* 3 · LIVE OPERATOR SURFACE — preserved (avatar + Live Execution Feed) */}
-            <MasterCommandCenterHero />
+            {/* 2 + 3 · Industry selector + Live operator surface
+              · MOBILE order: AVATAR first, then industries (user wants the
+              ·   "AI OPERATOR · LIVE" surface above the demo catalog so the
+              ·   homepage feels like a live AI OS, not a static demo grid)
+              · DESKTOP order (≥lg): industries first, then operator surface
+              ·   (matches the original cinematic flow from top of page)
+              · Tailwind `order-*` requires a flex parent — wrapping in
+              ·   `flex flex-col` does not constrain child widths because
+              ·   the child <section>s set their own `relative isolate ...`
+              ·   full-width chrome internally. */}
+            <div className="flex flex-col" data-testid="home-mobile-reorder-zone">
+                <MasterCommandCenterHero
+                    className="order-1 lg:order-2"
+                />
+                <IndustrySelectorMaster
+                    className="order-2 lg:order-1"
+                />
+            </div>
 
             {/* 4 · COMMAND CENTER METRICS */}
             <CommandCenterMetrics />

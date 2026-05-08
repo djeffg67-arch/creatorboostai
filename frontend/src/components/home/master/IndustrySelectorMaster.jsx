@@ -106,12 +106,12 @@ const INDUSTRIES = [
     },
 ];
 
-export const IndustrySelectorMaster = () => {
+export const IndustrySelectorMaster = ({ className = "" } = {}) => {
     return (
         <section
             id="industry-selector"
             data-testid="industry-selector-master"
-            className="relative isolate border-b border-white/5 bg-ink-900 py-20 lg:py-24"
+            className={`relative isolate border-b border-white/5 bg-ink-900 py-20 lg:py-24 ${className}`}
         >
             <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
                 <div className="absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(34,211,238,0.4)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.4)_1px,transparent_1px)] [background-size:80px_80px]" />

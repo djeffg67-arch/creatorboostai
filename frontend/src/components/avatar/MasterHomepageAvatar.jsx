@@ -4,6 +4,7 @@ import {
     installAvatarVoiceLock,
     uninstallAvatarVoiceLock,
 } from "@/lib/avatarVoiceLock";
+import { useAdaptiveAvatarSrc } from "./useAdaptiveAvatarSrc";
 
 /**
  * MasterHomepageAvatar
@@ -98,6 +99,13 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
     const nextScene = MASTER_SCENES[(sceneIdx + 1) % total];
 
     const STALL_TIMEOUT_MS = 9000;
+
+    // Adaptive streaming — swap to /lite/ variants on slow / mobile networks
+    // when (a) navigator.connection reports 2g/3g/saveData and (b) the lite
+    // variant actually exists. HEAD-probed once on mount.
+    const { mode: adaptiveMode, getResolvedSrc } = useAdaptiveAvatarSrc(MASTER_SCENES[0].src);
+    const visibleSrc = getResolvedSrc(scene.src);
+    const preloadSrc = getResolvedSrc(nextScene.src);
 
     // Install avatar voice lock for the lifetime of this component so legacy
     // TTS / SpeechSynthesis cannot overlap with the avatar's own audio track.
@@ -246,7 +254,7 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
             <div className="relative h-full w-full overflow-hidden rounded-xl">
                 <video
                     ref={videoRef}
-                    src={scene.src}
+                    src={visibleSrc}
                     poster={scene.poster}
                     playsInline
                     muted={muted}
@@ -257,13 +265,14 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                     onPause={() => setPaused(true)}
                     className="h-full w-full animate-cb-scene-fade-in object-cover"
                     data-testid={`${testId}-video`}
+                    data-adaptive-mode={adaptiveMode}
                 />
                 {/* Hidden preloader for the next scene so its bytes are already
                     in the cache by the time we switch the visible <video>'s
                     src. Doesn't render, doesn't autoplay. */}
                 <video
                     ref={preloadRef}
-                    src={nextScene.src}
+                    src={preloadSrc}
                     preload="auto"
                     muted
                     playsInline

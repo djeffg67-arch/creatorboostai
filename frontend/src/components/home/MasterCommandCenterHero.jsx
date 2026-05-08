@@ -54,7 +54,7 @@ const TONE_CLS = {
     violet:   "bg-violet-400 text-violet-300",
 };
 
-export const MasterCommandCenterHero = () => {
+export const MasterCommandCenterHero = ({ className = "" } = {}) => {
     // Live-feed clock — gives the dashboard a "live system" feel
     const [now, setNow] = useState(() => new Date());
     useEffect(() => {
@@ -311,7 +311,7 @@ export const MasterCommandCenterHero = () => {
 
     return (
         <section
-            className="relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-[#040714] via-[#06091a] to-[#070b22] px-4 py-8 lg:px-8 lg:py-12"
+            className={`relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-[#040714] via-[#06091a] to-[#070b22] px-4 py-8 lg:px-8 lg:py-12 ${className}`}
             data-testid="master-command-center-hero"
         >
             {/* Server-rack ambient backdrop — mimics the data-center vibe of the source image */}
