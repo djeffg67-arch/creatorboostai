@@ -3686,6 +3686,12 @@ from deploy_readiness import make_deploy_readiness_router  # noqa: E402
 app.include_router(make_deploy_readiness_router())
 
 
+# ---------- Focus Telemetry (homepage filter analytics) · Iter 96+ ----------
+from focus_telemetry import make_focus_telemetry_router  # noqa: E402
+
+app.include_router(make_focus_telemetry_router(db))
+
+
 @app.on_event("startup")
 async def _start_dark_funnel_loops():
     """Iter 61 · re-engagement scanner + engagement-data indexes + audit indexes."""

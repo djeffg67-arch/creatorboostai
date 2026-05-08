@@ -9,6 +9,7 @@ import { LiveOperationalOverlay } from "./LiveOperationalOverlay";
 import { useLivePulseBeacons } from "./useLivePulseBeacons";
 import { LiveActionIDStrip } from "./LiveActionIDStrip";
 import { LiveCategoryCounters } from "./LiveCategoryCounters";
+import { useFilterURLSync } from "./useFilterURLSync";
 
 /**
  * MasterExperienceShell · Iter 96+
@@ -63,10 +64,20 @@ export const MasterExperienceShell = () => {
     const { flashes, sseLive, lastEvent, recentEvents, counts } = useLivePulseBeacons();
     // Filter state — clicking a counter tile narrows strip + beacons + chip
     // visibility to that category. null = "ALL".
-    const [selectedCategory, setSelectedCategory] = useState(null);
-    const handleSelectCategory = (catId) => {
-        setSelectedCategory((prev) => (prev === catId ? null : catId));
-    };
+    // Initial value seeded from ?focus= URL param so deep-links activate
+    // on first paint (zero layout shift, zero hydration mismatch).
+    const [selectedCategory, setSelectedCategory] = useState(() => {
+        if (typeof window === "undefined") return null;
+        const slug = new URLSearchParams(window.location.search).get("focus");
+        const map = { outbound: "outbound", revenue: "revenue", "ai-actions": "actions",
+                      alerts: "alerts", appointments: "appointments", tasks: "tasks" };
+        return slug ? (map[slug] || null) : null;
+    });
+    // Two-way URL sync + fire-and-forget analytics. Returns `setFocus`
+    // which atomically updates state + URL + sends one analytics event.
+    const { setFocus: handleSelectCategory } = useFilterURLSync(
+        selectedCategory, setSelectedCategory,
+    );
 
     // Subtle parallax on mouse move — GPU-accelerated transform only
     useEffect(() => {
@@ -332,7 +343,7 @@ export const MasterExperienceShell = () => {
                         sseLive={sseLive}
                         lastEventTs={lastEvent ? lastEvent.ts : 0}
                         selectedCategory={selectedCategory}
-                        onClearCategory={() => setSelectedCategory(null)}
+                        onClearCategory={() => handleSelectCategory(selectedCategory)}
                     />
 
                     {/* PER-CATEGORY COUNTER ROW — executive telemetry tiles
