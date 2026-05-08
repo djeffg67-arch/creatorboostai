@@ -1,0 +1,38 @@
+{
+  "summary": "Iter 96 — Master Experience Homepage rebuild verified end-to-end. All 15 review items PASS with 1 minor cosmetic finding (3 broken Unsplash photo IDs in IndustrySelectorMaster cards: logistics, construction, schools — cards still render, badges/icons/bullets/CTA all work, thumbnail just shows broken-image placeholder). Backend regression: 12/12 pytest assertions GREEN on test_iter89_deploy_readiness.py (deploy-readiness verdict=GREEN_DEPLOY_READY, system-pulse contract intact, PII safety, startup-launch validation). Frontend: MasterExperienceShell renders at top with H1 'The Operating System For Every Business.', subheadline, body copy, both CTAs (/demo + #industry-selector anchor — anchor scroll verified), 5 status chips (system/ai/security/exec/industry) all visible & color-coded, sidebar tease with 13 nav icons + Online indicator visible on desktop ≥1024px and HIDDEN on mobile <1024px (aria-hidden=true), master-experience-hero.jpg loads (HTTP 200, naturalWidth=2778), corner brackets + ON AIR pip rendered. IndustrySelectorMaster: all 14 cards render with correct slugs and href=/demo/{slug}. CommandCenterMetrics: all 8 KPIs count up to expected final values (revenue=$1.42M, leads=342, deals=128, tasks=1,247, ai-actions=287, integrations=42, automations=156, savings=$612K). EnterpriseSecurityLayer: all 8 pillars + sovereignty card + Read Security Brief CTA visible. BuiltForEveryRole: all 6 role cards visible. FinalLaunchCTA: headline + both CTAs (/demo + /startup-launch) + trust micro-points present. PRESERVED MasterCommandCenterHero (testid='master-command-center-hero', NOT 'master-experience' as review request stated) mounts correctly between IndustrySelectorMaster (1254px) and CommandCenterMetrics (9191px) at 6616px, STREAMING LIVE · N CONNECTED counter active. Avatar audio: ONLY 1 <video> element on page (MasterHomepageAvatar, src=/avatars/master/master-industries-opt.mp4) — no duplicate autoplay-with-audio sources. Mobile 390x844: NO horizontal overflow (docW=390, winW=390), sidebar hidden, sections stack vertically. 0 JS console errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "IndustrySelectorMaster", "issue": "3 Unsplash photo IDs return broken images (404/invalid): logistics (1601584115197-04ecc0da31d4), construction (1503387762-bf76d61f7e75), schools (1523050854058-8df90110c9f1). Cards still render with badges/icons/bullets/CTA and remain clickable, but thumbnail shows broken-img placeholder. Cosmetic only — not a deploy blocker.", "selector": "[data-testid='industry-card-logistics'] img, [data-testid='industry-card-construction'] img, [data-testid='industry-card-schools'] img", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter89_deploy_readiness.py",
+    "/app/test_reports/pytest/iter96_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL (cosmetic, MEDIUM): Replace 3 broken Unsplash photo IDs in /app/frontend/src/components/home/master/IndustrySelectorMaster.jsx — logistics ('1601584115197-04ecc0da31d4'), construction ('1503387762-bf76d61f7e75'), schools ('1523050854058-8df90110c9f1'). The construction ID in particular looks malformed (missing leading digits / wrong hash format). Suggested replacements: pick valid live IDs from images.unsplash.com — e.g. logistics: '1586528116311-ad8dd3c8310d' (truck fleet), construction: '1541888946425-d81bb19240f5' (construction site), schools: '1580582932707-520aed937b7b' (campus).",
+    "INFO ONLY (no fix needed): Review request stated preserved MCCH testid is 'master-experience' — actual testid is 'master-command-center-hero'. Component IS mounted in the correct position. Just flagging the testid naming mismatch in the review spec for future test scripts."
+  ],
+  "critical_code_review_comments": [
+    "MasterExperienceShell.jsx is well-isolated, GPU-accelerated parallax (transform-only), keyframes scoped via inline <style>, sidebar properly aria-hidden='true' so screen readers don't announce dead nav — clean.",
+    "IndustrySelectorMaster.jsx hardcodes 14 industries inline; consider promoting to /lib/industries.js for reuse across the site (e.g. /demo index) and to keep slug→Unsplash mapping in one place.",
+    "Section ordering verified at runtime: shell(127px) → industry(1254px) → MCCH(6616px) → metrics(9191px) → security(10921px) → roles(12420px) → finalCTA(14890px) — exactly per spec.",
+    "Single autoplay <video> on homepage with audio (MasterHomepageAvatar) — no duplicate voice systems detected. AvatarWidget surface='homepage' is text-only as required.",
+    "HomePage.jsx is now ~1022 lines — over the 700-line guideline. Legacy sections (Industries grid, Signal Intelligence, Audiences, Signal Products, Differentiation, Integrations, Demo Selector, CTA strip) could be extracted to /components/home/legacy/ to bring the file under 700.",
+    "Backend deploy-readiness contract still GREEN — no regression from Iter 89. The 12-test pytest suite remains the canonical pre-deploy gate."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (12/12 pytest assertions)", "frontend": "93% (14/15 review items fully clean; item 6 partial — 11/14 industry thumbnails load, 3 Unsplash IDs broken)"},
+  "test_credentials": "None required for homepage. Founder master-key 'jeffrey-2026-bodyiq-founder-master' on /portal/ops not exercised this iter.",
+  "seed_data_creation": "None — read-only verification only.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 96 master-experience homepage is functionally GREEN. Reusable regression: /app/backend/tests/test_iter89_deploy_readiness.py (12 tests, run before every prod push). New testids worth knowing for future Playwright runs: master-experience-shell, master-h1, master-cta-launch-demo, master-cta-choose-industry, master-status-chips + status-chip-{system|ai|security|exec|industry}, master-sidebar-tease (aria-hidden), master-dashboard-img, industry-selector-master + industry-card-{slug} for 14 slugs, command-center-metrics + cc-panel-{id} + cc-value-{id} for 8 KPIs, enterprise-security-layer + security-pillar-{soc2|encryption|perms|governance|audit|integrations|logs|data} + security-sovereignty-card + security-learn-more, built-for-every-role + role-card-{owners|operations|sales|employees|influencers|founders}, final-launch-cta + final-cta-headline + final-cta-launch-demo + final-cta-startup-launch + final-cta-trust. NOTE: preserved MasterCommandCenterHero uses testid='master-command-center-hero' (NOT 'master-experience' as review spec stated). Production deployment is on OLD homepage; this rebuild lives in PREVIEW only. The 'Scene N unavailable' avatar fallback in headless browsers remains expected (no H.264 codec). RESEND_API_KEY/STRIPE_PUBLISHABLE_KEY intentionally absent in preview — do not flag.",
+  "rca of the issue": "The 3 broken Unsplash images in IndustrySelectorMaster are likely typos/invalid hash IDs in the static URL list. Reproduction: open https://images.unsplash.com/photo-1503387762-bf76d61f7e75?auto=format&fit=crop&w=900&q=78 directly — returns 404. The numeric prefix '1503387762' is shorter than typical Unsplash IDs (10 digits vs 16). Mitigation: grab fresh IDs from unsplash.com/s/photos/{logistics|construction|schools} and update the `u(...)` calls. No code-path change needed; pure data fix in IndustrySelectorMaster.jsx lines 49, 61, 97."
+}

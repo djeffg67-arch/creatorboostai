@@ -17,9 +17,14 @@ import {
     UserCog, Package, Video, FileText, ShoppingCart, Fuel, Lightbulb,
 } from "lucide-react";
 import { KoolliteDualPath } from "@/components/koollite/KoolliteDualPath";
-import { ExecutiveAvatar } from "@/components/avatar/ExecutiveAvatar";
 import { MasterHomepageAvatar } from "@/components/avatar/MasterHomepageAvatar";
 import { MasterCommandCenterHero } from "@/components/home/MasterCommandCenterHero";
+import { MasterExperienceShell } from "@/components/home/master/MasterExperienceShell";
+import { IndustrySelectorMaster } from "@/components/home/master/IndustrySelectorMaster";
+import { CommandCenterMetrics } from "@/components/home/master/CommandCenterMetrics";
+import { EnterpriseSecurityLayer } from "@/components/home/master/EnterpriseSecurityLayer";
+import { BuiltForEveryRole } from "@/components/home/master/BuiltForEveryRole";
+import { FinalLaunchCTA } from "@/components/home/master/FinalLaunchCTA";
 
 // Real-world business imagery (Unsplash CDN, optimized)
 const HERO_BG = "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=2000&q=75"; // diverse team in modern office
@@ -355,10 +360,47 @@ export default function HomePage() {
     return (
         <Layout>
             <AvatarWidget surface="homepage" />
-            {/* HERO · Master Experience Command Center */}
+
+            {/* ─────────────────────────────────────────────────────────
+              · NEW MASTER EXPERIENCE HOMEPAGE · Iter 96+
+              · 1) Cinematic top hero (image + collapsed sidebar tease + CTAs)
+              · 2) Industry selector (14 verticals)
+              · 3) Live operator surface (preserved MasterCommandCenterHero)
+              · 4) Command Center metrics (8 KPI panels)
+              · 5) Enterprise security & sovereignty layer
+              · 6) Built for every role
+              · 7) Final launch CTA
+              · Existing legacy sections (Leads engine, Ops lifecycle,
+              ·   Koollite, etc) move beneath the new flagship surface to
+              ·   preserve SEO depth and conversion paths.
+              ───────────────────────────────────────────────────────── */}
+
+            {/* 1 · CINEMATIC HERO with master dashboard centerpiece */}
+            <MasterExperienceShell />
+
+            {/* 2 · INDUSTRY SELECTOR */}
+            <IndustrySelectorMaster />
+
+            {/* 3 · LIVE OPERATOR SURFACE — preserved (avatar + Live Execution Feed) */}
             <MasterCommandCenterHero />
 
-            {/* LEADS / REVENUE ENGINE — mounted directly below hero */}
+            {/* 4 · COMMAND CENTER METRICS */}
+            <CommandCenterMetrics />
+
+            {/* 5 · ENTERPRISE SECURITY & SOVEREIGNTY */}
+            <EnterpriseSecurityLayer />
+
+            {/* 6 · BUILT FOR EVERY ROLE */}
+            <BuiltForEveryRole />
+
+            {/* 7 · FINAL LAUNCH CTA */}
+            <FinalLaunchCTA />
+
+            {/* ─────────────────────────────────────────────────────────
+              · LEGACY DEPTH SECTIONS (kept for SEO + conversion variety)
+              ───────────────────────────────────────────────────────── */}
+
+            {/* LEADS / REVENUE ENGINE */}
             <GetLeadsSection />
 
             {/* OPERATIONS · MAINTENANCE · EQUIPMENT LIFECYCLE */}
