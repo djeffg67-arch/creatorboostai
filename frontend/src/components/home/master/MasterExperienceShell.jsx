@@ -5,6 +5,7 @@ import {
     UserCog, Heart, Box, Activity, FileText, Plug, Settings,
     Shield, Radio, Sparkles, ArrowRight, Play,
 } from "lucide-react";
+import { LiveOperationalOverlay } from "./LiveOperationalOverlay";
 
 /**
  * MasterExperienceShell · Iter 96+
@@ -100,7 +101,7 @@ export const MasterExperienceShell = () => {
             </div>
 
             {/* ── Top status bar ─────────────────────────────────────── */}
-            <div className="relative mx-auto flex max-w-[1480px] items-center gap-3 px-5 pt-6 lg:px-10" data-testid="master-status-bar">
+            <div className="relative mx-auto flex max-w-[1720px] items-center gap-3 px-5 pt-6 lg:px-10" data-testid="master-status-bar">
                 <div className="flex items-center gap-2">
                     <span className="relative inline-flex h-2 w-2">
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-70" />
@@ -115,7 +116,7 @@ export const MasterExperienceShell = () => {
             </div>
 
             {/* ── Main 12-col grid ───────────────────────────────────── */}
-            <div className="relative mx-auto grid max-w-[1480px] grid-cols-12 gap-6 px-5 pb-16 pt-8 lg:gap-8 lg:px-10 lg:pt-12">
+            <div className="relative mx-auto grid max-w-[1720px] grid-cols-12 gap-6 px-5 pb-20 pt-8 lg:gap-8 lg:px-10 lg:pt-12">
 
                 {/* SIDEBAR TEASE · desktop only · visual environment, NOT nav */}
                 <aside
@@ -241,21 +242,25 @@ export const MasterExperienceShell = () => {
                         })}
                     </ul>
 
-                    {/* CINEMATIC DASHBOARD CENTERPIECE — uploaded master image */}
+                    {/* CINEMATIC DASHBOARD CENTERPIECE — uploaded master image
+                       · Breaks out beyond the 11-col content column to fill
+                       ·   nearly the full viewport width on large screens.
+                       · Hosts the LiveOperationalOverlay (scan line, beacons,
+                       ·   data flow, ECG heartbeat) for the "alive system" feel. */}
                     <div
                         data-testid="master-dashboard-stage"
-                        className="relative mt-12 overflow-hidden rounded-2xl"
+                        className="relative mt-12 overflow-hidden rounded-2xl lg:-mx-[max(0px,calc((100vw-1720px)/2))] lg:mr-[-2vw]"
                         style={{
-                            transform: `perspective(1400px) rotateY(${parallax.x * 0.05}deg) rotateX(${-parallax.y * 0.05}deg) translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)`,
-                            transition: "transform 0.18s ease-out",
+                            transform: `perspective(2200px) rotateY(${parallax.x * 0.025}deg) rotateX(${-parallax.y * 0.025}deg)`,
+                            transition: "transform 0.22s ease-out",
                         }}
                     >
                         {/* outer glow ring */}
                         <div className="absolute inset-0 -z-10 rounded-2xl bg-[radial-gradient(closest-side,rgba(34,211,238,0.45),transparent_70%)] blur-2xl opacity-70 animate-[pulse_6s_ease-in-out_infinite]" />
                         {/* outer border w/ glow */}
                         <div className="relative rounded-2xl border border-cyan-500/30 bg-ink-900/40 p-1.5 shadow-[0_0_60px_rgba(34,211,238,0.25),inset_0_0_30px_rgba(34,211,238,0.08)]">
-                            {/* slow-zoom inner frame */}
-                            <div className="overflow-hidden rounded-xl">
+                            {/* slow-zoom inner frame · holds image + live SVG overlay */}
+                            <div className="relative overflow-hidden rounded-xl">
                                 <img
                                     src="/master-experience-hero.jpg"
                                     alt="CreatorBoostAI Master Experience — enterprise command center dashboard"
@@ -265,6 +270,8 @@ export const MasterExperienceShell = () => {
                                     fetchPriority="high"
                                     className="block h-auto w-full will-change-transform animate-[masterZoom_24s_ease-in-out_infinite]"
                                 />
+                                {/* Live SVG operational overlay — pulses, scan, flow, ECG */}
+                                <LiveOperationalOverlay />
                             </div>
                             {/* corner brackets */}
                             <CornerBrackets />
@@ -274,7 +281,21 @@ export const MasterExperienceShell = () => {
                                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-70" />
                                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-400" />
                                 </span>
-                                <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-rose-200">On Air</span>
+                                <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-rose-200">On Air · Operating</span>
+                            </div>
+                            {/* bottom-left telemetry strip — adds "alive system" feel */}
+                            <div className="absolute left-4 bottom-4 hidden items-center gap-3 rounded-md border border-white/10 bg-ink-900/70 px-3 py-1.5 backdrop-blur-md md:inline-flex">
+                                <span className="inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300">
+                                    <span className="relative inline-flex h-1.5 w-1.5">
+                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-70" />
+                                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                                    </span>
+                                    Telemetry · 287 ops/today
+                                </span>
+                                <span aria-hidden className="h-3 w-px bg-white/15" />
+                                <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-emerald-300">SOC 2 · Encrypted</span>
+                                <span aria-hidden className="h-3 w-px bg-white/15" />
+                                <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-violet-300">14 Verticals</span>
                             </div>
                         </div>
 

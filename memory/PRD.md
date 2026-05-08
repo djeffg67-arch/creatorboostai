@@ -1,8 +1,42 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 96+ — Master Experience Homepage rebuild · LIVE in PREVIEW)
+**Last update:** 2026-05-08 (Iter 96+ · Live Operational Overlay + Bigger Hero)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🫀 ITER 96+ · LIVE OPERATIONAL OVERLAY (P1 · COMPLETE in PREVIEW)
+
+**Status: 🟢 SHIPPED to preview.** Adds a subtle CSS+SVG overlay on top of the master dashboard image so the hero feels like a live, breathing AI operating system.
+
+### What shipped
+- **NEW: `LiveOperationalOverlay.jsx`** layered inside `master-dashboard-stage`:
+  · Slow vertical scan-line sweep (12s ease-in-out loop)
+  · 6 pulse beacons over KPI hotspots (revenue / leads / deals / feed-top / feed-bottom / integrations) with staggered 3.6s pulses
+  · 2 horizontal data-flow streaks across the workflow connector area (9s + 11s linear, offset)
+  · Operational ECG heartbeat at the bottom of the dashboard (6s loop, subtle)
+  · Full-image cyan sheen drift (14s, 6% peak opacity, screen blend)
+  · `prefers-reduced-motion` support — all animations disabled when user prefers reduced motion
+- **Hero stage made larger**: container max-width 1480px → **1720px**, dashboard stage breaks out edge-to-edge on large viewports via `lg:-mx-[max(0px,calc((100vw-1720px)/2))]`. Image now fills nearly the full 1920px viewport.
+- **Reduced parallax intensity** (0.05 → 0.025 deg) to keep the SVG overlay aligned with the underlying image.
+- **New telemetry strip** at bottom-left of dashboard: "Telemetry · 287 ops/today · SOC 2 · Encrypted · 14 Verticals" + "ON AIR · OPERATING" pip (was just "ON AIR").
+
+### Performance
+- 100% CSS keyframes + SVG · zero JS animation loops · zero canvas
+- All animations use `transform` / `opacity` / `stroke-dashoffset` → GPU-accelerated, no layout thrash
+- `will-change` hints applied to animated elements
+- `prefers-reduced-motion` respected
+- Page bundle unchanged (overlay is plain SVG markup)
+
+### Files changed
+- NEW: `/app/frontend/src/components/home/master/LiveOperationalOverlay.jsx`
+- MODIFIED: `/app/frontend/src/components/home/master/MasterExperienceShell.jsx` (overlay mount, container 1480→1720, breakout, parallax dampened, telemetry strip)
+
+### Verified
+- `yarn build` compiles cleanly
+- ESLint clean
+- Smoke screenshot at 1920×1080: dashboard fills viewport, 3+ beacon pulses visible on right-side KPIs, ON AIR badge live, sidebar tease intact, status chips preserved.
 
 ---
 
