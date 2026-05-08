@@ -185,7 +185,7 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                     onError={onError}
                     onPlay={() => setPaused(false)}
                     onPause={() => setPaused(true)}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full animate-cb-scene-fade-in object-cover"
                     data-testid={`${testId}-video`}
                 />
 
@@ -258,6 +258,54 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                     </div>
                 )}
             </div>
+
+            {/* Scene-thumbnail rail (outside the framed video, below it) */}
+            {!fullscreen && (
+                <div
+                    className="mt-3 grid grid-cols-5 gap-1.5"
+                    data-testid={`${testId}-thumb-rail`}
+                >
+                    {MASTER_SCENES.map((s, i) => {
+                        const active = i === sceneIdx;
+                        return (
+                            <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => setSceneIdx(i)}
+                                title={`Jump to Scene ${s.index} · ${s.title}`}
+                                data-testid={`${testId}-thumb-${s.id}`}
+                                className={`group relative aspect-video overflow-hidden rounded-md border transition-all ${
+                                    active
+                                        ? "border-cyan-500/60 ring-1 ring-cyan-500/40 shadow-[0_0_18px_rgba(6,182,212,0.35)]"
+                                        : "border-white/10 hover:border-cyan-500/40 opacity-60 hover:opacity-100"
+                                }`}
+                            >
+                                <img
+                                    src={s.poster}
+                                    alt={s.title}
+                                    loading="lazy"
+                                    className="h-full w-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-ink-900/80 via-transparent to-transparent" />
+                                <span className={`absolute left-1 top-1 rounded bg-ink-900/75 px-1 py-px font-mono text-[8px] tracking-wider backdrop-blur ${active ? "text-cyan-300" : "text-slate-300"}`}>
+                                    {s.index}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Cinematic fade-in animation for scene transitions */}
+            <style>{`
+                @keyframes cb-scene-fade-in {
+                    0%   { opacity: 0; transform: scale(1.015); }
+                    100% { opacity: 1; transform: scale(1); }
+                }
+                .animate-cb-scene-fade-in {
+                    animation: cb-scene-fade-in 460ms ease-out both;
+                }
+            `}</style>
         </div>
     );
 };

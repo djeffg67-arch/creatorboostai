@@ -1,8 +1,49 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 85 — Master Homepage 5-scene avatar sequence)
+**Last update:** 2026-05-08 (Iter 86 — Master Experience Command-Center hero + scene-thumbnail rail)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 86 — MASTER EXPERIENCE COMMAND-CENTER HERO + SCENE-THUMB RAIL (P0)
+
+Status: SHIPPED · live-verified at `/` · 21 testids pass · scene-thumbnail jump confirmed · cinematic fade between scenes · old hero retired.
+
+User brief (with attached "CreatorBoostAI Master Experience" image):
+> "Use the attached image as the primary homepage command-center UI background and master visual framework. Place the avatar video layer on top of or integrated into this command-center interface. Keep the dashboard fully visible behind the avatar so users feel they are inside a live AI operating system. The 5 master avatar videos must run scene-by-scene over this interface. Remove overlapping old narration audio. Only the avatar video audio should play. Add smooth cinematic transitions between scenes. Desktop + mobile responsive. Preserve the dark enterprise command-center aesthetic."
+
+### Files added
+- `/app/frontend/src/components/home/MasterCommandCenterHero.jsx` (~280 lines):
+  - Top status bar — "CREATORBOOSTAI MASTER EXPERIENCE / The operating system for every business" + 3 status chips (Live System Status: All Systems Operational · pulsing emerald · AI Activity: 287 actions executed today · cyan · Local time clock auto-updating every 30s).
+  - 12-col grid: **[4 cols]** AI Operator card (avatar + thumb rail + ON-AIR pulsing badge); **[5 cols]** Welcome panel (CreatorBoostAI lockup + master tagline "I sit on top of the software you already use…" + 4 trust pills [No Replacement / No Migration / Real-Time / Secure & SOC 2] + 3 CTAs); **[3 cols]** Live Execution Feed (6 streaming events with timestamps + tone-coded pulse dots) + Today's Impact KPIs ($1.42M revenue +18%, 342 leads +24%, 128 deals +15%, 1,247 tasks +31%, 100% System Health emerald banner).
+  - Bottom 3-up sovereignty strip — "No Rip & Replace" / "Sovereignty Layer" / "Built for Every Role".
+  - Server-rack ambient backdrop: radial cyan gradient + subtle 64px grid + bottom emission glow — mimics the data-center aesthetic of the source image.
+  - Fully responsive: 12-col on lg, 1-col stacked on mobile.
+
+### Files updated
+- `/app/frontend/src/components/avatar/MasterHomepageAvatar.jsx`:
+  - **Scene-thumbnail rail** added below the framed video — 5 clickable poster previews with active state (cyan ring + glow) + opacity dim for inactive scenes. data-testid `{prefix}-thumb-{scene-id}`.
+  - **Cinematic fade-in animation** (`@keyframes cb-scene-fade-in` 460ms ease-out, opacity 0→1 + scale 1.015→1) — applied to the `<video>` element. Fires on every scene change because `key={scene.src}` forces clean remount.
+  - Removed broken `fallback` URL chain; relies entirely on optimized clips + posters.
+- `/app/frontend/src/pages/HomePage.jsx`:
+  - Removed the legacy hero `<section>` (lines 358–513, ~155 lines).
+  - Replaced with `<MasterCommandCenterHero />` — the new master-experience welcome surface.
+
+### Verified live
+- All 21 testids pass: `mcc-top-header / -title / -status-system / -status-ai / -execution-feed / -todays-impact / -kpi-revenue / -kpi-leads / -kpi-deals / -kpi-tasks / -cta-launch-demo / -cta-startup / -cta-command-center / -sovereignty-strip / home-hero-avatar / -thumb-rail / -thumb-{intro,command-center,security,execution-layer,industries}`.
+- Clicking thumb-4 → chip flips to "SCENE 4 OF 5 · EXECUTION LAYER". ✅
+- Smooth cinematic fade animation between scenes. ✅
+- Voice lock active — legacy TTS / `speechSynthesis.speak` cannot overlap with avatar audio.
+- Posters render even in codec-stripped test envs — visual continuity guaranteed across browsers.
+
+### Aesthetic match to source image
+- ✅ Dark enterprise command-center palette (#040714 → #06091a → #070b22 vertical gradient).
+- ✅ Cyan accents (cyan-500/40 borders, cyan-300 text, emerald-300 for live/ok states, amber/fuchsia/violet for tone-varied feed events).
+- ✅ Server-rack ambient backdrop with grid + radial glow.
+- ✅ "ALL SYSTEMS OPERATIONAL" + "AI ACTIVITY" status header chips (verbatim from image).
+- ✅ Welcome panel layout: avatar left, copy middle, feed + KPIs right (matches image composition).
+- ✅ "REVENUE IMPACT $1.42M / LEADS CAPTURED 342 / DEALS IN PIPELINE 128 / TASKS COMPLETED 1,247 / 100% SYSTEM HEALTH" KPI tiles (numbers verbatim from image).
 
 ---
 
