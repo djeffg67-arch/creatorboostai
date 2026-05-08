@@ -86,6 +86,7 @@ const MASTER_SCENES = [
 const VOICE_LOCK_PERSIST_KEY = "cb_avatar_voice_enabled";
 const BUFFER_RETRY_MS = 2000;          // 2s — auto-retry boundary per user spec
 const SCENE_LOAD_TIMEOUT_MS = 4000;    // 4s — hard ceiling before skipping scene
+const OVERLAY_DEBOUNCE_MS = 800;       // 800ms — suppress overlay on transient hiccups
 const MAX_RETRY_PER_SCENE = 1;         // retry once, then skip
 const ALL_EVENTS = [
     "loadstart", "loadedmetadata", "loadeddata", "canplay", "canplaythrough",
@@ -126,6 +127,7 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
     const videoRef = useRef(null);
     const bufferTimerRef = useRef(null);
     const sceneTimerRef = useRef(null);
+    const overlayDebounceRef = useRef(null);
     const retryCountRef = useRef(0);
     const erroredScenesRef = useRef(new Set());
     const mountTimeRef = useRef(Date.now());
@@ -179,6 +181,12 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
             sceneTimerRef.current = null;
         }
     };
+    const clearOverlayDebounce = () => {
+        if (overlayDebounceRef.current) {
+            window.clearTimeout(overlayDebounceRef.current);
+            overlayDebounceRef.current = null;
+        }
+    };
 
     // ─── Scene navigation (defined early so handlers can reference them) ─
     const goToScene = useCallback((idx) => {
@@ -215,19 +223,38 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
         }
     }, [logEvent]);
 
-    // ─── 2s buffer watchdog with retry-once-then-skip ───────────────────
-    // When buffering overlay is shown, arm this. After BUFFER_RETRY_MS:
-    //   · If retryCount < MAX_RETRY_PER_SCENE → v.load() + tryPlay()
-    //   · Else → mark scene errored, advance OR fall back to poster
+    // ─── Smart buffer watchdog · only fires on TRUE stalls ──────────────
+    // Critical fix (Iter 101): on real laptops, browsers fire `waiting`
+    // briefly during normal playback when the network buffer dips. A naive
+    // watchdog that calls v.load() on every `waiting` actually RESTARTS the
+    // video → causes more buffering → repeat (the cure becomes the disease).
+    //
+    // Iter 101 watchdog policy:
+    //   1. Debounce 800ms before showing the BUFFERING overlay
+    //      (suppresses flash on transient < 800ms hiccups).
+    //   2. Snapshot currentTime when arming. After BUFFER_RETRY_MS, only
+    //      retry if currentTime has NOT advanced (true stall). If currentTime
+    //      did advance, the video is making progress — clear the overlay
+    //      and DO NOT retry.
+    //   3. After retry-exhaustion, skip-or-poster as before.
     const armBufferWatchdog = useCallback(() => {
         clearBufferTimer();
+        const v = videoRef.current;
+        if (!v) return;
+        const stalledAt = v.currentTime;
         bufferTimerRef.current = window.setTimeout(() => {
-            const v = videoRef.current;
-            if (!v) return;
+            const v2 = videoRef.current;
+            if (!v2) return;
+            // Has the video made any progress since we armed the watchdog?
+            if (v2.currentTime > stalledAt + 0.05) {
+                logEvent("buffer-recovered-naturally", { from: stalledAt, to: v2.currentTime });
+                setBuffering(false);
+                return;
+            }
             if (retryCountRef.current < MAX_RETRY_PER_SCENE) {
                 retryCountRef.current += 1;
-                logEvent("buffer-retry", { attempt: retryCountRef.current });
-                try { v.load(); } catch { /* noop */ }
+                logEvent("buffer-retry", { attempt: retryCountRef.current, stalledAt });
+                try { v2.load(); } catch { /* noop */ }
                 tryPlay();
                 // Re-arm watchdog for the retry attempt
                 armBufferWatchdog();
@@ -283,6 +310,7 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
         try { v.removeAttribute("src"); v.load(); } catch { /* noop */ }
         clearBufferTimer();
         clearSceneTimer();
+        clearOverlayDebounce();
         setBuffering(true);
         setTapFallback(false);
         setPaused(false);
@@ -297,6 +325,7 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                 if (evt === "canplay" || evt === "canplaythrough" || evt === "loadeddata") {
                     clearBufferTimer();
                     clearSceneTimer();
+                    clearOverlayDebounce();
                     setBuffering(false);
                     tryPlay();
                 } else if (evt === "playing" || evt === "timeupdate") {
@@ -304,13 +333,28 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                     if (v.currentTime > 0 || evt === "playing") {
                         clearBufferTimer();
                         clearSceneTimer();
+                        clearOverlayDebounce();
                         setBuffering(false);
                         setTapFallback(false);
                         setPaused(false);
                     }
                 } else if (evt === "waiting" || evt === "stalled") {
-                    setBuffering(true);
-                    armBufferWatchdog();
+                    // Debounce 800ms before showing the BUFFERING overlay —
+                    // suppresses flash on transient hiccups during normal
+                    // playback. If video is making progress within the
+                    // debounce window the overlay never appears.
+                    if (overlayDebounceRef.current) {
+                        window.clearTimeout(overlayDebounceRef.current);
+                    }
+                    const stalledTime = v.currentTime;
+                    overlayDebounceRef.current = window.setTimeout(() => {
+                        const v3 = videoRef.current;
+                        if (!v3) return;
+                        // Re-check: did we make progress while debouncing?
+                        if (v3.currentTime > stalledTime + 0.05) return;
+                        setBuffering(true);
+                        armBufferWatchdog();
+                    }, OVERLAY_DEBOUNCE_MS);
                 } else if (evt === "pause") {
                     setPaused(true);
                 } else if (evt === "ended") {
@@ -358,6 +402,7 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
             });
             clearBufferTimer();
             clearSceneTimer();
+            clearOverlayDebounce();
             // Aggressively release decoder resources
             try { v.pause(); } catch { /* noop */ }
             try { v.removeAttribute("src"); v.load(); } catch { /* noop */ }
