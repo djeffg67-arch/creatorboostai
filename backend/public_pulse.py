@@ -1,10 +1,15 @@
 """
-public_pulse.py — Iter 87
+public_pulse.py — Iter 87 (GET) + Iter 89 (SSE)
 ========================================================================
 
 Public, **anonymized** system-pulse feed for the marketing homepage.
 Backs the "Live Execution Feed" + "Today's Impact" KPIs + "Live System
 Status" / "AI Activity" header chips on the master-experience hero.
+
+Two surfaces:
+  - GET  /api/public/system-pulse           — initial-paint snapshot
+  - GET  /api/public/system-pulse/stream    — Server-Sent Events channel
+                                              (sub-second push of new events)
 
 Strict rules:
   - PII free: no real emails, no real names, no real domains.
@@ -16,11 +21,14 @@ Strict rules:
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
 
 log = logging.getLogger("public_pulse")
 
@@ -183,6 +191,104 @@ def make_public_pulse_router(db) -> APIRouter:
             "events": events,
             "kpis": kpis,
         }
+
+    # ─────────────── Iter 89 · SSE channel ───────────────
+    @router.get("/system-pulse/stream")
+    async def system_pulse_stream(request: Request):
+        """Server-Sent Events channel that pushes new anonymized events
+        the moment they hit `outbound_events`.
+
+        Wire format (text/event-stream):
+            event: pulse
+            data: {"time":"9:41 AM","kind":"send","title":"Outreach Email sent","sub":"...","tone":"emerald"}
+
+            event: heartbeat
+            data: {"server_time":"2026-05-08T05:30:00Z","streaming":true}
+
+        Heartbeats every 15s keep proxies / load-balancers from severing
+        the connection and let the client confirm the channel is healthy.
+        """
+        async def _gen():
+            # Watermark: only events strictly newer than this are pushed.
+            # Initialise to "now" so we don't replay history on connect —
+            # the GET endpoint already paints the initial 6 events.
+            last_seen = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            last_heartbeat = datetime.now(timezone.utc)
+
+            # Send an immediate hello so the client flips to "Streaming"
+            # instantly without waiting for the first heartbeat tick.
+            yield (
+                "event: ready\n"
+                f"data: {json.dumps({'streaming': True, 'server_time': last_seen})}\n\n"
+            )
+
+            try:
+                while True:
+                    # Bail if the client closed the tab — FastAPI sets
+                    # `is_disconnected()` once the underlying transport closes.
+                    if await request.is_disconnected():
+                        break
+
+                    # Poll for new events since `last_seen`. We use a 1s
+                    # cadence which gives sub-second-feeling latency
+                    # without hammering the DB.
+                    new_events: List[Dict[str, Any]] = []
+                    try:
+                        cur = (
+                            db.outbound_events.find(
+                                {"created_at": {"$gt": last_seen}},
+                                {"_id": 0, "kind": 1, "created_at": 1, "stage": 1, "sub": 1},
+                            )
+                            .sort("created_at", 1)
+                            .limit(20)
+                        )
+                        async for e in cur:
+                            kind = (e.get("kind") or "task").lower()
+                            ts = e.get("created_at") or last_seen
+                            ts_dt = (
+                                datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                                if isinstance(ts, str) and ts
+                                else (ts if isinstance(ts, datetime) else _utcnow())
+                            )
+                            new_events.append({
+                                "time": _short_time(ts_dt),
+                                "kind": kind,
+                                "title": _humanize_kind(kind),
+                                "sub": (e.get("sub") or e.get("stage") or "Auto-routed by CB"),
+                                "tone": _TONE_BY_KIND.get(kind, "cyan"),
+                            })
+                            last_seen = str(ts) if isinstance(ts, str) else last_seen
+                    except Exception as ex:
+                        # Collection missing or transient DB hiccup — just
+                        # keep the connection alive via heartbeat below.
+                        log.debug(f"[sse] poll skipped: {ex}")
+
+                    # Push every new event as its own SSE message
+                    for ev in new_events:
+                        yield (
+                            "event: pulse\n"
+                            f"data: {json.dumps(ev)}\n\n"
+                        )
+
+                    # Heartbeat every 15s
+                    now = datetime.now(timezone.utc)
+                    if (now - last_heartbeat).total_seconds() >= 15:
+                        last_heartbeat = now
+                        yield (
+                            "event: heartbeat\n"
+                            f"data: {json.dumps({'server_time': now.isoformat().replace('+00:00', 'Z'), 'streaming': True})}\n\n"
+                        )
+
+                    await asyncio.sleep(1.0)
+            except asyncio.CancelledError:  # pragma: no cover · client closed
+                pass
+
+        headers = {
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",  # disable nginx buffering for SSE
+            "Connection": "keep-alive",
+        }
+        return StreamingResponse(_gen(), media_type="text/event-stream", headers=headers)
 
     return router
 

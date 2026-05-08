@@ -8,7 +8,9 @@ import {
 import { MasterHomepageAvatar } from "@/components/avatar/MasterHomepageAvatar";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const PULSE_POLL_MS = 8000;
+const PULSE_POLL_MS = 30000;       // KPI/header refresh — events come via SSE
+const SSE_RECONNECT_MS = 5000;     // backoff before re-opening dropped streams
+const FEED_MAX_ITEMS = 6;
 
 /**
  * MasterCommandCenterHero
@@ -72,6 +74,9 @@ export const MasterCommandCenterHero = () => {
         live: false, /* true once we get a successful response */
     });
 
+    // Initial-paint snapshot + slower (30s) KPI / header refresh.
+    // Live event pushes happen via the SSE effect below — those land
+    // sub-second the moment a real send/lead/deal is logged.
     useEffect(() => {
         let cancelled = false;
         let timer = null;
@@ -81,14 +86,19 @@ export const MasterCommandCenterHero = () => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const json = await res.json();
                 if (cancelled) return;
-                setPulse({
-                    events: Array.isArray(json.events) && json.events.length ? json.events : FALLBACK_EVENTS,
+                setPulse((prev) => ({
+                    // Prefer the prepended SSE events when we already have
+                    // them; only seed `events` from the GET response on the
+                    // very first paint (before any SSE event has landed).
+                    events: prev.live && prev.events && prev.events.length
+                        ? prev.events
+                        : (Array.isArray(json.events) && json.events.length ? json.events : FALLBACK_EVENTS),
                     kpis: { ...FALLBACK_KPIS, ...(json.kpis || {}) },
                     ai_actions_today: Number(json.ai_actions_today) || 287,
                     systems_operational: !!json.systems_operational,
                     streaming: !!json.streaming,
-                    live: true,
-                });
+                    live: prev.live, // SSE controls the "live" badge
+                }));
             } catch {
                 /* swallow; keep last good state */
             } finally {
@@ -99,6 +109,64 @@ export const MasterCommandCenterHero = () => {
         return () => {
             cancelled = true;
             if (timer) window.clearTimeout(timer);
+        };
+    }, []);
+
+    // Iter 89 · Server-Sent Events channel — sub-second push of new
+    // execution events the moment they hit `outbound_events`. Auto-
+    // reconnects with backoff when the stream drops; falls through
+    // gracefully to the GET poll above if the browser blocks SSE.
+    useEffect(() => {
+        let es = null;
+        let reconnectTimer = null;
+        let cancelled = false;
+
+        const open = () => {
+            if (cancelled) return;
+            try {
+                es = new EventSource(`${BACKEND_URL}/api/public/system-pulse/stream`);
+            } catch {
+                // EventSource not available in this browser — stay on GET poll
+                return;
+            }
+
+            es.addEventListener("ready", () => {
+                if (cancelled) return;
+                setPulse((prev) => ({ ...prev, live: true, streaming: true }));
+            });
+
+            es.addEventListener("heartbeat", () => {
+                if (cancelled) return;
+                setPulse((prev) => ({ ...prev, live: true, streaming: true }));
+            });
+
+            es.addEventListener("pulse", (e) => {
+                if (cancelled) return;
+                let payload = null;
+                try { payload = JSON.parse(e.data); } catch { return; }
+                if (!payload || !payload.title) return;
+                setPulse((prev) => {
+                    const next = [payload, ...(prev.events || [])].slice(0, FEED_MAX_ITEMS);
+                    return { ...prev, events: next, live: true, streaming: true };
+                });
+            });
+
+            es.onerror = () => {
+                if (cancelled) return;
+                setPulse((prev) => ({ ...prev, live: false }));
+                try { es && es.close(); } catch { /* noop */ }
+                es = null;
+                // Backoff reconnect — keeps the channel resilient through
+                // brief proxy / network blips without spamming connects.
+                reconnectTimer = window.setTimeout(open, SSE_RECONNECT_MS);
+            };
+        };
+
+        open();
+        return () => {
+            cancelled = true;
+            if (reconnectTimer) window.clearTimeout(reconnectTimer);
+            try { es && es.close(); } catch { /* noop */ }
         };
     }, []);
 

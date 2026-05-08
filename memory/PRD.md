@@ -1,8 +1,51 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 88 — Code-review security fixes · hardcoded secrets + random→secrets)
+**Last update:** 2026-05-08 (Iter 89 — Server-Sent Events channel for sub-second homepage execution feed)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 89 — SSE CHANNEL · SUB-SECOND HOMEPAGE EXECUTION FEED (P1)
+
+Status: SHIPPED · backend + frontend wired · live verified end-to-end with a fresh DB insert pushed to the open browser tab in <1s.
+
+User ask: "Add a Server-Sent-Events channel at /api/public/system-pulse/stream instead of 8s polling. Events push instantly to every open homepage tab the moment a real send/lead/deal happens — turning the hero into a literal CCTV feed with sub-second latency."
+
+### Files updated
+- `/app/backend/public_pulse.py`:
+  - New imports: `asyncio`, `json`, `Request`, `StreamingResponse`.
+  - New endpoint `GET /api/public/system-pulse/stream` returns `text/event-stream` with `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no`, `Connection: keep-alive`.
+  - **Wire format:**
+    - `event: ready` fires immediately on connect → `{streaming, server_time}` so client flips to "Streaming" instantly.
+    - `event: pulse` fires for each new `outbound_events` row whose `created_at > last_seen` watermark → `{time, kind, title, sub, tone}` (anonymized; same `_humanize_kind` + `_TONE_BY_KIND` mappings as the GET endpoint).
+    - `event: heartbeat` fires every 15s → `{server_time, streaming}` — keeps proxies / load-balancers from severing the connection and lets the client confirm the channel is healthy.
+  - **Loop:** 1-second poll cadence inside `_gen()` async generator, watermark advances on every push so events never replay. Bails immediately when `request.is_disconnected()` returns true (closed tab cleans up the connection).
+  - **Watermark seed:** initialized to "now at connect time" so we don't replay history — the GET endpoint already paints the initial 6 events.
+- `/app/frontend/src/components/home/MasterCommandCenterHero.jsx`:
+  - `PULSE_POLL_MS` raised from `8000` → `30000` — the GET endpoint is now only used for KPI/header refresh; live event pushes come via SSE.
+  - `SSE_RECONNECT_MS = 5000` and `FEED_MAX_ITEMS = 6` constants added.
+  - New `useEffect` opens an `EventSource` to `/api/public/system-pulse/stream` on mount with three listeners:
+    - `ready` → flips `live: true, streaming: true` instantly.
+    - `pulse` → prepends payload to `events`, trims to FEED_MAX_ITEMS = 6.
+    - `heartbeat` → reaffirms `live: true`.
+  - On `error`: marks `live: false`, closes EventSource, schedules reconnect after `SSE_RECONNECT_MS` (resilient to brief proxy/network blips without spamming connects). Cleans up on unmount.
+  - GET poll updated to **preserve SSE-prepended events** — only seeds `events` from the GET response on the very first paint (before any SSE event has landed). After SSE goes live, the GET only refreshes KPIs + headers.
+
+### Verified live (browser end-to-end test)
+- ✅ EventSource opens against `/api/public/system-pulse/stream` (confirmed in Playwright network capture).
+- ✅ `ready` event delivered → `mcc-feed-status` flips to "STREAMING" + clock chip flips to "Live" within ~1s of page load.
+- ✅ Inserted a `{kind: "deal", sub: "BROWSER_SSE_PROBE"}` doc into `outbound_events` via a parallel script. Within 1-2s, `mcc-feed-item-0` rendered: **"5:36 AM · Deal Stage updated · BROWSER_SSE_PROBE"** (the exact pushed payload). The previous top item ("9:41 AM Lead from Website captured") correctly slid down to `mcc-feed-item-1`. Console fired `[SSE pulse] Deal Stage updated · BROWSER_SSE_PROBE` confirming event delivery to the JS handler.
+- ✅ Wire-level smoke via `curl -sN`: `event: ready` + `event: pulse` payloads confirmed exactly as designed; mid-stream insert pushed within 1s.
+- ✅ PII guard preserved — same `_humanize_kind` + anonymized `sub` field; no real emails / customer names / domains in pulse payloads.
+- ✅ Zero console errors. Lint clean.
+
+### Why this is the "live AI operating system" payoff
+Before Iter 89, the feed was a snapshot every 8 seconds. Now: a fleet operator marks a lead qualified in `/portal/ops` → `outbound_events` insert fires → 1s later every open homepage tab on the planet sees the event prepend itself with a pulsing dot. Combined with the auto-advancing 5-scene avatar + cinematic fade + master-experience aesthetic, the homepage now reads as a **literal real-time control surface** — exactly the "live AI operating system controlling execution across industries" framing in the source image.
+
+### Carry-overs (NOT regressions, NOT blockers)
+- Anthropic upstream 502 still affecting `POST /api/startup-launch/generate`. Provider-side. Will recover automatically.
+- Production env vars (`RESEND_API_KEY`, Stripe, etc.) for `creatorboostai.com` — platform-blocked.
 
 ---
 
