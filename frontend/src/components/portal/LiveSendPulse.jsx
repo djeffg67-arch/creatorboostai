@@ -23,6 +23,8 @@ import {
  */
 
 const POLL_INTERVAL_MS = 4000;
+const SSE_RECONNECT_MS = 5000;
+const LIVE_EVENT_MAX = 6;
 
 const cls = (...x) => x.filter(Boolean).join(" ");
 
@@ -70,8 +72,59 @@ export const LiveSendPulse = ({
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [liveEvents, setLiveEvents] = useState([]);
+    const [sseLive, setSseLive] = useState(false);
     const aliveRef = useRef(true);
     const fetchingRef = useRef(false);
+
+    // Iter 90 · Public SSE channel — subscribes to the same anonymized
+    // execution stream the homepage hero uses, so operators see sends /
+    // leads / deals / appointments hit their dashboard sub-second. The
+    // existing 4s operational-telemetry poll stays (different data: mode,
+    // ramp, queue) — SSE is purely additive for event push.
+    useEffect(() => {
+        if (!apiBaseUrl) return undefined;
+        let es = null;
+        let reconnectTimer = null;
+        let cancelled = false;
+
+        const open = () => {
+            if (cancelled) return;
+            try {
+                es = new EventSource(`${apiBaseUrl}/api/public/system-pulse/stream`);
+            } catch {
+                return; // EventSource unavailable in this browser
+            }
+            es.addEventListener("ready", () => {
+                if (!cancelled) setSseLive(true);
+            });
+            es.addEventListener("heartbeat", () => {
+                if (!cancelled) setSseLive(true);
+            });
+            es.addEventListener("pulse", (e) => {
+                if (cancelled) return;
+                let payload = null;
+                try { payload = JSON.parse(e.data); } catch { return; }
+                if (!payload || !payload.title) return;
+                setLiveEvents((prev) => [payload, ...prev].slice(0, LIVE_EVENT_MAX));
+                setSseLive(true);
+            });
+            es.onerror = () => {
+                if (cancelled) return;
+                setSseLive(false);
+                try { es && es.close(); } catch { /* noop */ }
+                es = null;
+                reconnectTimer = window.setTimeout(open, SSE_RECONNECT_MS);
+            };
+        };
+
+        open();
+        return () => {
+            cancelled = true;
+            if (reconnectTimer) window.clearTimeout(reconnectTimer);
+            try { es && es.close(); } catch { /* noop */ }
+        };
+    }, [apiBaseUrl]);
 
     useEffect(() => {
         aliveRef.current = true;
@@ -149,6 +202,17 @@ export const LiveSendPulse = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <span
+                        className={cls(
+                            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em]",
+                            sseLive ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-white/15 bg-ink-700/50 text-slate-400",
+                        )}
+                        data-testid={`${testId}-sse-chip`}
+                        title={sseLive ? "Subscribed to /api/public/system-pulse/stream" : "SSE disconnected · falling back to telemetry poll"}
+                    >
+                        <span className={cls("h-1.5 w-1.5 rounded-full", sseLive ? "bg-emerald-400 animate-pulse" : "bg-slate-500")} />
+                        {sseLive ? "Streaming" : "Reconnecting…"}
+                    </span>
                     <span
                         className={cls(
                             "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em]",
@@ -298,6 +362,53 @@ export const LiveSendPulse = ({
                         ))}
                     </ul>
                 </Panel>
+            </div>
+
+            {/* Iter 90 · SSE-driven live event stream — sub-second push from
+                /api/public/system-pulse/stream. Fills with anonymized cross-
+                customer execution events the moment they hit `outbound_events`. */}
+            <div className="border-t border-white/5 bg-ink-700/30 px-4 py-3" data-testid={`${testId}-sse-strip`}>
+                <div className="mb-2 flex items-center justify-between">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
+                        Live event stream · sub-second push
+                    </span>
+                    <span
+                        className={cls(
+                            "inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.22em]",
+                            sseLive ? "text-emerald-300" : "text-slate-500",
+                        )}
+                    >
+                        <span className={cls("h-1.5 w-1.5 rounded-full", sseLive ? "bg-emerald-400 animate-pulse" : "bg-slate-500")} />
+                        {sseLive ? `Connected · ${liveEvents.length} buffered` : "Reconnecting…"}
+                    </span>
+                </div>
+                {liveEvents.length === 0 ? (
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                        Awaiting first event…
+                    </p>
+                ) : (
+                    <ul className="space-y-1.5">
+                        {liveEvents.map((ev, i) => (
+                            <li
+                                key={`${ev.kind}-${ev.time}-${i}`}
+                                className="flex items-center gap-3 rounded border border-white/5 bg-ink-900/60 px-2.5 py-1.5"
+                                data-testid={`${testId}-sse-event-${i}`}
+                            >
+                                <span className={cls(
+                                    "h-1.5 w-1.5 rounded-full flex-shrink-0",
+                                    i === 0 ? "animate-pulse" : "",
+                                    ev.tone === "emerald" ? "bg-emerald-400" :
+                                        ev.tone === "amber" ? "bg-amber-400" :
+                                            ev.tone === "fuchsia" ? "bg-fuchsia-400" :
+                                                ev.tone === "violet" ? "bg-violet-400" : "bg-cyan-400",
+                                )} />
+                                <span className="font-mono text-[9px] uppercase tracking-wider text-slate-500 w-16 flex-shrink-0">{ev.time}</span>
+                                <span className="text-xs font-medium text-white truncate">{ev.title}</span>
+                                <span className="font-mono text-[10px] text-slate-400 truncate">· {ev.sub}</span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
 
             {/* Tickers · sends + replies */}

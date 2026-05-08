@@ -525,7 +525,7 @@ def make_outbound_router(
                 f"Most operators in your space are leaking 15-25% on costs they can't see.\n\n"
                 f"This shows where {company} is losing money and how to correct it:\n{demo_url}\n\n"
                 + (f"Or grab 15 min: {calendly}\n\n" if calendly else "")
-                + f"— Jeffrey"
+                + "— Jeffrey"
             )
             return {"subject": subject, "body": body}
 
@@ -540,7 +540,7 @@ def make_outbound_router(
                 f"Want me to do that?\n\n"
                 f"Or if you'd rather skim the demo first: {demo_url}\n\n"
                 + (f"{calendly}\n\n" if calendly else "")
-                + f"— Jeffrey"
+                + "— Jeffrey"
             )
             return {"subject": subject, "body": body}
 
@@ -833,7 +833,6 @@ def make_outbound_router(
             + html_footer
             + pixel
         )
-        full_plain = body_plain + plain_footer
 
         # Simulation path for RFC-2606 reserved test domains
         is_simulated = bool(re.search(r"\.example(?:\.com|\.org|\.net)?$", email.lower()))

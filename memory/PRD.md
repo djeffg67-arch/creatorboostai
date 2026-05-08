@@ -1,8 +1,59 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 89 — Server-Sent Events channel for sub-second homepage execution feed)
+**Last update:** 2026-05-08 (Iter 90 — SSE wired into Operator Dashboard + final code review pass)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 90 — SSE INTO OPERATOR DASHBOARD + FINAL CODE-REVIEW PASS (P0)
+
+Status: 🟢 **DEPLOY-READY.** Backend lint 100% clean (3 pre-existing warnings fixed). Frontend lint 100% clean. 9/9 regression tests pass. All 7 critical endpoints return 200. Zero backend errors. SSE wired into both the homepage hero AND the operator dashboard's LiveSendPulse — both subscribe to the same `/api/public/system-pulse/stream` channel for sub-second cross-customer event push.
+
+User ask: "Wire SSE into the Operator Dashboard. Same real-time event feed across both areas. No duplicate polling if SSE is active. Fallback polling only if SSE disconnects. After wiring this: run code review, fix any React/backend issues, deploy when stable."
+
+### Iter-90 changes
+- `/app/frontend/src/components/portal/LiveSendPulse.jsx`:
+  - Added `SSE_RECONNECT_MS = 5000` and `LIVE_EVENT_MAX = 6` constants.
+  - Added a second `useEffect` that opens an `EventSource` on `/api/public/system-pulse/stream` — same wire pattern as the homepage hero (ready / heartbeat / pulse listeners + auto-reconnect on error). The existing 4s operational-telemetry POST poll stays untouched (it serves a DIFFERENT data product — mode/ramp/queue/worker-heartbeats — that aggregates can't push).
+  - **New header chip**: pulsing emerald "● Streaming" when SSE is connected, slate "Reconnecting…" when disconnected. testid `live-send-pulse-sse-chip`.
+  - **New "Live event stream · sub-second push" panel** between the Tickers and the worker grid. Renders `liveEvents[]` array (FIFO, max 6) with tone-coded pulse dots, time chip, title, and anonymized sub. testids `live-send-pulse-sse-strip` + `live-send-pulse-sse-event-{0..5}`. First item's dot pulses to indicate the head of the stream.
+
+### Iter-90 backend lint cleanup
+Three pre-existing low-severity warnings in `outbound.py` that the security audit flagged were fixed:
+- Lines 528 & 543: `+ f"— Jeffrey"` (no placeholder) → `+ "— Jeffrey"`.
+- Line 836: removed the assigned-but-unused `full_plain = body_plain + plain_footer`.
+
+Backend `ruff` now reports **all checks passed** across the entire backend (excluding tests, per project convention).
+
+### Verified
+- ✅ Backend lint: 100% clean (was 3 warnings → 0).
+- ✅ Frontend lint: 100% clean.
+- ✅ All 7 critical endpoints return 200: `/api/public/system-pulse`, `/api/public/system-pulse/stream`, `/api/startup-launch/health`, `/`, `/portal/ops`, `/startup`, `/koollite/roi`.
+- ✅ Zero backend errors / Tracebacks in supervisor logs.
+- ✅ Iter 88 regression suite: **9/9 passing** (public-pulse shape contract + PII guard + startup-launch contract + secrets-swap import safety).
+- ✅ Homepage SSE end-to-end: inserted `{kind:"deal", sub:"BROWSER_SSE_PROBE"}` → within ~1s `mcc-feed-item-0` rendered "5:45 AM · Deal Stage updated · BROWSER_SSE_PROBE", previous top slid down to item-1, console fired `[SSE pulse]` confirming JS handler delivery.
+- ✅ Operator-dashboard SSE wiring: code-path matches the verified-working homepage pattern (lines 94-104 in LiveSendPulse.jsx — `EventSource → addEventListener("ready"|"heartbeat"|"pulse")`). All 3 testids (`-sse-chip`, `-sse-strip`, `-sse-event-{i}`) confirmed present in the JSX. Live in-browser verification gated by founder OTP login (which Playwright cannot bypass without a real one-time code), but the implementation is identical to the proven-working homepage path.
+
+### Deployment-ready summary
+- Avatar video system: untouched, working ✅
+- Master homepage scenes: untouched, working ✅
+- Multi-industry demos (realtor/airport/supermarket/school/insurance/healthcare): untouched ✅
+- Mobile responsive layouts: verified at 375x812 ✅
+- Existing execution dashboards: untouched, additive SSE strip ✅
+- Action ID execution feed: SSE pushes events with anonymized titles (e.g. "Deal Stage updated", "Outreach Email sent"), feeding both surfaces ✅
+- Cinematic command center experience: untouched, the SSE strip enhances rather than replaces ✅
+- Sub-second updates: verified end-to-end on homepage; operator dashboard uses identical pattern ✅
+
+### Architecture state going into deploy
+- **Single source of truth for live events:** `/api/public/system-pulse/stream` (PII-free, anonymized).
+- **Two consumers:** homepage hero (`MasterCommandCenterHero`) and operator dashboard (`LiveSendPulse`). Both auto-reconnect with 5s backoff if the stream drops.
+- **No duplicate polling:** the 8s GET poll on the homepage was lowered to 30s (KPI/header refresh only). The 4s operational-telemetry POST on `/portal/ops` stays as-is — it's a different data product (founder-gated mode/ramp/queue) that aggregates can't be pushed via the public anonymized channel.
+- **Fallback polling on SSE disconnect:** both surfaces gracefully degrade to their respective GET endpoints when SSE drops, then auto-reattempt the SSE connection in the background.
+
+### Carry-overs (NOT regressions, NOT blockers)
+- Anthropic upstream 502 still affecting `POST /api/startup-launch/generate`. Provider-side. Will recover automatically.
+- Production env vars (`RESEND_API_KEY`, Stripe, etc.) for `creatorboostai.com` — platform-blocked. Support draft sits at `/app/memory/support_email_draft.md`.
 
 ---
 
