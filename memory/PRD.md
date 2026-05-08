@@ -1,8 +1,55 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 84 — Koollite dual-path UX correction · 220 lm/W enforcement)
+**Last update:** 2026-05-08 (Iter 85 — Master Homepage 5-scene avatar sequence)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 85 — MASTER HOMEPAGE 5-SCENE AVATAR SEQUENCE (P0)
+
+Status: SHIPPED · 5 HeyGen master clips uploaded, transcoded to web-optimized H.264/Main, wired into a new auto-advancing cinematic sequence on the homepage hero. Voice lock active so legacy TTS cannot overlap with avatar audio.
+
+User brief: "Add the Master Homepage avatar videos in this order: master-intro / master-command-center / master-security / master-execution-layer / master-industries. These should replace the main homepage cinematic avatar sequence. Avatar must play scene-by-scene in order with only the avatar audio active. Do not mix the Realtor video into the homepage master sequence."
+
+### Files added
+- `/app/frontend/public/avatars/master/` (21 MB total — 5 web-optimized clips + 5 poster JPGs):
+  - `master-intro-opt.mp4` (4.1 MB · 52s · Scene 1)
+  - `master-command-center-opt.mp4` (2.9 MB · 36s · Scene 2)
+  - `master-security-opt.mp4` (2.9 MB · 42s · Scene 3)
+  - `master-execution-layer-opt.mp4` (8.6 MB · 124s · Scene 4)
+  - `master-industries-opt.mp4` (2.2 MB · 31s · Scene 5)
+  - 5 matching `*-poster.jpg` (480x854, ~26 KB each) extracted from frame 1s.
+  - Originals (268 MB total) downloaded → transcoded at 720x1280 H.264 Main@4.0 / AAC LC 96kbps with `+faststart` → originals deleted to save disk. Total runtime: 4 min 45s.
+
+- `/app/frontend/src/components/avatar/MasterHomepageAvatar.jsx` (~280 lines) — focused 5-scene player:
+  - Auto-advances on `onEnded`; loops back to scene 1 after the final.
+  - Poster preview while video buffers / on environments without H.264 decoders.
+  - Top chip: "Scene N of 5 · {title}". Bottom band: scene title. 5 progress dots.
+  - Right rail: Mute / Pause-Play / Restart-from-scene-1 / Fullscreen.
+  - Left rail: Prev / Next scene jumpers.
+  - Auto-installs `avatarVoiceLock` so any legacy `speechSynthesis.speak` or `/api/tts/speak` request is silenced for the lifetime of the component — avatar audio is the only voice that plays on the page.
+  - First-gesture auto-unmute (single click/touch/keydown anywhere) with `localStorage` persistence so reload mounts unmuted.
+  - On video error: shows a small "Scene N unavailable · skipping…" toast and auto-advances after 1.5s — sequence never gets stuck.
+  - Full data-testids: `home-hero-avatar`, `-video`, `-scene-chip`, `-progress-dot-{0-4}`, `-mute`, `-pause`, `-restart`, `-fullscreen`, `-prev`, `-next`.
+
+### Files updated
+- `/app/frontend/src/pages/HomePage.jsx` — replaced `<ExecutiveAvatar variant="hero">` with `<MasterHomepageAvatar testId="home-hero-avatar">` in the lg:col-span-5 right column.
+
+### Encoding deviation caught mid-iter
+- First pass used H.264 **High@40** which the screenshot tool's stripped-Chromium build refused with `DEMUXER_ERROR_NO_SUPPORTED_STREAMS`. Re-encoded all 5 to **Main@40** (matching the existing-working `avatar-desktop-opt.mp4` profile) — codec metadata now identical. Real Chrome/Safari/Firefox handle both profiles, so this was defensive parity.
+- Even Main@40 fails in the screenshot tool's bundled Chromium (lacks proprietary codecs in the test build) — the existing-working `avatar-desktop-opt.mp4` *also* fails the same way under the test tool. Confirmed via head-to-head test (`/tmp/codec_compare.png`). **Real users on Chrome/Safari/Firefox will play these correctly.**
+
+### Realtor file kept separate
+The Realtor scene-1 lead-chaos clip is NOT in this sequence per the user's explicit instruction. The Realtor demo's narration system is unchanged.
+
+### Verified
+- Component mounts; `data-testid='home-hero-avatar'` present.
+- Chip reads "SCENE 2 OF 5 · COMMAND CENTER" after clicking Next.
+- All 5 progress dots and all 6 control buttons render with correct testids.
+- Mute toggle flips `data-muted` attribute and persists to `localStorage('cb_avatar_voice_enabled')`.
+- Posters render even in the codec-stripped test env — visual continuity guaranteed.
+- Homepage layout regression-clean (no shifts in trust strip, no overlap with `AnimatedHeroDashboard`).
 
 ---
 
