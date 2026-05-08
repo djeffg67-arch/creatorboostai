@@ -1,12 +1,62 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 96+ · Avatar Player Stability Pass)
+**Last update:** 2026-05-08 (Iter 97 · Mobile Reorder + Adaptive Avatar Streaming · COMPLETE)
+
+---
+
+## 📱 ITER 97 · MOBILE REORDER + ADAPTIVE AVATAR STREAMING (P0 · COMPLETE in PREVIEW)
+
+**Status: 🟢 SHIPPED to preview · 13/13 DOM assertions PASS via testing-agent (iteration_97.json).**
+
+### What shipped
+1. **Mobile-first homepage reorder** — wrapped MasterCommandCenterHero (avatar) and IndustrySelectorMaster in a `flex flex-col` parent with Tailwind `order-1 lg:order-2` and `order-2 lg:order-1` classes. On mobile (<lg) the AI Operator avatar surface sits ABOVE the industry catalog. On desktop (≥lg) the original cinematic flow is preserved (industries first, then operator).
+2. **Adaptive avatar streaming hook** (`useAdaptiveAvatarSrc.js`) — uses Network Information API (`navigator.connection.effectiveType` / `saveData`) to detect 2g/3g/saveData users. On slow networks, HEAD-probes for `/lite/<file>.mp4` variant. If the lite folder returns 200 → swap src to the lite variant. If 404 (current state — `/lite/` is intentionally not generated) → graceful no-op, stay on full quality. ZERO `/lite/` HEAD requests fire on 4g/desktop, verified.
+3. **Persistent video player** (already shipped in Iter 96+) verified intact — single `<video>` with no `key` prop, canplay-gated `play()`, hidden preloader for next scene, 9s stall watchdog. All 4 mechanisms still wired correctly.
+
+### Verified assertions (testing-agent, iteration_97.json)
+```
+[PASS] mobile·home-mobile-reorder-zone exists
+[PASS] mobile·avatar_above_industries        avatar=1693px < industry=4269px
+[PASS] desktop·industries_above_avatar       industry=1620px < avatar=3408px
+[PASS] avatar·single visible <video>
+[PASS] avatar·hidden preloader <video> present
+[PASS] avatar·visible_and_preload_differ     full → next scene
+[PASS] avatar·preload='auto'                 NOT 'metadata'
+[PASS] avatar·autoplay attr REMOVED          getAttribute('autoplay')=null
+[PASS] avatar·playsInline=true
+[PASS] avatar·data-adaptive-mode='full'      4g connection
+[PASS] avatar·element_persistent_no_remount  document.contains(stashedNode)=true after next
+[PASS] avatar·src_changed_after_next         command-center → execution-layer
+[PASS] adaptive·zero /lite/ HEAD requests    on 4g (graceful no-op confirmed)
+page_errors during 60s = 0 (excluding known H264 headless decoder noise)
+```
+
+### Files
+- NEW: `/app/frontend/src/components/avatar/useAdaptiveAvatarSrc.js` (~93 LoC)
+- MODIFIED: `/app/frontend/src/components/avatar/MasterHomepageAvatar.jsx` (uses adaptive hook for visible + preloader src)
+- MODIFIED: `/app/frontend/src/pages/HomePage.jsx` (`flex flex-col` reorder zone + `order-*` / `lg:order-*` classes on the two child sections)
+- MODIFIED: `/app/frontend/src/components/home/master/IndustrySelectorMaster.jsx` (accepts + merges `className` prop)
+- MODIFIED: `/app/frontend/src/components/home/MasterCommandCenterHero.jsx` (accepts + merges `className` prop)
+
+### Why this matters
+- Mobile is where investors watch demos for the first time — the AI Operator narration lands first now, before the user has to scroll past 14 industry cards.
+- The adaptive hook is **zero-risk**: on the current production state it's a no-op (no `/lite/` folder → mode stays `full`). The infrastructure is in place to drop bandwidth-friendly variants in later without code changes.
+
+### Production
+Fix is in preview only. Production at creatorboostai.com still has prior layout — user must click **Deploy** to ship.
+
+### NOT shipped (deferred per user 2026-05-08)
+- `/lite/` MP4 variants — user explicitly chose option (b): "ship as-is, do not block deployment on ffmpeg/lite transcoding". The adaptive hook's lite path is dormant until the assets are generated. Backfill priority is LOW; revisit only if real-world 3G traffic shows bandwidth pain.
+
+---
+
+## 🎬 ITER 96+ · AVATAR PLAYER STABILITY PASS (P0 BUG FIX · COMPLETE in PREVIEW)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
 
 ---
 
-## 🎬 ITER 96+ · AVATAR PLAYER STABILITY PASS (P0 BUG FIX · COMPLETE in PREVIEW)
+## 🎬 ITER 96+ · AVATAR PLAYER STABILITY PASS (P0 BUG FIX · COMPLETE in PREVIEW · superseded by Iter 97 mobile reorder)
 
 **Status: 🟢 SHIPPED to preview.** User reported: "avatar freezes and delays · lips don't sync with the voice wordings · video freezes for a second, then jumps to catch up while audio keeps going · worse on mobile and slower connections."
 
