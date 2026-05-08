@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
     Activity, Bell, ChevronRight, ShieldCheck, Workflow, Zap, TrendingUp,
     DollarSign, Users, CheckCircle2, Target, ArrowRight, Sparkles,
-    Server, RadioTower, Lock, Globe2, Clock,
+    Server, RadioTower, Lock, Globe2, Clock, Search, X,
 } from "lucide-react";
 import { MasterHomepageAvatar } from "@/components/avatar/MasterHomepageAvatar";
 
@@ -30,12 +30,12 @@ const FEED_MAX_ITEMS = 6;
  */
 
 const FALLBACK_EVENTS = [
-    { time: "9:41 AM", kind: "lead",        title: "Lead from Website captured", sub: "Routed to Sales Rep · M.S.",   tone: "cyan" },
-    { time: "9:40 AM", kind: "maintenance", title: "Maintenance Alert resolved", sub: "Asset APU-410 · Terminal 3",   tone: "amber" },
-    { time: "9:40 AM", kind: "email",       title: "Follow-up Email sent",       sub: "Lead · Solar Project Inquiry", tone: "emerald" },
-    { time: "9:39 AM", kind: "deal",        title: "Deal Stage updated",         sub: "Property · Under Contract",    tone: "fuchsia" },
-    { time: "9:38 AM", kind: "invoice",     title: "Invoice generated",          sub: "Auto-routed for approval",     tone: "cyan" },
-    { time: "9:36 AM", kind: "appointment", title: "New Appointment Booked",     sub: "Calendar synced · Reminder set", tone: "violet" },
+    { action_id: "fb-lead-001",  time: "9:41 AM", kind: "lead",        title: "Lead from Website captured", sub: "Routed to Sales Rep · M.S.",   tone: "cyan" },
+    { action_id: "fb-maint-002", time: "9:40 AM", kind: "maintenance", title: "Maintenance Alert resolved", sub: "Asset APU-410 · Terminal 3",   tone: "amber" },
+    { action_id: "fb-email-003", time: "9:40 AM", kind: "email",       title: "Follow-up Email sent",       sub: "Lead · Solar Project Inquiry", tone: "emerald" },
+    { action_id: "fb-deal-004",  time: "9:39 AM", kind: "deal",        title: "Deal Stage updated",         sub: "Property · Under Contract",    tone: "fuchsia" },
+    { action_id: "fb-inv-005",   time: "9:38 AM", kind: "invoice",     title: "Invoice generated",          sub: "Auto-routed for approval",     tone: "cyan" },
+    { action_id: "fb-appt-006",  time: "9:36 AM", kind: "appointment", title: "New Appointment Booked",     sub: "Calendar synced · Reminder set", tone: "violet" },
 ];
 
 const FALLBACK_KPIS = {
@@ -184,6 +184,62 @@ export const MasterCommandCenterHero = () => {
     );
     const systemStatusLabel = pulse.systems_operational ? "All Systems Operational" : "Investigating";
     const systemStatusTone = pulse.systems_operational ? "emerald" : "amber";
+
+    // Iter 92 · Action ID search — operator-grade traceability across
+    // the live execution feed. Filters the visible events; if a pasted
+    // ID doesn't match anything in the current 6-event buffer, hits the
+    // backend lookup (`/api/public/action/{id}`) so off-screen events
+    // are still discoverable.
+    const [actionQuery, setActionQuery] = useState("");
+    const [lookupResult, setLookupResult] = useState({ status: "idle" });
+    const trimmedQuery = actionQuery.trim();
+
+    useEffect(() => {
+        if (!trimmedQuery || trimmedQuery.length < 4) {
+            setLookupResult({ status: "idle" });
+            return undefined;
+        }
+        // Only hit the backend if no current event matches the query
+        const lower = trimmedQuery.toLowerCase();
+        const localHit = (events || []).some(
+            (ev) => (ev.action_id || "").toLowerCase().includes(lower)
+                 || (ev.title || "").toLowerCase().includes(lower)
+                 || (ev.sub || "").toLowerCase().includes(lower),
+        );
+        if (localHit) {
+            setLookupResult({ status: "local_match" });
+            return undefined;
+        }
+        let cancelled = false;
+        const t = window.setTimeout(async () => {
+            setLookupResult({ status: "loading" });
+            try {
+                const res = await fetch(
+                    `${BACKEND_URL}/api/public/action/${encodeURIComponent(trimmedQuery)}`,
+                    { cache: "no-store" },
+                );
+                const json = await res.json();
+                if (cancelled) return;
+                if (json && json.ok && json.found && json.event) {
+                    setLookupResult({ status: "remote_match", event: json.event });
+                } else {
+                    setLookupResult({ status: "miss", reason: json?.reason || "not_found" });
+                }
+            } catch {
+                if (!cancelled) setLookupResult({ status: "error" });
+            }
+        }, 250); // light debounce so paste doesn't blast the API
+        return () => { cancelled = true; window.clearTimeout(t); };
+    }, [trimmedQuery, events]);
+
+    // Filter events matching the query for visual highlighting
+    const matches = (ev) => {
+        if (!trimmedQuery) return true;
+        const q = trimmedQuery.toLowerCase();
+        return (ev.action_id || "").toLowerCase().includes(q)
+            || (ev.title || "").toLowerCase().includes(q)
+            || (ev.sub || "").toLowerCase().includes(q);
+    };
 
     return (
         <section
@@ -335,24 +391,92 @@ export const MasterCommandCenterHero = () => {
                                     )}
                                 </span>
                             </div>
+
+                            {/* Iter 92 · Action ID search — operator traceability */}
+                            <div className="mt-2 flex items-center gap-1.5 rounded-md border border-white/10 bg-ink-900/70 px-2 py-1.5" data-testid="mcc-action-search">
+                                <Search size={11} className="flex-shrink-0 text-slate-500" />
+                                <input
+                                    type="text"
+                                    value={actionQuery}
+                                    onChange={(e) => setActionQuery(e.target.value)}
+                                    placeholder="Search Action ID · paste 24-char ID to trace"
+                                    className="flex-1 bg-transparent font-mono text-[11px] text-cyan-200 placeholder:text-slate-500 focus:outline-none"
+                                    data-testid="mcc-action-search-input"
+                                    spellCheck={false}
+                                />
+                                {trimmedQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setActionQuery("")}
+                                        className="text-slate-500 hover:text-cyan-300"
+                                        data-testid="mcc-action-search-clear"
+                                        title="Clear"
+                                    >
+                                        <X size={11} />
+                                    </button>
+                                )}
+                            </div>
+                            {trimmedQuery && trimmedQuery.length >= 4 && lookupResult.status === "miss" && (
+                                <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-amber-300" data-testid="mcc-action-search-miss">
+                                    No match in current feed · {lookupResult.reason === "invalid_format" ? "ID format invalid" : "ID not found"}
+                                </p>
+                            )}
+                            {lookupResult.status === "loading" && (
+                                <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
+                                    Looking up…
+                                </p>
+                            )}
+
                             <ul className="mt-2 space-y-2">
                                 {events.map((e, i) => {
                                     const tone = TONE_CLS[e.tone] || TONE_CLS.cyan;
+                                    const isMatch = matches(e);
+                                    const dimmed = trimmedQuery && !isMatch;
+                                    const highlighted = trimmedQuery && isMatch;
+                                    const aidShort = (e.action_id || "").slice(-8) || "—";
                                     return (
                                         <li
-                                            key={`${e.kind}-${e.time}-${i}`}
-                                            className="rounded border border-white/5 bg-ink-700/40 p-2"
+                                            key={`${e.action_id || e.kind}-${e.time}-${i}`}
+                                            className={`rounded border p-2 transition-all ${
+                                                highlighted
+                                                    ? "border-cyan-400/60 bg-cyan-500/10 ring-1 ring-cyan-400/30 shadow-[0_0_18px_rgba(6,182,212,0.25)]"
+                                                    : dimmed
+                                                        ? "border-white/5 bg-ink-700/20 opacity-40"
+                                                        : "border-white/5 bg-ink-700/40"
+                                            }`}
                                             data-testid={`mcc-feed-item-${i}`}
+                                            data-action-id={e.action_id || ""}
+                                            data-match={highlighted ? "true" : "false"}
                                         >
                                             <div className="flex items-center gap-2">
                                                 <span className={`h-1.5 w-1.5 rounded-full ${tone.split(" ")[0]} ${i === 0 ? "animate-pulse" : ""}`} />
                                                 <span className="font-mono text-[9px] uppercase tracking-wider text-slate-500">{e.time}</span>
+                                                <span className="ml-auto font-mono text-[9px] tracking-wider text-slate-600" title={e.action_id || ""}>
+                                                    #{aidShort}
+                                                </span>
                                             </div>
                                             <p className={`mt-1 text-xs font-medium ${tone.split(" ")[1]}`}>{e.title}</p>
                                             <p className="text-[11px] text-slate-400">{e.sub}</p>
                                         </li>
                                     );
                                 })}
+                                {/* Remote-match: surface the searched-for event below the live feed */}
+                                {lookupResult.status === "remote_match" && lookupResult.event && (
+                                    <li
+                                        className="rounded border border-cyan-400/60 bg-cyan-500/10 p-2 ring-1 ring-cyan-400/30 shadow-[0_0_18px_rgba(6,182,212,0.25)]"
+                                        data-testid="mcc-action-search-remote-match"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                                            <span className="font-mono text-[9px] uppercase tracking-wider text-cyan-300">From audit log · {lookupResult.event.time}</span>
+                                            <span className="ml-auto font-mono text-[9px] tracking-wider text-slate-500">
+                                                #{(lookupResult.event.action_id || "").slice(-8)}
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-xs font-medium text-cyan-200">{lookupResult.event.title}</p>
+                                        <p className="text-[11px] text-slate-400">{lookupResult.event.sub}</p>
+                                    </li>
+                                )}
                             </ul>
                         </div>
 

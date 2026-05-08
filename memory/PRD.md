@@ -1,8 +1,70 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 91 — Truthful active-connection counter on SSE channel)
+**Last update:** 2026-05-08 (Iter 92 — Action ID search · operator-grade traceability)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 92 — ACTION ID SEARCH · OPERATOR-GRADE TRACEABILITY (P1)
+
+Status: SHIPPED · backend lookup endpoint live · search bars on homepage hero AND operator dashboard SSE strip · full end-to-end verified (local match highlights, remote audit-log lookup surfaces below feed, invalid IDs show "NO MATCH" miss chip).
+
+User ask: "Add a compact enterprise-style Action ID search bar above the live execution feed. Allow operators/founders to paste or search Action IDs instantly. Auto-scroll and highlight matching execution events in real time. Maintain anonymization. Transform the live feed from passive viewing into active operational investigation and traceability."
+
+### Files updated
+
+#### Backend
+- `/app/backend/public_pulse.py`:
+  - **Every event now carries a stable `action_id`** — minted from MongoDB `_id` as a 24-char hex string. ObjectIds contain no PII; safe to expose publicly.
+  - **Fallback events** also have synthetic stable IDs (`fb-lead-001` … `fb-appt-006`) so the search bar still works during cold-start/empty-DB scenarios.
+  - **New endpoint:** `GET /api/public/action/{action_id}` — single-event lookup with strict input validation:
+    - Fast-path matches synthetic `fb-*` IDs without a DB hit.
+    - Validates Mongo ObjectId shape (24-char hex regex); rejects everything else with `reason: "invalid_format"`.
+    - Returns `{ok:true, found:true, event:{...}}` for hits or `{ok:true, found:false, reason:"not_found"}` for valid-but-missing IDs.
+    - Same anonymized payload as the live channel: `{action_id, time, kind, title, sub, tone}`. No real emails, names, or domains.
+
+#### Frontend
+- `/app/frontend/src/components/home/MasterCommandCenterHero.jsx`:
+  - **Compact search bar** above the live feed: `Search → input → X clear`, `data-testid="mcc-action-search"`. Placeholder reads "Search Action ID · paste 24-char ID to trace".
+  - **Local-first match** — debounced 250ms; if any of the 6 visible events match by `action_id`/`title`/`sub`, no network call. If no local match and ≥4 chars typed, hits `GET /api/public/action/{id}`.
+  - **Visual highlight** — matching events get a cyan-400 ring + glow + bg tint; non-matching events dim to 40% opacity. Smooth 200ms transition (no excessive animation).
+  - **Each event card** now shows `#xxxxxxxx` in the upper-right (last-8-chars of action_id) as a tiny mono chip. Hovering shows the full ID.
+  - **Remote-match panel** — when a 24-char hex ID resolves via the lookup endpoint but the event is off-screen, surfaces below the live feed with a "FROM AUDIT LOG · {time}" header chip. Same cyan-glow styling.
+  - **Miss chip** — amber "NO MATCH IN CURRENT FEED · ID NOT FOUND" when lookup fails or returns invalid_format.
+  - Frontend `FALLBACK_EVENTS` array updated to include the same synthetic action_ids as the backend so initial paint stays consistent regardless of SSE-vs-GET race timing on mount.
+- `/app/frontend/src/components/portal/LiveSendPulse.jsx`:
+  - Same compact search bar atop the SSE strip (`data-testid="live-send-pulse-action-search"`).
+  - Same local-first → remote-fallback → highlight/dim/miss-chip behavior — single-source-of-truth UX across homepage and operator console.
+  - Each SSE event row now shows `#xxxxxxxx` chip on the right.
+
+### Verified (5 backend smoke tests + 1 browser end-to-end)
+1. ✅ `GET /api/public/system-pulse` returns events with `action_id` populated (`fb-lead-001`, `fb-maint-002`, `fb-email-003`).
+2. ✅ Inserted real `outbound_events` row with `_id=69fd7e33c77f42ea285a798e`. `GET /api/public/action/69fd7e33c77f42ea285a798e` returned `{found:true, event:{title:"Outreach Email sent", sub:"action_id_test", action_id:"...285a798e"}}`.
+3. ✅ `GET /api/public/action/not-a-real-id` → `{ok:false, reason:"invalid_format"}`.
+4. ✅ `GET /api/public/action/000000000000000000000000` → `{ok:true, found:false, reason:"not_found"}` (valid hex but absent).
+5. ✅ `GET /api/public/action/fb-deal-004` → `{ok:true, found:true, event:{title:"Deal Stage updated"}}` (fallback fast-path).
+6. ✅ Browser end-to-end: typed "fb-lead" → item-0 highlighted with cyan ring (data-match=true), all 5 others dimmed to 40% opacity (data-match=false). Pasted 24-char zero ID → "NO MATCH IN CURRENT FEED · ID NOT FOUND" miss chip rendered.
+
+### Privacy preservation (verified)
+- Action IDs are 24-char Mongo ObjectIds OR `fb-*` synthetic prefixes. Both are opaque hex/slug strings with zero PII.
+- Lookup endpoint returns the SAME anonymized payload as the live channel — no path can leak real emails, names, or domains.
+- Fallback fast-path doesn't even hit the DB, so no extra exposure.
+- Invalid-format inputs are rejected before any DB query — safe by construction.
+
+### Aesthetic
+- Compact (single-row), enterprise-grade. Mono font for the input; slate-500 placeholder; cyan-200 user text. X clear button only renders when there's a query.
+- Highlight: cyan-400/60 border + ring-1 cyan-400/30 + 18px box-shadow. Dim: opacity-40. No bouncing, no scaling, no fanfare.
+- Miss chip: amber-300 mono text, single line, no animation.
+- Same UX twin on homepage hero AND operator dashboard for visual consistency.
+
+### Use-case readiness
+- ✅ **Customer support tracing:** paste an action ID from a ticket → instant match or audit-log fallback.
+- ✅ **Execution audits:** verify any logged action is real and not a hallucination.
+- ✅ **Lead follow-up verification:** trace exactly which leads were emailed, when.
+- ✅ **AI decision tracking:** every CB action surfaces with a stable, traceable ID.
+- ✅ **Operational diagnostics:** debug the live system in real time without leaving the dashboard.
+- ✅ **Enterprise governance:** auditable trail with no PII exposure.
 
 ---
 

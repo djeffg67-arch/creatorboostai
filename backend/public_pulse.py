@@ -34,13 +34,15 @@ log = logging.getLogger("public_pulse")
 
 # Curated fallback events — used if real data is sparse so the hero never
 # looks dead. Wording stays generic; nothing reveals customer identities.
+# Each gets a synthetic stable action_id so the search bar still works
+# during cold-start / empty-DB scenarios.
 _FALLBACK_EVENTS = [
-    {"kind": "lead",        "title": "Lead from Website captured",  "sub": "Routed to Sales Rep · M.S.",        "tone": "cyan"},
-    {"kind": "maintenance", "title": "Maintenance Alert resolved",  "sub": "Asset APU-410 · Terminal 3",        "tone": "amber"},
-    {"kind": "email",       "title": "Follow-up Email sent",        "sub": "Lead · Solar Project Inquiry",      "tone": "emerald"},
-    {"kind": "deal",        "title": "Deal Stage updated",          "sub": "Property · Under Contract",         "tone": "fuchsia"},
-    {"kind": "invoice",     "title": "Invoice generated",           "sub": "Auto-routed for approval",          "tone": "cyan"},
-    {"kind": "appointment", "title": "New Appointment Booked",      "sub": "Calendar synced · Reminder set",    "tone": "violet"},
+    {"action_id": "fb-lead-001",  "kind": "lead",        "title": "Lead from Website captured",  "sub": "Routed to Sales Rep · M.S.",        "tone": "cyan"},
+    {"action_id": "fb-maint-002", "kind": "maintenance", "title": "Maintenance Alert resolved",  "sub": "Asset APU-410 · Terminal 3",        "tone": "amber"},
+    {"action_id": "fb-email-003", "kind": "email",       "title": "Follow-up Email sent",        "sub": "Lead · Solar Project Inquiry",      "tone": "emerald"},
+    {"action_id": "fb-deal-004",  "kind": "deal",        "title": "Deal Stage updated",          "sub": "Property · Under Contract",         "tone": "fuchsia"},
+    {"action_id": "fb-inv-005",   "kind": "invoice",     "title": "Invoice generated",           "sub": "Auto-routed for approval",          "tone": "cyan"},
+    {"action_id": "fb-appt-006",  "kind": "appointment", "title": "New Appointment Booked",      "sub": "Calendar synced · Reminder set",    "tone": "violet"},
 ]
 
 _TONE_BY_KIND = {
@@ -110,7 +112,10 @@ def make_public_pulse_router(db) -> APIRouter:
             cur = (
                 db.outbound_events.find(
                     {"created_at": {"$gte": today_start - timedelta(days=2)}},
-                    {"_id": 0, "kind": 1, "created_at": 1, "stage": 1, "sub": 1},
+                    # _id is included so we can mint a stable action_id for
+                    # operator traceability; it's a 24-char hex string with
+                    # no PII and is safe to expose publicly.
+                    {"kind": 1, "created_at": 1, "stage": 1, "sub": 1},
                 )
                 .sort("created_at", -1)
                 .limit(6)
@@ -124,6 +129,7 @@ def make_public_pulse_router(db) -> APIRouter:
                     else (ts if isinstance(ts, datetime) else now)
                 )
                 events.append({
+                    "action_id": str(e.get("_id") or ""),
                     "time": _short_time(ts_dt),
                     "kind": kind,
                     "title": _humanize_kind(kind),
@@ -251,7 +257,8 @@ def make_public_pulse_router(db) -> APIRouter:
                         cur = (
                             db.outbound_events.find(
                                 {"created_at": {"$gt": last_seen}},
-                                {"_id": 0, "kind": 1, "created_at": 1, "stage": 1, "sub": 1},
+                                # _id included → minted as action_id (24-char hex, no PII)
+                                {"kind": 1, "created_at": 1, "stage": 1, "sub": 1},
                             )
                             .sort("created_at", 1)
                             .limit(20)
@@ -265,6 +272,7 @@ def make_public_pulse_router(db) -> APIRouter:
                                 else (ts if isinstance(ts, datetime) else _utcnow())
                             )
                             new_events.append({
+                                "action_id": str(e.get("_id") or ""),
                                 "time": _short_time(ts_dt),
                                 "kind": kind,
                                 "title": _humanize_kind(kind),
@@ -309,6 +317,71 @@ def make_public_pulse_router(db) -> APIRouter:
             "Connection": "keep-alive",
         }
         return StreamingResponse(_gen(), media_type="text/event-stream", headers=headers)
+
+    # ─────────────── Iter 92 · Action-ID lookup ───────────────
+    @router.get("/action/{action_id}")
+    async def lookup_action(action_id: str) -> Dict[str, Any]:
+        """Resolve a single execution event by action_id.
+
+        Used by the operator/founder Action-ID search bar to pull events
+        that have already scrolled out of the live feed. Strict same-rules
+        anonymization as the live channel: no real emails, names, or
+        domains — only kind / humanized title / anonymized sub.
+
+        Validates the input as a 24-char hex (Mongo ObjectId) OR the
+        synthetic `fb-*` fallback prefix, both safe to expose.
+        """
+        action_id = (action_id or "").strip()
+        if not action_id:
+            return {"ok": False, "found": False, "reason": "empty"}
+
+        # Fallback events first — fast-path, no DB hit
+        for fb in _FALLBACK_EVENTS:
+            if fb.get("action_id") == action_id:
+                return {"ok": True, "found": True, "event": {**fb, "time": "—"}}
+
+        # Validate Mongo ObjectId shape (24-char hex). Reject anything else
+        # to avoid arbitrary-string lookups against the DB.
+        if len(action_id) != 24 or not all(c in "0123456789abcdefABCDEF" for c in action_id):
+            return {"ok": False, "found": False, "reason": "invalid_format"}
+
+        try:
+            from bson import ObjectId
+            oid = ObjectId(action_id)
+        except Exception:
+            return {"ok": False, "found": False, "reason": "invalid_format"}
+
+        try:
+            doc = await db.outbound_events.find_one(
+                {"_id": oid},
+                {"kind": 1, "created_at": 1, "stage": 1, "sub": 1},
+            )
+        except Exception as ex:
+            log.debug(f"[action lookup] db error: {ex}")
+            return {"ok": False, "found": False, "reason": "db_error"}
+
+        if not doc:
+            return {"ok": True, "found": False, "reason": "not_found"}
+
+        kind = (doc.get("kind") or "task").lower()
+        ts = doc.get("created_at")
+        ts_dt = (
+            datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            if isinstance(ts, str) and ts
+            else (ts if isinstance(ts, datetime) else _utcnow())
+        )
+        return {
+            "ok": True,
+            "found": True,
+            "event": {
+                "action_id": str(doc.get("_id")),
+                "time": _short_time(ts_dt),
+                "kind": kind,
+                "title": _humanize_kind(kind),
+                "sub": (doc.get("sub") or doc.get("stage") or "Auto-routed by CB"),
+                "tone": _TONE_BY_KIND.get(kind, "cyan"),
+            },
+        }
 
     return router
 

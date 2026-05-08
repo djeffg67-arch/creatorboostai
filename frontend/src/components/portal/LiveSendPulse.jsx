@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     Activity, Zap, AlertTriangle, CheckCircle2, Clock, Mail, Inbox,
     Radio, ChevronRight, Pause, Send, MessageSquare, Database,
+    Search, X,
 } from "lucide-react";
 
 /**
@@ -75,8 +76,57 @@ export const LiveSendPulse = ({
     const [liveEvents, setLiveEvents] = useState([]);
     const [sseLive, setSseLive] = useState(false);
     const [connectedCount, setConnectedCount] = useState(0);
+    const [actionQuery, setActionQuery] = useState("");
+    const [remoteHit, setRemoteHit] = useState(null); // {found, event} | null
     const aliveRef = useRef(true);
     const fetchingRef = useRef(false);
+
+    // Iter 92 · Action ID search (operator traceability) — same UX as the
+    // homepage hero. Local-first match against the 6-event SSE buffer; if
+    // a 24-char ObjectId is pasted that's already off-screen, hits the
+    // backend lookup so older events are still discoverable.
+    const trimmedActionQuery = actionQuery.trim();
+    useEffect(() => {
+        if (!trimmedActionQuery || trimmedActionQuery.length < 4) {
+            setRemoteHit(null);
+            return undefined;
+        }
+        const lower = trimmedActionQuery.toLowerCase();
+        const localHit = (liveEvents || []).some(
+            (ev) => (ev.action_id || "").toLowerCase().includes(lower)
+                 || (ev.title || "").toLowerCase().includes(lower)
+                 || (ev.sub || "").toLowerCase().includes(lower),
+        );
+        if (localHit) {
+            setRemoteHit(null);
+            return undefined;
+        }
+        let cancelled = false;
+        const t = window.setTimeout(async () => {
+            try {
+                const res = await fetch(
+                    `${apiBaseUrl}/api/public/action/${encodeURIComponent(trimmedActionQuery)}`,
+                    { cache: "no-store" },
+                );
+                const json = await res.json();
+                if (cancelled) return;
+                setRemoteHit(json && json.ok && json.found && json.event
+                    ? { found: true, event: json.event }
+                    : { found: false, reason: json?.reason || "not_found" });
+            } catch {
+                if (!cancelled) setRemoteHit({ found: false, reason: "error" });
+            }
+        }, 250);
+        return () => { cancelled = true; window.clearTimeout(t); };
+    }, [trimmedActionQuery, liveEvents, apiBaseUrl]);
+
+    const matchesQuery = (ev) => {
+        if (!trimmedActionQuery) return true;
+        const q = trimmedActionQuery.toLowerCase();
+        return (ev.action_id || "").toLowerCase().includes(q)
+            || (ev.title || "").toLowerCase().includes(q)
+            || (ev.sub || "").toLowerCase().includes(q);
+    };
 
     // Iter 90 · Public SSE channel — subscribes to the same anonymized
     // execution stream the homepage hero uses, so operators see sends /
@@ -399,27 +449,96 @@ export const LiveSendPulse = ({
                         Awaiting first event…
                     </p>
                 ) : (
-                    <ul className="space-y-1.5">
-                        {liveEvents.map((ev, i) => (
-                            <li
-                                key={`${ev.kind}-${ev.time}-${i}`}
-                                className="flex items-center gap-3 rounded border border-white/5 bg-ink-900/60 px-2.5 py-1.5"
-                                data-testid={`${testId}-sse-event-${i}`}
+                    <>
+                        {/* Iter 92 · Action ID search — operator traceability */}
+                        <div
+                            className="mb-2 flex items-center gap-1.5 rounded border border-white/10 bg-ink-900/70 px-2 py-1.5"
+                            data-testid={`${testId}-action-search`}
+                        >
+                            <Search size={11} className="flex-shrink-0 text-slate-500" />
+                            <input
+                                type="text"
+                                value={actionQuery}
+                                onChange={(e) => setActionQuery(e.target.value)}
+                                placeholder="Search Action ID · paste 24-char ID to trace"
+                                className="flex-1 bg-transparent font-mono text-[11px] text-cyan-200 placeholder:text-slate-500 focus:outline-none"
+                                data-testid={`${testId}-action-search-input`}
+                                spellCheck={false}
+                            />
+                            {trimmedActionQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => setActionQuery("")}
+                                    className="text-slate-500 hover:text-cyan-300"
+                                    data-testid={`${testId}-action-search-clear`}
+                                    title="Clear"
+                                >
+                                    <X size={11} />
+                                </button>
+                            )}
+                        </div>
+                        {trimmedActionQuery && trimmedActionQuery.length >= 4 && remoteHit && !remoteHit.found && (
+                            <p
+                                className="mb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-amber-300"
+                                data-testid={`${testId}-action-search-miss`}
                             >
-                                <span className={cls(
-                                    "h-1.5 w-1.5 rounded-full flex-shrink-0",
-                                    i === 0 ? "animate-pulse" : "",
-                                    ev.tone === "emerald" ? "bg-emerald-400" :
-                                        ev.tone === "amber" ? "bg-amber-400" :
-                                            ev.tone === "fuchsia" ? "bg-fuchsia-400" :
-                                                ev.tone === "violet" ? "bg-violet-400" : "bg-cyan-400",
-                                )} />
-                                <span className="font-mono text-[9px] uppercase tracking-wider text-slate-500 w-16 flex-shrink-0">{ev.time}</span>
-                                <span className="text-xs font-medium text-white truncate">{ev.title}</span>
-                                <span className="font-mono text-[10px] text-slate-400 truncate">· {ev.sub}</span>
-                            </li>
-                        ))}
-                    </ul>
+                                No match in current feed · {remoteHit.reason === "invalid_format" ? "ID format invalid" : "ID not found"}
+                            </p>
+                        )}
+                        <ul className="space-y-1.5">
+                            {liveEvents.map((ev, i) => {
+                                const isMatch = matchesQuery(ev);
+                                const dimmed = trimmedActionQuery && !isMatch;
+                                const highlighted = trimmedActionQuery && isMatch;
+                                const aidShort = (ev.action_id || "").slice(-8) || "—";
+                                return (
+                                    <li
+                                        key={`${ev.action_id || ev.kind}-${ev.time}-${i}`}
+                                        className={cls(
+                                            "flex items-center gap-3 rounded border px-2.5 py-1.5 transition-all",
+                                            highlighted
+                                                ? "border-cyan-400/60 bg-cyan-500/10 ring-1 ring-cyan-400/30"
+                                                : dimmed
+                                                    ? "border-white/5 bg-ink-900/40 opacity-40"
+                                                    : "border-white/5 bg-ink-900/60",
+                                        )}
+                                        data-testid={`${testId}-sse-event-${i}`}
+                                        data-action-id={ev.action_id || ""}
+                                        data-match={highlighted ? "true" : "false"}
+                                    >
+                                        <span className={cls(
+                                            "h-1.5 w-1.5 rounded-full flex-shrink-0",
+                                            i === 0 ? "animate-pulse" : "",
+                                            ev.tone === "emerald" ? "bg-emerald-400" :
+                                                ev.tone === "amber" ? "bg-amber-400" :
+                                                    ev.tone === "fuchsia" ? "bg-fuchsia-400" :
+                                                        ev.tone === "violet" ? "bg-violet-400" : "bg-cyan-400",
+                                        )} />
+                                        <span className="font-mono text-[9px] uppercase tracking-wider text-slate-500 w-16 flex-shrink-0">{ev.time}</span>
+                                        <span className="text-xs font-medium text-white truncate">{ev.title}</span>
+                                        <span className="font-mono text-[10px] text-slate-400 truncate">· {ev.sub}</span>
+                                        <span className="ml-auto font-mono text-[9px] tracking-wider text-slate-500 flex-shrink-0" title={ev.action_id || ""}>
+                                            #{aidShort}
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                            {remoteHit && remoteHit.found && remoteHit.event && (
+                                <li
+                                    className="flex items-center gap-3 rounded border border-cyan-400/60 bg-cyan-500/10 px-2.5 py-1.5 ring-1 ring-cyan-400/30"
+                                    data-testid={`${testId}-action-search-remote-match`}
+                                >
+                                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse flex-shrink-0" />
+                                    <span className="font-mono text-[9px] uppercase tracking-wider text-cyan-300 w-24 flex-shrink-0">From audit log</span>
+                                    <span className="text-xs font-medium text-cyan-200 truncate">{remoteHit.event.title}</span>
+                                    <span className="font-mono text-[10px] text-slate-400 truncate">· {remoteHit.event.sub}</span>
+                                    <span className="ml-auto font-mono text-[9px] tracking-wider text-slate-500 flex-shrink-0">
+                                        #{(remoteHit.event.action_id || "").slice(-8)}
+                                    </span>
+                                </li>
+                            )}
+                        </ul>
+                    </>
                 )}
             </div>
 
