@@ -76,7 +76,14 @@ export const LiveSendPulse = ({
     const [liveEvents, setLiveEvents] = useState([]);
     const [sseLive, setSseLive] = useState(false);
     const [connectedCount, setConnectedCount] = useState(0);
-    const [actionQuery, setActionQuery] = useState("");
+    const [actionQuery, setActionQuery] = useState(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            return (params.get("action") || "").trim();
+        } catch {
+            return "";
+        }
+    });
     const [remoteHit, setRemoteHit] = useState(null); // {found, event} | null
     const aliveRef = useRef(true);
     const fetchingRef = useRef(false);
@@ -127,6 +134,34 @@ export const LiveSendPulse = ({
             || (ev.title || "").toLowerCase().includes(q)
             || (ev.sub || "").toLowerCase().includes(q);
     };
+
+    // Iter 93 · Keep `?action=...` URL in sync + auto-scroll matches into view.
+    useEffect(() => {
+        try {
+            const url = new URL(window.location.href);
+            if (trimmedActionQuery) url.searchParams.set("action", trimmedActionQuery);
+            else url.searchParams.delete("action");
+            const next = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "") + url.hash;
+            if (next !== window.location.pathname + window.location.search + window.location.hash) {
+                window.history.replaceState({}, "", next);
+            }
+        } catch { /* noop */ }
+    }, [trimmedActionQuery]);
+
+    useEffect(() => {
+        if (!trimmedActionQuery) return undefined;
+        const t = window.setTimeout(() => {
+            try {
+                const local = document.querySelector(`[data-testid^="${testId}-sse-event-"][data-match="true"]`);
+                const remote = document.querySelector(`[data-testid="${testId}-action-search-remote-match"]`);
+                const target = local || remote;
+                if (target && typeof target.scrollIntoView === "function") {
+                    target.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            } catch { /* noop */ }
+        }, 220);
+        return () => window.clearTimeout(t);
+    }, [trimmedActionQuery, remoteHit, liveEvents, testId]);
 
     // Iter 90 · Public SSE channel — subscribes to the same anonymized
     // execution stream the homepage hero uses, so operators see sends /

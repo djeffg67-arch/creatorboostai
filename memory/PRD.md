@@ -1,8 +1,54 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 92 — Action ID search · operator-grade traceability)
+**Last update:** 2026-05-08 (Iter 93 — Action ID permalinks · shareable deep links)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 93 — ACTION ID PERMALINKS · SHAREABLE DEEP LINKS (P1)
+
+Status: SHIPPED · live verified · auto-prefill + auto-highlight + auto-scroll all working · URL stays in sync as user types/clears · "Copy permalink" button confirmed copies the deep link.
+
+User ask: "Allow unique Action IDs to generate shareable deep links. On page load: auto-open matching execution event, auto-highlight, auto-scroll into view, prefill Action ID search bar. Examples: creatorboostai.com/?action=ACTION_ID. Maintain anonymization. Fast, minimal, clean, mission-control style."
+
+### Files updated
+- `/app/frontend/src/components/home/MasterCommandCenterHero.jsx`:
+  - **`actionQuery` state seeded from `URLSearchParams(window.location.search).get("action")`** on mount → search bar auto-prefills.
+  - **URL-sync `useEffect`** — every change to the search bar updates `?action=...` via `window.history.replaceState` (no history pollution). Empty query strips the param entirely.
+  - **Auto-scroll `useEffect`** — once a match paints (local OR remote-from-audit-log), scrolls the matched DOM node into view (`scrollIntoView({behavior:"smooth", block:"center"})`). Fires both for permalink loads AND user typing/pasting.
+  - **New "Permalink" button** (testid `mcc-action-search-permalink`) — appears next to the X clear button when there's a query. One-click copies `${origin}${pathname}?action=${id}` to clipboard. Flips to "● Copied" emerald-green for 1.8s with `Check` icon. Has fallback `document.execCommand("copy")` for older browsers without `navigator.clipboard`.
+- `/app/frontend/src/components/portal/LiveSendPulse.jsx`:
+  - Same three additions (URL-seed → URL-sync → auto-scroll). Mirrors the homepage UX so the operator dashboard at `/portal/ops?action=...` works identically.
+
+### Verified live (browser end-to-end)
+- ✅ Loaded `https://.../?action=fb-deal-004` → search input pre-filled with `"fb-deal-004"` instantly. ✅
+- ✅ Item-3 (Deal Stage updated) rendered with `data-match=true` + cyan-400 ring + 18px box-shadow glow. ✅
+- ✅ Items 0/1/2/4/5 dimmed to 40% opacity (data-match=false). ✅
+- ✅ Auto-scrolled into view (item-3 center-aligned in viewport). ✅
+- ✅ Clicked Permalink button → clipboard captured `https://bodyiq-training.preview.emergentagent.com/?action=fb-deal-004` → button flipped to "● Copied". ✅
+- ✅ Typed `fb-lead` into search bar → URL synced to `?action=fb-lead` instantly via replaceState. ✅
+- ✅ Clicked X clear → URL stripped back to clean root (no `?action=`). ✅
+- ✅ Zero console errors. Lint 100% clean (frontend + backend). ✅
+
+### Privacy & security preserved
+- Action IDs remain 24-char Mongo ObjectIds OR `fb-*` synthetic prefixes — both opaque hex/slug strings with zero PII.
+- Deep links share **only the action_id**, never any underlying customer email / name / domain.
+- Lookup endpoint validation (Iter 92) means malformed IDs from the URL are rejected with `invalid_format` before any DB query.
+- `replaceState` instead of `pushState` — typing in the search bar doesn't pollute browser history.
+- The clipboard copy uses `navigator.clipboard.writeText` with a defensive fallback; no cross-origin or unsafe APIs.
+
+### Use-case readiness (all enabled)
+- ✅ Support agent posts `creatorboostai.com/?action=69fd...e` in a Slack thread → recipient lands directly on that traced event.
+- ✅ Operator pastes a permalink from the audit log → CB auto-opens, highlights, and scrolls.
+- ✅ Founder shares a deep link with an investor showing exactly which lead/deal/send was executed.
+- ✅ Compliance team archives Action IDs as URLs for evidence trails.
+- ✅ Same UX on homepage (`/?action=...`) AND operator dashboard (`/portal/ops?action=...`).
+
+### Aesthetic
+- One additional inline button next to the X clear. Mono font, 9px caps, slate→cyan-300 hover, emerald-300 confirmation.
+- No modal, no toast popup — the button itself becomes the feedback surface.
+- Fully consistent with the existing mission-control palette. No new colors introduced.
 
 ---
 

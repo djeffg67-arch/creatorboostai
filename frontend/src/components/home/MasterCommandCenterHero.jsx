@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
     Activity, Bell, ChevronRight, ShieldCheck, Workflow, Zap, TrendingUp,
     DollarSign, Users, CheckCircle2, Target, ArrowRight, Sparkles,
-    Server, RadioTower, Lock, Globe2, Clock, Search, X,
+    Server, RadioTower, Lock, Globe2, Clock, Search, X, Link2, Check,
 } from "lucide-react";
 import { MasterHomepageAvatar } from "@/components/avatar/MasterHomepageAvatar";
 
@@ -190,7 +190,18 @@ export const MasterCommandCenterHero = () => {
     // ID doesn't match anything in the current 6-event buffer, hits the
     // backend lookup (`/api/public/action/{id}`) so off-screen events
     // are still discoverable.
-    const [actionQuery, setActionQuery] = useState("");
+    //
+    // Iter 93 · Action permalinks — `?action=...` query-string seeds the
+    // search bar on mount so deep links auto-open + auto-scroll to the
+    // matching event.
+    const [actionQuery, setActionQuery] = useState(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            return (params.get("action") || "").trim();
+        } catch {
+            return "";
+        }
+    });
     const [lookupResult, setLookupResult] = useState({ status: "idle" });
     const trimmedQuery = actionQuery.trim();
 
@@ -239,6 +250,63 @@ export const MasterCommandCenterHero = () => {
         return (ev.action_id || "").toLowerCase().includes(q)
             || (ev.title || "").toLowerCase().includes(q)
             || (ev.sub || "").toLowerCase().includes(q);
+    };
+
+    // Iter 93 · Keep `?action=...` query-string in sync with the search
+    // bar so the URL is always copy-paste shareable. `replaceState` avoids
+    // polluting browser history with every keystroke.
+    useEffect(() => {
+        try {
+            const url = new URL(window.location.href);
+            if (trimmedQuery) {
+                url.searchParams.set("action", trimmedQuery);
+            } else {
+                url.searchParams.delete("action");
+            }
+            const next = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "") + url.hash;
+            if (next !== window.location.pathname + window.location.search + window.location.hash) {
+                window.history.replaceState({}, "", next);
+            }
+        } catch { /* noop */ }
+    }, [trimmedQuery]);
+
+    // Iter 93 · Auto-scroll the highlighted event into view once the
+    // matching item paints. Runs both when the query was seeded from the
+    // permalink AND when the user types/pastes manually.
+    useEffect(() => {
+        if (!trimmedQuery) return;
+        // Wait for the next paint so the matched DOM node is in the layout
+        const t = window.setTimeout(() => {
+            try {
+                const local = document.querySelector('[data-testid^="mcc-feed-item-"][data-match="true"]');
+                const remote = document.querySelector('[data-testid="mcc-action-search-remote-match"]');
+                const target = local || remote;
+                if (target && typeof target.scrollIntoView === "function") {
+                    target.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            } catch { /* noop */ }
+        }, 220);
+        return () => window.clearTimeout(t);
+    }, [trimmedQuery, lookupResult.status, events]);
+
+    // Iter 93 · Permalink copy state
+    const [permalinkCopied, setPermalinkCopied] = useState(false);
+    const copyPermalink = async () => {
+        if (!trimmedQuery) return;
+        const url = `${window.location.origin}${window.location.pathname}?action=${encodeURIComponent(trimmedQuery)}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            setPermalinkCopied(true);
+            window.setTimeout(() => setPermalinkCopied(false), 1800);
+        } catch {
+            // Fallback for browsers without clipboard API
+            const ta = document.createElement("textarea");
+            ta.value = url;
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand("copy"); setPermalinkCopied(true); window.setTimeout(() => setPermalinkCopied(false), 1800); } catch { /* noop */ }
+            document.body.removeChild(ta);
+        }
     };
 
     return (
@@ -405,15 +473,27 @@ export const MasterCommandCenterHero = () => {
                                     spellCheck={false}
                                 />
                                 {trimmedQuery && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setActionQuery("")}
-                                        className="text-slate-500 hover:text-cyan-300"
-                                        data-testid="mcc-action-search-clear"
-                                        title="Clear"
-                                    >
-                                        <X size={11} />
-                                    </button>
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={copyPermalink}
+                                            className={`inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider ${permalinkCopied ? "text-emerald-300" : "text-slate-400 hover:text-cyan-300"}`}
+                                            data-testid="mcc-action-search-permalink"
+                                            title="Copy shareable Action ID permalink"
+                                        >
+                                            {permalinkCopied ? <Check size={11} /> : <Link2 size={11} />}
+                                            {permalinkCopied ? "Copied" : "Permalink"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActionQuery("")}
+                                            className="text-slate-500 hover:text-cyan-300"
+                                            data-testid="mcc-action-search-clear"
+                                            title="Clear"
+                                        >
+                                            <X size={11} />
+                                        </button>
+                                    </>
                                 )}
                             </div>
                             {trimmedQuery && trimmedQuery.length >= 4 && lookupResult.status === "miss" && (
