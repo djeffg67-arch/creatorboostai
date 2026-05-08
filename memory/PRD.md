@@ -1,8 +1,73 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 96+ · Shareable Demo URLs + Campaign Analytics)
+**Last update:** 2026-05-08 (Iter 96+ · Founder Telemetry Dashboard)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 📈 ITER 96+ · FOUNDER TELEMETRY DASHBOARD (P1 · COMPLETE in PREVIEW)
+
+**Status: 🟢 SHIPPED to preview.** Founder-auth-gated dashboard at `/portal/telemetry/focus` that surfaces homepage focus-filter analytics in a clean operator view. Pairs perfectly with the `?focus=` deep-links shipped last pass — the founder can now see exactly which lenses sell and which campaigns convert.
+
+### Route
+`/portal/telemetry/focus` → `PortalTelemetryFocusPage`
+
+### Auth gate
+- Reads `cb_ops_session` from `localStorage`
+- Calls `opsMe(auth)` — only `role === 'founder'` is allowed
+- Otherwise routes back to `/portal`
+- Verified: unauthenticated visit → redirected to `/portal`. Founder session → dashboard renders.
+
+### Layout
+| Section | Data source |
+|---|---|
+| Header | founder email + day-range chip selector (1D / 7D / 30D / 90D) + Refresh + Logout |
+| KPI Strip (5 cards) | TOTAL EVENTS · DEEP-LINK LOADS · TOP LENS · AVG DWELL · TOP CAMPAIGN |
+| Category Engagement Leaderboard | Per-category rank by (selects + loads) with progress bars |
+| Avg Dwell Per Category | Bar chart of avg `duration_ms` per clear event |
+| Top Campaigns (UTM) | Top 10 `utm_campaign` values |
+| Live System Pulse | Real-time SSE feed (last 10 events, click-through to `/?action=ID`) |
+
+### Verified end-to-end (Playwright)
+After seeding 10 focus events (mix of categories with UTM attribution):
+```
+[unauth] redirected_to_portal: True ✅
+[auth]   page_visible:         True ✅
+[auth]   day_selector_toggle:  works ✅
+[auth]   page_errors:          0 ✅
+
+KPIs rendered:
+  total          = 11
+  deeplinks      = 2
+  topcat         = REVENUE
+  avgdwell       = 7s
+  topcamp        = investor-feb-2026
+```
+
+### Visual / UX
+- Dark command-center aesthetic (ink-900 + cyan accents) consistent with `/portal/ops`
+- Color-coded categories matching homepage telemetry tiles (cyan / emerald / violet / amber)
+- Mobile responsive (1-col stack → 2-col tablet → 12-col desktop with 8/4 split)
+- Compact typography · tabular-nums · `font-mono` labels
+- Subtle `transition-[width] duration-500` on bars · no flashy effects
+- "Operator Console ←" back-link to `/portal/ops`
+
+### Performance
+- Single fetch on mount + on day-range change
+- One SSE connection (reuses existing `/api/public/system-pulse/stream`)
+- All bars are pure CSS · zero charting library dependency
+- No re-fetch loops · no rAF leaks
+
+### Files
+- NEW: `/app/frontend/src/pages/PortalTelemetryFocusPage.jsx` (~520 LoC, all sub-components co-located)
+- MODIFIED: `/app/frontend/src/App.js` (route registration + import)
+
+### Backend regression
+`verdict=GREEN_DEPLOY_READY · critical_clean=true` · `yarn build` clean · ESLint clean · `ruff` clean · test data cleaned.
+
+### Audit-bot loop status
+User has the integration doc (`/app/AUDIT_BOT_INTEGRATION.md`) — they will hand it to the bot operator. P1 refactors **explicitly deferred** by user to a dedicated stabilization sprint after homepage / founder dashboard / avatar / production telemetry mature.
 
 ---
 

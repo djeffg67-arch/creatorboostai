@@ -39,6 +39,7 @@ import KoolliteROIPage from "@/pages/KoolliteROIPage";
 import MasterNarrationScriptsPage from "@/pages/MasterNarrationScriptsPage";
 import PortalLightingPage from "@/pages/PortalLightingPage";
 import PortalOpsPage from "@/pages/PortalOpsPage";
+import PortalTelemetryFocusPage from "@/pages/PortalTelemetryFocusPage";
 import StartEnginePage from "@/pages/StartEnginePage";
 import ClientPortalPage from "@/pages/ClientPortalPage";
 import StartupLandingPage from "@/pages/StartupLandingPage";
@@ -107,6 +108,7 @@ function App() {
                     <Route path="/master-narration" element={<MasterNarrationScriptsPage />} />
                     <Route path="/portal/lighting" element={<PortalLightingPage />} />
                     <Route path="/portal/ops" element={<PortalOpsPage />} />
+                    <Route path="/portal/telemetry/focus" element={<PortalTelemetryFocusPage />} />
                     <Route path="/start-engine" element={<StartEnginePage />} />
                     <Route path="/startup" element={<StartupLaunchPage />} />
                     <Route path="/build" element={<StartupLaunchPage />} />
