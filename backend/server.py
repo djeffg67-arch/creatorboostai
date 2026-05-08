@@ -38,7 +38,7 @@ from emergentintegrations.payments.stripe.checkout import (
 # ---------- Email ----------
 from email_service import (
     send_lead_welcome, send_contact_ack, send_training_confirmation,
-    send_forensic_confirmation, send_demo_share, send_welcome_with_access,
+    send_forensic_confirmation, send_welcome_with_access,
     send_founder_notification, send_with_result, send_demo_share_with_result,
     SENDER_EMAIL as EMAIL_SENDER, SENDER_NAME as EMAIL_SENDER_NAME,
     REPLY_TO_EMAIL as EMAIL_REPLY_TO, FROM_HEADER as EMAIL_FROM_HEADER,
@@ -3591,7 +3591,7 @@ app.include_router(make_start_engine_router(
 
 
 # ---------- Client Delivery System (Iter 55) ----------
-from client_delivery import make_client_delivery_router, auto_onboard_from_lead  # noqa: E402
+from client_delivery import make_client_delivery_router  # noqa: E402
 
 async def _client_notify_founder(*, subject: str, body: str) -> None:
     """Thin adapter so client_delivery can use the existing founder-notification

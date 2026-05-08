@@ -35,7 +35,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field, EmailStr
 
 log = logging.getLogger("business_activation")

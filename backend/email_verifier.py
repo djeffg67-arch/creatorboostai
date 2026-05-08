@@ -21,7 +21,7 @@ import re
 import socket
 import asyncio
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 from datetime import datetime, timezone, timedelta
 
 log = logging.getLogger("email_verifier")

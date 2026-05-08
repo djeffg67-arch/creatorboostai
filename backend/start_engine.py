@@ -20,7 +20,6 @@ generated lead count and downstream caps respect the plan table:
 """
 from __future__ import annotations
 
-import os
 import uuid
 import secrets
 import logging

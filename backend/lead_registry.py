@@ -25,7 +25,7 @@ import uuid
 import hashlib
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 
 log = logging.getLogger("lead_registry")
 

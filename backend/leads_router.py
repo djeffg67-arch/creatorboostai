@@ -14,9 +14,8 @@ see only leads assigned to them.
 """
 from __future__ import annotations
 
-import os
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field

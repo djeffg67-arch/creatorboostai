@@ -28,7 +28,7 @@ import hmac
 import logging
 import asyncio
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict
 
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import RedirectResponse

@@ -25,7 +25,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 log = logging.getLogger("data_hygiene")

@@ -36,7 +36,7 @@ import asyncio
 import logging
 import json
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, EmailStr
