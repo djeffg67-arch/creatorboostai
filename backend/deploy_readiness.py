@@ -68,19 +68,24 @@ _ARCHITECTURE_PILLARS = [
 
 def _ruff_check(rule: str, exclude_tests: bool = True) -> Dict[str, Any]:
     """Run a single ruff check rule; return {ok, count, summary}."""
-    cmd = ["ruff", "check", "/app/backend", "--select", rule, "--quiet"]
+    ruff_bin = "/opt/plugins-venv/bin/ruff"
+    if not os.path.exists(ruff_bin):
+        ruff_bin = "ruff"
+    cmd = [ruff_bin, "check", "/app/backend", "--select", rule,
+           "--output-format", "concise"]
     if exclude_tests:
         cmd += ["--exclude", "tests"]
     try:
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=20,
         )
-        # ruff exits 0 when clean, 1 when there are findings
         out = (result.stdout or "").strip()
-        if result.returncode == 0:
+        if result.returncode == 0 or not out:
             return {"ok": True, "count": 0, "summary": "All checks passed"}
-        # Count actual finding lines (skip empty)
-        lines = [ln for ln in out.splitlines() if ln.strip() and not ln.startswith(" ")]
+        # In `concise` format every finding is a single line that starts
+        # with a path like `backend/foo.py:NN:NN: F401 ...`.
+        lines = [ln for ln in out.splitlines()
+                 if ln.strip() and ".py:" in ln]
         return {"ok": False, "count": len(lines), "summary": f"{len(lines)} finding(s)"}
     except Exception as e:
         log.warning(f"[deploy-readiness] ruff {rule} failed: {e}")
@@ -88,7 +93,12 @@ def _ruff_check(rule: str, exclude_tests: bool = True) -> Dict[str, Any]:
 
 
 def _eval_usage_count() -> int:
-    """Grep for eval() calls in /app/backend. Returns 0 in healthy code."""
+    """Grep for eval() calls in /app/backend. Returns 0 in healthy code.
+
+    Excludes this file itself (deploy_readiness.py), which contains the
+    string "eval(" inside its own grep regex and docstrings — those are
+    not real eval() calls, just self-references in the audit tool.
+    """
     try:
         result = subprocess.run(
             ["grep", "-rEn", r"\beval\s*\(", "/app/backend"],
@@ -97,10 +107,13 @@ def _eval_usage_count() -> int:
         # grep returns 1 when no matches, 0 when matches found
         if result.returncode == 1:
             return 0
-        # Filter to only .py files (not .pyc, not lock files)
+        # Filter to .py files only, excluding tests and this file itself.
         lines = [
             ln for ln in (result.stdout or "").splitlines()
-            if ln and ".py:" in ln and "/tests/" not in ln
+            if ln
+            and ".py:" in ln
+            and "/tests/" not in ln
+            and "deploy_readiness.py:" not in ln
         ]
         return len(lines)
     except Exception:

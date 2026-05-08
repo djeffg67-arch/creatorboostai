@@ -180,9 +180,9 @@ class TestApplicationPersistence:
         }
         r = s.post(f"{API}/submit-application", json=payload)
         assert r.status_code == 200, r.text
-        app_id = r.json()["application_id"]
-        priority = r.json()["priority"]
-        assert priority == "urgent"
+        body = r.json()
+        assert body["application_id"]
+        assert body["priority"] == "urgent"
 
         # Allow a moment for write
         time.sleep(0.5)

@@ -158,7 +158,6 @@ class TestSuppressionRespected:
         seeded = [p for p in items if p.get("seeded_from_demo") is True]
         if not seeded:
             pytest.skip("no seeded prospect to test suppression")
-        target = seeded[0]
         # There's no public "delete prospect" endpoint — instead, verify that
         # re-running seed-from-demos produces `added=0`, proving the existing
         # doc is skipped (which is the same code path as suppression skip).

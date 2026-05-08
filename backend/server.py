@@ -3680,6 +3680,12 @@ from homepage_stats import make_homepage_stats_router  # noqa: E402
 app.include_router(make_homepage_stats_router(db))
 
 
+# ---------- Deploy Readiness Probe · Iter 96 ----------
+from deploy_readiness import make_deploy_readiness_router  # noqa: E402
+
+app.include_router(make_deploy_readiness_router())
+
+
 @app.on_event("startup")
 async def _start_dark_funnel_loops():
     """Iter 61 · re-engagement scanner + engagement-data indexes + audit indexes."""
