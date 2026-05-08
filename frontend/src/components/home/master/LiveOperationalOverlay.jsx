@@ -38,7 +38,17 @@ const BEACONS = [
     { id: "integrations", cx: "82%",   cy: "76%", label: "System" },
 ];
 
-export const LiveOperationalOverlay = ({ flashes = {}, sseLive = false }) => {
+// Map counter category id → list of beacon ids it controls
+const CATEGORY_TO_BEACONS = {
+    outbound:     ["feed-top", "leads"],
+    revenue:      ["revenue"],
+    actions:      null,                            // "all" — no dim
+    alerts:       ["integrations"],
+    appointments: ["feed-bottom"],
+    tasks:        ["feed-bottom"],
+};
+
+export const LiveOperationalOverlay = ({ flashes = {}, sseLive = false, selectedCategory = null }) => {
     // Tick state forces re-render after FLASH_HOLD_MS so beacons fade back
     // to ambient. Cheap timeout, no rAF loop.
     const [tick, setTick] = useState(0);
@@ -64,6 +74,16 @@ export const LiveOperationalOverlay = ({ flashes = {}, sseLive = false }) => {
 
     // If feed-top fired recently, also fire a horizontal data-flow streak
     const recentFeedTop = isActive("feed-top");
+
+    // Filter-aware dim: when a category is selected, beacons NOT in that
+    // category are reduced in opacity. Categories with `null` (e.g. actions)
+    // mean "all" → no dimming.
+    const dimsBeacon = (beaconId) => {
+        if (!selectedCategory) return false;
+        const list = CATEGORY_TO_BEACONS[selectedCategory];
+        if (!list) return false;
+        return !list.includes(beaconId);
+    };
 
     return (
         <div
@@ -119,8 +139,17 @@ export const LiveOperationalOverlay = ({ flashes = {}, sseLive = false }) => {
                 {BEACONS.map((b) => {
                     const active = isActive(b.id);
                     const age    = flashAge(b.id);
+                    const dim    = dimsBeacon(b.id);
+                    const groupOpacity = dim ? 0.20 : 1;
                     return (
-                        <g key={b.id} data-testid={`overlay-beacon-${b.id}`} data-active={active ? "true" : "false"}>
+                        <g
+                            key={b.id}
+                            data-testid={`overlay-beacon-${b.id}`}
+                            data-active={active ? "true" : "false"}
+                            data-dimmed={dim ? "true" : "false"}
+                            opacity={groupOpacity}
+                            style={{ transition: "opacity 280ms ease-out" }}
+                        >
                             {/* AMBIENT halo · always breathing softly */}
                             <circle
                                 className="cb-halo-ambient"

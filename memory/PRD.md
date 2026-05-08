@@ -1,8 +1,65 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 96+ · Per-Category Telemetry Counters)
+**Last update:** 2026-05-08 (Iter 96+ · Interactive Operator Console · Filterable Telemetry)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎛️ ITER 96+ · INTERACTIVE OPERATOR CONSOLE (P1 · COMPLETE in PREVIEW)
+
+**Status: 🟢 SHIPPED to preview.** Every telemetry tile is now a filter trigger. Clicking a tile narrows the strip + beacons across the entire hero in a single click. Bloomberg / Palantir interaction model.
+
+### Behavior
+- **Click a filterable tile** (OUTBOUND, REVENUE, AI ACTIONS, ALERTS, APPOINTMENTS, TASKS) → tile gains `aria-pressed=true` + cyan inset ring + left-edge accent + footnote changes to "FILTERED · TAP TO CLEAR".
+- **Strip behavior** when filter active: chips that don't match the category fade to **30% opacity + 60% saturation** (CSS `transition-all duration-300`). Matching chips stay full opacity. A clearable **"FILTER: REVENUE [×]"** pill appears at the start of the strip.
+- **Overlay behavior** when filter active: beacons whose hotspot doesn't belong to the selected category fade to **20% opacity** (280ms ease-out). Matching beacons keep their normal ambient/active animations.
+- **Click pill X** OR **click the active tile again** → filter clears, everything restores in 280ms ease-out.
+- **EXECUTIONS** + **ACTIVE AGENTS** tiles are intentionally *non-filterable* (informational only). They have `aria-disabled=true` and clicking is a no-op.
+
+### Filter mappings
+| Tile | Filter kinds | Beacon group |
+|---|---|---|
+| OUTBOUND | lead, qualified, email, send, reply | feed-top, leads |
+| REVENUE | invoice | revenue |
+| AI ACTIONS | (all) | (all — no dim) |
+| ALERTS | alert, maintenance | integrations |
+| APPOINTMENTS | appointment | feed-bottom |
+| TASKS | send, email, task, reply | feed-bottom |
+| EXECUTIONS / AGENTS | non-filterable | — |
+
+### Verified end-to-end (Playwright, 14/14 PASS · 0 errors)
+```
+[PASS] baseline·active_tiles_before_click            got=0 want=0
+[PASS] baseline·pill_visible_before_click            got=0 want=0
+[PASS] click·outbound_aria_active                    got=1 want=1
+[PASS] click·filter_pill_appeared                    got=1 want=1
+[PASS] click·strip_data_attr                         got='outbound' want='outbound'
+[PASS] click·dimmed_chips_present                    got=True want=True
+[PASS] click·live_chips_present                      got=True want=True
+[PASS] click·dimmed_beacons_present                  got=True want=True
+[PASS] clear·outbound_aria_inactive                  got=0 want=0
+[PASS] clear·filter_pill_gone                        got=0 want=0
+[PASS] click·revenue_active                          got=1 want=1
+[PASS] toggle·revenue_inactive_after_second_click    got=0 want=0
+[PASS] non-filterable·executions_unchanged           got=0 want=0
+[PASS] non-filterable·no_pill                        got=0 want=0
+```
+
+### Performance
+- **Pure CSS transitions on `opacity` + `saturate`** for both chip dim + beacon dim → GPU-only, no layout reflow.
+- **Single React state at shell level** → minimal rerender footprint (only the 3 consumer components observe the prop).
+- **SSE updates continue uninterrupted** during filter — counters keep incrementing, beacons keep flashing on real events; filter is purely a *visual mask*.
+- **`prefers-reduced-motion` honored** across all new transitions.
+
+### Files
+- MODIFIED: `/app/frontend/src/components/home/master/MasterExperienceShell.jsx` (+`selectedCategory` state, handlers, prop wiring)
+- MODIFIED: `/app/frontend/src/components/home/master/LiveCategoryCounters.jsx` (button/div polymorphism, active-state UI, filterable flag, ARIA)
+- MODIFIED: `/app/frontend/src/components/home/master/LiveActionIDStrip.jsx` (filter pill, chip dimming, kind→category mapping)
+- MODIFIED: `/app/frontend/src/components/home/master/LiveOperationalOverlay.jsx` (beacon group dimming, smooth opacity transition)
+
+### Backend
+`verdict=GREEN_DEPLOY_READY · critical_clean=true`. `yarn build` clean. ESLint clean.
 
 ---
 

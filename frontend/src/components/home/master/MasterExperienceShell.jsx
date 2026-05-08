@@ -61,6 +61,12 @@ export const MasterExperienceShell = () => {
     const stageRef = useRef(null);
     const [parallax, setParallax] = useState({ x: 0, y: 0 });
     const { flashes, sseLive, lastEvent, recentEvents, counts } = useLivePulseBeacons();
+    // Filter state — clicking a counter tile narrows strip + beacons + chip
+    // visibility to that category. null = "ALL".
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    const handleSelectCategory = (catId) => {
+        setSelectedCategory((prev) => (prev === catId ? null : catId));
+    };
 
     // Subtle parallax on mouse move — GPU-accelerated transform only
     useEffect(() => {
@@ -275,7 +281,11 @@ export const MasterExperienceShell = () => {
                                     className="block h-auto w-full will-change-transform animate-[masterZoom_24s_ease-in-out_infinite]"
                                 />
                                 {/* Live SVG operational overlay — pulses, scan, flow, ECG */}
-                                <LiveOperationalOverlay flashes={flashes} sseLive={sseLive} />
+                                <LiveOperationalOverlay
+                                    flashes={flashes}
+                                    sseLive={sseLive}
+                                    selectedCategory={selectedCategory}
+                                />
                                 {/* Last-live-event toast — tiny, fades after each real event */}
                                 {lastEvent && (
                                     <LastEventToast key={lastEvent.ts} event={lastEvent} />
@@ -321,12 +331,19 @@ export const MasterExperienceShell = () => {
                         recentEvents={recentEvents}
                         sseLive={sseLive}
                         lastEventTs={lastEvent ? lastEvent.ts : 0}
+                        selectedCategory={selectedCategory}
+                        onClearCategory={() => setSelectedCategory(null)}
                     />
 
                     {/* PER-CATEGORY COUNTER ROW — executive telemetry tiles
                        seeded from /api/public/system-pulse and incremented
                        on every SSE pulse. No flash, no scroll. */}
-                    <LiveCategoryCounters counts={counts} sseLive={sseLive} />
+                    <LiveCategoryCounters
+                        counts={counts}
+                        sseLive={sseLive}
+                        selectedCategory={selectedCategory}
+                        onSelectCategory={handleSelectCategory}
+                    />
 
                     {/* Caption strip below dashboard */}
                     <p className="mt-5 max-w-3xl font-mono text-[10px] uppercase tracking-[0.20em] text-slate-500">

@@ -19,14 +19,14 @@ import {
  */
 
 const TILES = [
-    { id: "outbound",     label: "OUTBOUND",       sub: "today",     icon: Send,           tone: "cyan",    fmt: "comma"   },
-    { id: "revenue",      label: "REVENUE",        sub: "tracked",   icon: DollarSign,     tone: "emerald", fmt: "raw"     },
-    { id: "actions",      label: "AI ACTIONS",     sub: "today",     icon: Sparkles,       tone: "violet",  fmt: "comma"   },
-    { id: "alerts",       label: "ALERTS",         sub: "session",   icon: AlertTriangle,  tone: "amber",   fmt: "comma"   },
-    { id: "appointments", label: "APPOINTMENTS",   sub: "session",   icon: CalendarCheck,  tone: "violet",  fmt: "comma"   },
-    { id: "executions",   label: "LIVE EXECUTIONS",sub: "connected", icon: Radio,          tone: "cyan",    fmt: "comma"   },
-    { id: "agents",       label: "ACTIVE AGENTS",  sub: "running",   icon: Cpu,            tone: "violet",  fmt: "comma"   },
-    { id: "tasks",        label: "TASKS",          sub: "executed",  icon: ListChecks,     tone: "emerald", fmt: "comma"   },
+    { id: "outbound",     label: "OUTBOUND",       sub: "today",     icon: Send,           tone: "cyan",    fmt: "comma", filterable: true  },
+    { id: "revenue",      label: "REVENUE",        sub: "tracked",   icon: DollarSign,     tone: "emerald", fmt: "raw",   filterable: true  },
+    { id: "actions",      label: "AI ACTIONS",     sub: "today",     icon: Sparkles,       tone: "violet",  fmt: "comma", filterable: true  },
+    { id: "alerts",       label: "ALERTS",         sub: "session",   icon: AlertTriangle,  tone: "amber",   fmt: "comma", filterable: true  },
+    { id: "appointments", label: "APPOINTMENTS",   sub: "session",   icon: CalendarCheck,  tone: "violet",  fmt: "comma", filterable: true  },
+    { id: "executions",   label: "LIVE EXECUTIONS",sub: "connected", icon: Radio,          tone: "cyan",    fmt: "comma", filterable: false },
+    { id: "agents",       label: "ACTIVE AGENTS",  sub: "running",   icon: Cpu,            tone: "violet",  fmt: "comma", filterable: false },
+    { id: "tasks",        label: "TASKS",          sub: "executed",  icon: ListChecks,     tone: "emerald", fmt: "comma", filterable: true  },
 ];
 
 const TONE_CLS = {
@@ -43,13 +43,14 @@ const formatValue = (v, fmt) => {
     return n.toLocaleString();
 };
 
-export const LiveCategoryCounters = ({ counts, sseLive }) => {
+export const LiveCategoryCounters = ({ counts, sseLive, selectedCategory, onSelectCategory }) => {
     const safe = counts || {};
     const bumpedAt = safe.bumpedAt || {};
     return (
         <div
             data-testid="live-category-counters"
             data-sse-live={sseLive ? "true" : "false"}
+            data-selected-category={selectedCategory || ""}
             className="relative mt-3 overflow-hidden rounded-xl border border-white/10 bg-gradient-to-r from-ink-900/80 via-[#06121e]/90 to-ink-900/80 backdrop-blur-md"
         >
             {/* top hairline */}
@@ -65,6 +66,9 @@ export const LiveCategoryCounters = ({ counts, sseLive }) => {
                         tile={t}
                         rawValue={safe[t.id]}
                         bumpAt={bumpedAt[t.id] || 0}
+                        active={selectedCategory === t.id}
+                        anySelected={Boolean(selectedCategory)}
+                        onSelect={onSelectCategory}
                     />
                 ))}
             </div>
@@ -83,7 +87,7 @@ export const LiveCategoryCounters = ({ counts, sseLive }) => {
     );
 };
 
-const CounterTile = ({ tile, rawValue, bumpAt }) => {
+const CounterTile = ({ tile, rawValue, bumpAt, active, anySelected, onSelect }) => {
     const Icon = tile.icon;
     const tone = TONE_CLS[tile.tone] || TONE_CLS.cyan;
     const display = formatValue(rawValue, tile.fmt);
@@ -98,12 +102,34 @@ const CounterTile = ({ tile, rawValue, bumpAt }) => {
         setBumpKey((k) => k + 1);
     }, [bumpAt]);
 
+    const interactive = tile.filterable;
+    const dimmed = anySelected && !active;
+    const handleClick = interactive && onSelect ? () => onSelect(tile.id) : undefined;
+
+    const baseClasses = `relative bg-ink-900/85 px-3 py-3 text-left transition-all duration-200 lg:px-4 lg:py-3.5`;
+    const stateClasses = active
+        ? `ring-1 ring-inset ${tone.ring.replace("/25", "/55")} ${tone.glow} bg-ink-800/85`
+        : dimmed
+            ? "opacity-55"
+            : "";
+    const interactiveClasses = interactive
+        ? "cursor-pointer hover:bg-ink-800/85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400/70"
+        : "cursor-default";
+
+    const Tag = interactive ? "button" : "div";
+    const extraProps = interactive
+        ? { type: "button", onClick: handleClick, "aria-pressed": active ? "true" : "false", "aria-label": `Filter feed by ${tile.label}` }
+        : { "aria-disabled": "true" };
+
     return (
-        <div
+        <Tag
             data-testid={`lcc-tile-${tile.id}`}
             data-tone={tile.tone}
             data-bumped={bumpAt ? "true" : "false"}
-            className={`relative bg-ink-900/85 px-3 py-3 lg:px-4 lg:py-3.5`}
+            data-active={active ? "true" : "false"}
+            data-filterable={interactive ? "true" : "false"}
+            className={`${baseClasses} ${stateClasses} ${interactiveClasses}`}
+            {...extraProps}
         >
             {/* Bumped overlay — keyed so it remounts each bump and the keyframe restarts */}
             {bumpKey > 0 && (
@@ -113,12 +139,16 @@ const CounterTile = ({ tile, rawValue, bumpAt }) => {
                     className="pointer-events-none absolute inset-0 cb-tile-bump"
                 />
             )}
+            {/* Active-state left edge accent */}
+            {active && (
+                <span aria-hidden className={`absolute inset-y-2 left-0 w-px ${tone.dot}`} />
+            )}
 
             <div className="flex items-center gap-2">
                 <span className="relative inline-flex h-1.5 w-1.5">
                     <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${tone.dot}`} />
                 </span>
-                <span className={`font-mono text-[8.5px] font-semibold uppercase tracking-[0.18em] text-slate-400`}>
+                <span className={`font-mono text-[8.5px] font-semibold uppercase tracking-[0.18em] ${active ? tone.text : "text-slate-400"}`}>
                     {tile.label}
                 </span>
                 <Icon size={11} className={`ml-auto ${tone.icon}`} strokeWidth={1.7} />
@@ -130,9 +160,9 @@ const CounterTile = ({ tile, rawValue, bumpAt }) => {
                 {animatedDisplay}
             </p>
             <p className="font-mono text-[8.5px] uppercase tracking-[0.18em] text-slate-500">
-                {tile.sub}
+                {active ? "FILTERED · TAP TO CLEAR" : tile.sub}
             </p>
-        </div>
+        </Tag>
     );
 };
 
