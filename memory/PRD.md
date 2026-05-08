@@ -1,8 +1,58 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 96+ · SSE-DRIVEN BEACONS · Living Operating System)
+**Last update:** 2026-05-08 (Iter 96+ · Live Action ID Strip + Audit-Bot Integration Doc)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 📡 ITER 96+ · LIVE ACTION ID STRIP + AUDIT-BOT REDIRECT (P1 · COMPLETE in PREVIEW)
+
+**Status: 🟢 SHIPPED to preview.** Two deliverables this pass:
+
+### 1. Live Action ID Strip (Bloomberg-terminal-style ticker)
+Mounted directly under the master dashboard stage. Renders the last 5 real operational events from the SSE feed. Each chip is a clickable Action ID permalink (`/?action=ID`) with subtle category-coded color edge.
+
+**Component:** `/app/frontend/src/components/home/master/LiveActionIDStrip.jsx`
+
+**Category color mapping (per spec):**
+| Kind | Category | Color edge |
+|---|---|---|
+| `invoice` | revenue | emerald (soft green) |
+| `alert` | alert | amber |
+| `lead`, `qualified`, `email`, `send`, `reply` | outbound | cyan |
+| `maintenance` | maintenance | orange |
+| `deal`, `appointment`, `task` | AI execution | violet |
+
+**Visual language:** dark glassmorphism (`bg-ink-900/85` + `backdrop-blur-md`), top hairline accent gradient, compact chips with category dot + ALL-CAPS title + truncated `#action_id` permalink + "Xs ago" age. "LIVE EXECUTION FEED" cap with pulsing dot on the left, "Operator Console →" link on the right.
+
+**Motion:**
+- Newest chip slides in from the right (0.55s ease-out)
+- "Newest" chip gets a 1.6s edge-glow flash
+- NO marquee scroll, NO infinite loop, NO flashy effects
+- `prefers-reduced-motion` honored
+- Scroll bar hidden but horizontal scrolling enabled for overflow
+
+**Hook extension:** `useLivePulseBeacons.js` now also seeds from the initial `/api/public/system-pulse` snapshot so the strip never paints empty, and exposes `recentEvents: Array<{action_id, kind, title, sub, ts}>` (ring buffer of last 5).
+
+### 2. Audit-Bot Integration Guide
+Created `/app/AUDIT_BOT_INTEGRATION.md` — a maintainer-facing doc explaining exactly how external audit/code-review bots should consume `/api/public/deploy-readiness`. Documents the historical false-positive patterns (the `eval()` substring in "retr**eval**", the self-detection in `_eval_usage_count`, the F401/F821 conflation) and provides a sample Python integration. User can hand this directly to whoever maintains their audit bot to permanently end the recurring noise.
+
+### Verified end-to-end
+- Strip mounts (`data-testid='live-action-id-strip'`)
+- 5 chips render after page load (seeded from snapshot)
+- First chip: `data-kind=lead`, `data-category=outbound`, `href=/?action=fb-lead-001` ✅
+- "Live Execution Feed" label visible
+- 6 beacons rendered, SSE-LIVE pip present
+- 0 page errors
+- `/api/public/deploy-readiness` still `verdict=GREEN_DEPLOY_READY`
+- `yarn build` clean · ESLint clean · test events cleaned from DB
+
+### Files (this pass)
+- NEW: `/app/AUDIT_BOT_INTEGRATION.md`
+- NEW: `/app/frontend/src/components/home/master/LiveActionIDStrip.jsx`
+- MODIFIED: `/app/frontend/src/components/home/master/useLivePulseBeacons.js` (snapshot seed + `recentEvents` ring buffer)
+- MODIFIED: `/app/frontend/src/components/home/master/MasterExperienceShell.jsx` (mounts strip)
 
 ---
 

@@ -50,6 +50,7 @@ export const useLivePulseBeacons = () => {
     const [flashes, setFlashes]   = useState({});      // { beaconId: epochMs }
     const [sseLive, setSseLive]   = useState(false);
     const [lastEvent, setLastEvent] = useState(null);  // { kind, action_id, title, ts }
+    const [recentEvents, setRecentEvents] = useState([]); // ring buffer of last 5
     const esRef           = useRef(null);
     const reconnectRef    = useRef(null);
     const cancelledRef    = useRef(false);
@@ -58,16 +59,61 @@ export const useLivePulseBeacons = () => {
         if (!BACKEND_URL) return undefined;
         cancelledRef.current = false;
 
-        const triggerKind = (kind, action_id, title) => {
+        // Seed the strip with the initial snapshot so it isn't empty
+        // before the first SSE event lands.
+        const seedFromSnapshot = async () => {
+            try {
+                const r = await fetch(`${BACKEND_URL}/api/public/system-pulse`);
+                if (!r.ok) return;
+                const d = await r.json();
+                if (cancelledRef.current) return;
+                const events = (d.events || []).slice(0, 5).map((e, i) => ({
+                    action_id: e.action_id || `seed-${i}`,
+                    kind: e.kind || "task",
+                    title: e.title || "Event",
+                    sub: e.sub || "",
+                    time: e.time || "",
+                    ts: Date.now() - (i + 1) * 30000, // staggered older
+                }));
+                if (events.length) setRecentEvents(events);
+            } catch {
+                /* ignore — strip just renders empty until first SSE event */
+            }
+        };
+        seedFromSnapshot();
+
+        const triggerEvent = (payload) => {
+            const kind = payload.kind;
             const beacons = KIND_TO_BEACONS[kind];
-            if (!beacons || !beacons.length) return;
             const now = Date.now();
-            setFlashes((prev) => {
-                const next = { ...prev };
-                beacons.forEach((bid) => { next[bid] = now; });
-                return next;
+            // Always update ring buffer + lastEvent — even kinds without
+            // a beacon mapping are still legitimate operational events
+            // worth surfacing in the action-id ticker.
+            setLastEvent({
+                kind,
+                action_id: payload.action_id || null,
+                title: payload.title || null,
+                ts: now,
             });
-            setLastEvent({ kind, action_id: action_id || null, title: title || null, ts: now });
+            setRecentEvents((prev) => {
+                const enriched = {
+                    action_id: payload.action_id || `evt-${now}`,
+                    kind,
+                    title: payload.title || "Event",
+                    sub: payload.sub || "",
+                    time: payload.time || "",
+                    ts: now,
+                };
+                return [enriched, ...prev].slice(0, 5);
+            });
+            // Only flash beacons for mapped kinds
+            if (beacons && beacons.length) {
+                setFlashes((prev) => {
+                    const next = { ...prev };
+                    beacons.forEach((bid) => { next[bid] = now; });
+                    return next;
+                });
+            }
         };
 
         const open = () => {
@@ -90,7 +136,7 @@ export const useLivePulseBeacons = () => {
                 let payload = null;
                 try { payload = JSON.parse(e.data); } catch { return; }
                 if (!payload || !payload.kind) return;
-                triggerKind(payload.kind, payload.action_id, payload.title);
+                triggerEvent(payload);
             });
 
             es.onerror = () => {
@@ -112,7 +158,7 @@ export const useLivePulseBeacons = () => {
         };
     }, []);
 
-    return { flashes, sseLive, lastEvent };
+    return { flashes, sseLive, lastEvent, recentEvents };
 };
 
 export default useLivePulseBeacons;

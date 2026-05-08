@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { LiveOperationalOverlay } from "./LiveOperationalOverlay";
 import { useLivePulseBeacons } from "./useLivePulseBeacons";
+import { LiveActionIDStrip } from "./LiveActionIDStrip";
 
 /**
  * MasterExperienceShell · Iter 96+
@@ -58,7 +59,7 @@ const TONE_CLS = {
 export const MasterExperienceShell = () => {
     const stageRef = useRef(null);
     const [parallax, setParallax] = useState({ x: 0, y: 0 });
-    const { flashes, sseLive, lastEvent } = useLivePulseBeacons();
+    const { flashes, sseLive, lastEvent, recentEvents } = useLivePulseBeacons();
 
     // Subtle parallax on mouse move — GPU-accelerated transform only
     useEffect(() => {
@@ -309,6 +310,17 @@ export const MasterExperienceShell = () => {
                         <div aria-hidden className="pointer-events-none absolute -left-12 top-1/4 h-32 w-32 rounded-full bg-cyan-500/20 blur-3xl animate-[float_9s_ease-in-out_infinite]" />
                         <div aria-hidden className="pointer-events-none absolute -right-10 bottom-1/4 h-40 w-40 rounded-full bg-violet-500/20 blur-3xl animate-[float_11s_ease-in-out_infinite_reverse]" />
                     </div>
+
+                    {/* LIVE ACTION ID STRIP — Bloomberg-terminal-style ticker
+                       fed by the same SSE stream that drives the beacons.
+                       Newest event slides in from the right; oldest scrolls
+                       off after the buffer holds 5. Each chip is a clickable
+                       Action ID permalink. */}
+                    <LiveActionIDStrip
+                        recentEvents={recentEvents}
+                        sseLive={sseLive}
+                        lastEventTs={lastEvent ? lastEvent.ts : 0}
+                    />
 
                     {/* Caption strip below dashboard */}
                     <p className="mt-5 max-w-3xl font-mono text-[10px] uppercase tracking-[0.20em] text-slate-500">
