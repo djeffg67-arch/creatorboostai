@@ -6,6 +6,7 @@ import {
     Shield, Radio, Sparkles, ArrowRight, Play,
 } from "lucide-react";
 import { LiveOperationalOverlay } from "./LiveOperationalOverlay";
+import { useLivePulseBeacons } from "./useLivePulseBeacons";
 
 /**
  * MasterExperienceShell · Iter 96+
@@ -57,6 +58,7 @@ const TONE_CLS = {
 export const MasterExperienceShell = () => {
     const stageRef = useRef(null);
     const [parallax, setParallax] = useState({ x: 0, y: 0 });
+    const { flashes, sseLive, lastEvent } = useLivePulseBeacons();
 
     // Subtle parallax on mouse move — GPU-accelerated transform only
     useEffect(() => {
@@ -271,7 +273,11 @@ export const MasterExperienceShell = () => {
                                     className="block h-auto w-full will-change-transform animate-[masterZoom_24s_ease-in-out_infinite]"
                                 />
                                 {/* Live SVG operational overlay — pulses, scan, flow, ECG */}
-                                <LiveOperationalOverlay />
+                                <LiveOperationalOverlay flashes={flashes} sseLive={sseLive} />
+                                {/* Last-live-event toast — tiny, fades after each real event */}
+                                {lastEvent && (
+                                    <LastEventToast key={lastEvent.ts} event={lastEvent} />
+                                )}
                             </div>
                             {/* corner brackets */}
                             <CornerBrackets />
@@ -339,5 +345,54 @@ const CornerBrackets = () => (
         <span aria-hidden className="absolute right-2 bottom-2 h-4 w-4 border-r-2 border-b-2 border-cyan-400/70" />
     </>
 );
+
+/**
+ * LastEventToast — tiny enterprise-grade event ticker that surfaces the
+ * most recent SSE event. Subtle slide-in + fade-out. Bloomberg-terminal
+ * vibe, NOT social-media. Auto-dismisses after 4.2s.
+ */
+const KIND_LABEL = {
+    lead: "LEAD CAPTURED", qualified: "LEAD QUALIFIED",
+    email: "AI EMAIL SENT", send: "OUTREACH SENT", reply: "REPLY DETECTED",
+    deal: "DEAL UPDATED", invoice: "INVOICE GENERATED",
+    appointment: "APPOINTMENT BOOKED",
+    maintenance: "ALERT RESOLVED", alert: "ALERT TRIGGERED",
+    task: "TASK EXECUTED",
+};
+
+const LastEventToast = ({ event }) => {
+    const label = KIND_LABEL[event.kind] || (event.kind || "EVENT").toUpperCase();
+    return (
+        <div
+            data-testid="last-event-toast"
+            className="pointer-events-none absolute left-3 top-3 z-10 inline-flex max-w-[88%] items-center gap-2 rounded-md border border-cyan-500/40 bg-ink-900/85 px-2.5 py-1.5 backdrop-blur-md cb-toast"
+        >
+            <span className="relative inline-flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-80" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-400" />
+            </span>
+            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                {label}
+            </span>
+            {event.action_id && (
+                <span className="font-mono text-[8px] uppercase tracking-[0.16em] text-slate-400">
+                    · #{event.action_id}
+                </span>
+            )}
+            <style>{`
+                @keyframes cb-toast-life {
+                    0%   { opacity: 0; transform: translateY(-6px); }
+                    10%  { opacity: 1; transform: translateY(0); }
+                    85%  { opacity: 1; transform: translateY(0); }
+                    100% { opacity: 0; transform: translateY(-4px); }
+                }
+                .cb-toast { animation: cb-toast-life 4.2s ease-in-out forwards; }
+                @media (prefers-reduced-motion: reduce) {
+                    .cb-toast { animation: none !important; }
+                }
+            `}</style>
+        </div>
+    );
+};
 
 export default MasterExperienceShell;

@@ -1,8 +1,59 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 96+ · Live Operational Overlay + Bigger Hero)
+**Last update:** 2026-05-08 (Iter 96+ · SSE-DRIVEN BEACONS · Living Operating System)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 📡 ITER 96+ · SSE-DRIVEN BEACONS (P1 · COMPLETE in PREVIEW)
+
+**Status: 🟢 SHIPPED to preview.** The hero overlay beacons no longer fire on a static timer — they fire **only when real events arrive on the `/api/public/system-pulse/stream` SSE channel**. Verified end-to-end: insert an `outbound_events` row → SSE pushes the `pulse` message → frontend hook maps `kind` → beacon flashes. Each pulse = a real operational event, exactly like Bloomberg / Palantir / Anduril command surfaces.
+
+### Architecture
+- **NEW: `useLivePulseBeacons.js`** — opens an `EventSource` to `/api/public/system-pulse/stream`, listens for `pulse` events, maps `kind` → beacon IDs, exposes `{ flashes: {beaconId: epochMs}, sseLive, lastEvent }`. Reconnect-with-backoff. Cleans up on unmount. Falls back gracefully when EventSource unavailable.
+
+- **REWRITTEN: `LiveOperationalOverlay.jsx`** — two beacon modes:
+  · **AMBIENT** (resting state, very faint) — soft halo breath only, NO expanding ring. Always-on subtle motion: scan-line sweep (14s), cyan sheen drift (16s), ECG heartbeat (7s).
+  · **ACTIVE** (only on real SSE event) — expanding ring (2.6s), brighter halo flash (2.8s), core-dot flash with drop-shadow. After `FLASH_HOLD_MS` (4.2s) the beacon decays back to ambient.
+  · Horizontal data-flow streak only fires when a `feed-top` event lands (event-driven, not timed).
+  · `<rect>` keyed by flash timestamp so React remounts on each fresh event — guarantees the keyframe restarts cleanly.
+  · `prefers-reduced-motion` honored — all motion disables.
+
+- **NEW: `LastEventToast`** — Bloomberg-terminal-style ticker top-left of the dashboard. Surfaces "LEAD CAPTURED · #ACTION_ID" on each real event. 4.2s slide-in / fade-out. Subtle, premium, NOT social-media.
+
+- **NEW: SSE-LIVE pip** — small bottom-right "● Live · SSE" badge (or "● Reconnecting") so the user sees the channel state at a glance.
+
+### Kind → beacon mapping
+```
+lead, qualified            → feed-top + leads
+email, send, reply         → feed-top
+deal                       → deals
+invoice                    → revenue
+appointment                → feed-bottom
+maintenance, alert         → integrations
+task                       → feed-bottom
+```
+
+### End-to-end verification
+1. Inserted 6 fake `outbound_events` rows (one per kind) directly into MongoDB.
+2. Subscribed to `/api/public/system-pulse/stream` and observed all 6 `event: pulse` frames arrive within 1s with correct `kind` + `action_id` fields.
+3. Visual screenshot showed cyan beacon glows on the corresponding KPI hotspots (revenue/leads/feed-top) at the moment events landed.
+4. Test events cleaned up post-verification (`stage: 'live-test'` and `'screenshot-test'` rows deleted).
+
+### Performance
+- Single additional EventSource per visitor (in addition to MasterCommandCenterHero's existing one — both reuse the same SSE endpoint, server handles thousands of connections cheaply via asyncio).
+- Animation = 100% CSS keyframes + SVG. Zero `requestAnimationFrame` loops. Zero canvas. GPU-accelerated `transform` / `opacity` / `stroke-dashoffset` only. `will-change` hints applied.
+- Hook re-renders only on flash arrival + once per `FLASH_HOLD_MS` for fade-back.
+- Bundle impact: ~5 KB minified across hook + overlay rewrite.
+
+### Files changed (this pass)
+- NEW: `/app/frontend/src/components/home/master/useLivePulseBeacons.js`
+- REWRITTEN: `/app/frontend/src/components/home/master/LiveOperationalOverlay.jsx` (event-driven modes)
+- MODIFIED: `/app/frontend/src/components/home/master/MasterExperienceShell.jsx` (mounts hook, passes flashes, adds LastEventToast)
+
+### Backend regression
+`/api/public/deploy-readiness` → `verdict=GREEN_DEPLOY_READY · critical_clean=true`. No regression.
 
 ---
 
