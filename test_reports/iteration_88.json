@@ -1,0 +1,38 @@
+{
+  "summary": "Iter 88 pre-deployment regression — security patches (random→secrets in 11 sites across start_engine.py / business_activation.py / outbound.py + ADMIN_PASSWORD→env in 7 test files) introduced ZERO behavioural regressions. Backend boots clean, all 9 pytest assertions pass (system-pulse shape + PII guard + startup-launch endpoints + secrets-swap import safety). Frontend full e2e on desktop+mobile — homepage hero, 8s polling flip (Connecting→Streaming, Local→Live), avatar scene rail + cinematic fade + poster, 13 routes, koollite ROI math all PASS. Only one testability gap surfaced (see frontend_issues).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/startup-launch/generate (live)", "issue": "Carry-over from Iter 82: upstream Anthropic still returning 502s — explicitly excluded from this regression per request. Validation/404 paths verified. No code regression."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "MasterHomepageAvatar control buttons", "issue": "The 6 control buttons (mute / pause / restart / fullscreen / prev / next) are visually rendered and clickable, but they DO NOT carry the data-testid attributes the regression spec expects (home-hero-avatar-mute / -pause / -restart / -fullscreen / -prev / -next). grep of /app/frontend/src/components/avatar/MasterHomepageAvatar.jsx shows data-testid coverage stops at -video, -scene-chip, -progress-dot-{i}, -thumb-rail, -thumb-{id}. No testid on the inner control <button> elements. Functionality OK, automation coverage NOT.", "selector": "[data-testid='home-hero-avatar-{mute|pause|restart|fullscreen|prev|next}']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter88_regression.py",
+    "/app/test_reports/pytest/iter88_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL (low priority): add data-testid attributes to the 6 inner avatar control buttons in MasterHomepageAvatar.jsx — same pattern already used for thumbs/progress-dots. Maps cleanly to: mute, pause, restart, fullscreen, prev, next. Not blocking deployment."
+  ],
+  "critical_code_review_comments": [
+    "secrets→random swap is correct: 0 `import random` lines remain in the 3 patched files; secrets.choice / secrets.randbelow / secrets.token_hex used in all 11 advertised sites and the math is equivalent (e.g. `secrets.randbelow(31) - 15` gives the same ±15 jitter window).",
+    "/api/public/system-pulse PII guard is solid: regex sweep of full JSON body returned ZERO non-example.com email patterns. The endpoint composes events from outbound_events with deliberate sub-line redaction.",
+    "Iter 82 follow-up still relevant: startup_launch.py asyncio.wait_for=60s sits exactly on the K8s ingress 60s boundary — recommend tightening to 50s with explicit 504 surfacing."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter88_regression.py (new — 9 tests, reusable as regression for future iters)"
+  ],
+  "success_rate": {"backend": "100% (9/9 pytest)", "frontend": "98% (23/23 hero testids + polling + scene flip + cinematic + 13 routes + koollite math; 6 avatar control testids missing — UI works, automation hooks absent)"},
+  "test_credentials": "Not required — all checks public.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 88 is GREEN for deployment. Reusable backend regression at /app/backend/tests/test_iter88_regression.py covers the public-pulse shape contract + startup-launch contract + secrets-swap import safety — run it on every future iter touching outbound.py / business_activation.py / start_engine.py / public_pulse.py / startup_launch.py. PII guard test is the most important single assertion to keep green before any production deploy. The only remaining gap is non-blocking data-testid coverage on the 6 avatar control buttons — wire them up next time MasterHomepageAvatar.jsx is touched.",
+  "rca of the issue": "No regression detected. The single testability gap (avatar control testids) pre-dates Iter 88 and is unrelated to the security patches under test."
+}
