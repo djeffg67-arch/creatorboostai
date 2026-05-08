@@ -228,9 +228,9 @@ const KoolliteScene = () => (
             <div className="rounded-md border border-cyan-500/40 bg-cyan-500/10 p-4 text-left" data-testid="school-koollite-option-a">
                 <div className="flex items-center gap-2">
                     <Sun size={14} className="text-cyan-300" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Option A · Max Brightness</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">Option A · Same Wattage / More Light</span>
                 </div>
-                <p className="mt-2 text-sm text-white">Same wattage. ~47% more lumens.</p>
+                <p className="mt-2 text-sm text-white">Lumens = wattage × 220. An 18W lamp becomes 3,960 lm.</p>
                 <ul className="mt-2 space-y-1 text-xs text-slate-300">
                     <li>• Brighter classrooms, gyms, hallways</li>
                     <li>• Improved camera + safety compliance</li>
@@ -240,9 +240,9 @@ const KoolliteScene = () => (
             <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-4 text-left" data-testid="school-koollite-option-b">
                 <div className="flex items-center gap-2">
                     <BatteryCharging size={14} className="text-emerald-300" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Option B · Max Savings</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">Option B · Half Wattage / Same Light</span>
                 </div>
-                <p className="mt-2 text-sm text-white">Same brightness. ~50% less wattage.</p>
+                <p className="mt-2 text-sm text-white">Drop a 20W lamp to a 10W Koollite — still 2,200 lm.</p>
                 <ul className="mt-2 space-y-1 text-xs text-slate-300">
                     <li>• Direct annual energy savings</li>
                     <li>• Funds reallocated to academics</li>

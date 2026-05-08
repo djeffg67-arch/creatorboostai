@@ -1,8 +1,45 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-07 (Iter 83 — Shareable launch plan permalinks + Save-as-PDF)
+**Last update:** 2026-05-08 (Iter 84 — Koollite dual-path UX correction · 220 lm/W enforcement)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 84 — KOOLLITE DUAL-PATH UX CORRECTION · 220 lm/W ENFORCEMENT (P0)
+
+Status: SHIPPED · live-verified at `/koollite/roi` · 18W chip → 3,960 lm rendered correctly · all 6 wattage presets and reference table confirmed.
+
+User mandate: "All Koollite LED replacement calculations must be based on 220 lumens per watt. Customer should enter their current lamp wattage (8/10/15/18/20/24W). CB calculates two upgrade options: Option 1 — Same Wattage / More Light (W × 220 lm); Option 2 — Half Wattage / Same Light (W/2 × 220 lm). Do not show 150 lm/W anywhere for Koollite calculations unless comparing against a competitor or old existing fixture."
+
+### Audit findings (BEFORE fix)
+- ✅ Math was already correct: Option A = `W × 220`, Option B = `(W × Ec)/220` — both used 220 lm/W as the Koollite spec.
+- ✅ The only `150 lm/W` reference was as the *existing-fixture baseline* (`currentEfficacy` default) — which IS the user's allowed exception.
+- ⚠ But the UX wasn't crystal-clear: no lamp-wattage preset chips, no reference table showing the 6 standard wattage→lumens conversions, the "Current lm/W" field could be misread as Koollite's spec.
+
+### Fixes shipped
+- `/app/frontend/src/components/koollite/KoolliteDualPath.jsx`:
+  - **Lamp-wattage preset chips** added: `8W / 10W / 15W / 18W / 20W / 24W` — tap to seed the calculator's `currentWatts` field. Active chip highlighted in the section accent color. data-testids `{prefix}-lamp-preset-{N}w`.
+  - **Koollite output reference table** added immediately below the chips: shows the exact user-spec values 8W→1,760 lm · 10W→2,200 lm · 15W→3,300 lm · 18W→3,960 lm · 20W→4,400 lm · 24W→5,280 lm with header "Koollite output reference · 220 lm/W (fixed)" and footer "Same wattage → much more light. Or roughly half the wattage at the same brightness — your call." data-testids `{prefix}-koollite-ref-{N}w`.
+  - **Field re-labeled** from "Current lm/W" → "Existing fixture lm/W" with helper text "Koollite is fixed at 220" — eliminates any ambiguity that the 150 value is Koollite's.
+  - **Option A label** updated: "Max Brightness" → **"Same Wattage / More Light"** with new summary "Replace today's lamps with Koollite at the same wattage. Lumens = wattage × 220 — so an 8W lamp becomes 1,760 lm, a 20W lamp becomes 4,400 lm."
+  - **Option B label** updated: "Max Savings" → **"Half Wattage / Same Light"** with new summary "Hold light levels steady, drop wattage by ~50% (a 20W lamp becomes a 10W Koollite at 2,200 lm). Same brightness — half the energy."
+  - **Strip** (compact one-line surface used in Supermarket / Airport demos) updated to "Option A · same wattage → more light (W × 220 lm) · Option B · half the wattage → same light, ~50% energy saved".
+  - Constants `LAMP_WATT_PRESETS = [8,10,15,18,20,24]` and `KOOLLITE_LM_PER_W = 220` exported for clarity.
+- `/app/frontend/src/pages/SchoolDistrictDemoPage.jsx` — Scene 6 KoolliteScene Option-A/B chip labels updated to match ("Same Wattage / More Light" + "An 18W lamp becomes 3,960 lm" / "Half Wattage / Same Light" + "Drop a 20W lamp to a 10W Koollite — still 2,200 lm").
+
+### Verified live
+- `/koollite/roi` Supermarket preset → all 6 chips rendered, click 18W → `currentWatts=18` and `Option A result · Lumens / fixture = 3,960` (= 18 × 220). ✅
+- Reference table cell for 18W reads `18W · 3,960 lm`. ✅
+- Field labels read "EXISTING FIXTURE LM/W" with helper "Koollite is fixed at 220". ✅
+- Option-A and Option-B card titles read **"SAME WATTAGE / MORE LIGHT"** and **"HALF WATTAGE / SAME LIGHT"**. ✅
+- Single remaining "150 lm/W" mention is the comparison bullet "Up to ~47% more lumens vs typical 150 lm/W LEDs" — this is the user's allowed exception (comparison against existing/competitor LED).
+- All other calculator logic, demos, and the strip propagate the change automatically (single-source-of-truth component).
+
+### Math (unchanged, already correct)
+- Option A: `lumens = currentWatts × 220` (Koollite, fixed).
+- Option B: `wattsB = (currentWatts × existingLmPerW) / 220`, lumens held constant.
+- 220 lm/W is hardcoded in `koolliteEfficacy` default and never user-overridable from the UI.
 
 ---
 

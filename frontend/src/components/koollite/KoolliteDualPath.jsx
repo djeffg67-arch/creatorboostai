@@ -32,13 +32,18 @@ import {
 const DEFAULTS = {
     fixtures: 420,
     currentWatts: 32,           // typical existing LED tube wattage
-    currentEfficacy: 150,       // typical existing LED lm/W
-    koolliteEfficacy: 220,      // Koollite 220 lm/W spec
+    currentEfficacy: 150,       // typical existing LED lm/W (NOT Koollite)
+    koolliteEfficacy: 220,      // Koollite 220 lm/W spec — never overridden
     hoursPerDay: 18,
     daysPerYear: 363,
     energyCostPerKwh: 0.16,
     targetFc: null,             // optional foot-candle target
 };
+
+// Standard lamp wattages customers actually buy. Tap a chip to seed the
+// calculator. Lumens column = wattage × 220 (Koollite output, fixed).
+const LAMP_WATT_PRESETS = [8, 10, 15, 18, 20, 24];
+const KOOLLITE_LM_PER_W = 220;
 
 const formatUSD = (n) =>
     n == null
@@ -295,13 +300,13 @@ export const KoolliteDualPath = ({
             >
                 <PathCard
                     tone="cyan"
-                    label="Option A · Max Brightness"
+                    label="Option A · Same Wattage / More Light"
                     title="Keep the same wattage. Get dramatically more light."
-                    summary="Replace your existing fixtures with Koollite at the same wattage budget. Foot-candles climb, dark zones disappear, and merchandising / safety performance improves immediately."
+                    summary="Replace today's lamps with Koollite at the same wattage. Lumens = wattage × 220 — so an 8W lamp becomes 1,760 lm, a 20W lamp becomes 4,400 lm. Foot-candles climb, dark zones disappear, and the energy bill stays exactly where it was."
                     bullets={[
                         "Same wattage. Same energy bill.",
-                        "Up to ~47% more lumens per fixture.",
-                        "Improved foot-candles in aisles, gates, classrooms, hangars.",
+                        "Lumens per lamp = watts × 220 lm/W.",
+                        "Up to ~47% more lumens vs typical 150 lm/W LEDs.",
                         "Better camera-recognition + safety compliance.",
                         "Direct lift on retail / sales-floor performance.",
                     ]}
@@ -311,7 +316,7 @@ export const KoolliteDualPath = ({
                             value: `+${formatPct(
                                 result.optionA.brightnessLift,
                             ).replace("%", "")}%`,
-                            sub: "per fixture",
+                            sub: "vs existing fixture",
                         },
                         {
                             label: "Lumens / fixture",
@@ -330,11 +335,11 @@ export const KoolliteDualPath = ({
                 />
                 <PathCard
                     tone="emerald"
-                    label="Option B · Max Savings"
+                    label="Option B · Half Wattage / Same Light"
                     title="Match today's brightness. Cut wattage roughly in half."
-                    summary="Hold light levels steady, drop wattage by ~30–50%, and capture the energy savings every month. The savings line typically funds the upgrade itself."
+                    summary="Hold light levels steady, drop wattage by ~50% (a 20W lamp becomes a 10W Koollite at 2,200 lm). Same brightness — half the energy. The savings line typically funds the upgrade itself."
                     bullets={[
-                        "Same brightness. Half the wattage.",
+                        "Same brightness. Roughly half the wattage.",
                         `~${formatPct(
                             result.optionB.wattReductionPct,
                         )} wattage reduction at the fixture.`,
@@ -384,6 +389,69 @@ export const KoolliteDualPath = ({
                             Live Dual-Path ROI · Both options modeled
                         </span>
                     </div>
+
+                    {/* Lamp wattage preset chips — tap to seed Current W */}
+                    <div className="mt-4" data-testid={`${testIdPrefix}-lamp-presets`}>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                            What is your current lamp wattage?
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                            {LAMP_WATT_PRESETS.map((w) => {
+                                const active = Number(inputs.currentWatts) === w;
+                                return (
+                                    <button
+                                        key={w}
+                                        type="button"
+                                        onClick={() => setInputs((s) => ({ ...s, currentWatts: w }))}
+                                        data-testid={`${testIdPrefix}-lamp-preset-${w}w`}
+                                        className={`rounded-md border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] transition-all ${
+                                            active
+                                                ? `${accentClasses[accent].ring} ${accentClasses[accent].soft} ${accentClasses[accent].title}`
+                                                : "border-white/10 bg-ink-900 text-slate-400 hover:border-white/30 hover:text-white"
+                                        }`}
+                                    >
+                                        {w}W
+                                    </button>
+                                );
+                            })}
+                            <span className="ml-2 self-center font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                                or enter a custom wattage below
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Koollite output reference — wattage × 220 lm/W */}
+                    <div
+                        className="mt-4 rounded-md border border-white/10 bg-ink-900/60 p-3"
+                        data-testid={`${testIdPrefix}-koollite-reference`}
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <span className={`font-mono text-[10px] uppercase tracking-[0.22em] ${accentClasses[accent].title}`}>
+                                Koollite output reference · 220 lm/W (fixed)
+                            </span>
+                            <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
+                                lumens = watts × 220
+                            </span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                            {LAMP_WATT_PRESETS.map((w) => (
+                                <div
+                                    key={w}
+                                    data-testid={`${testIdPrefix}-koollite-ref-${w}w`}
+                                    className="rounded border border-white/5 bg-ink-700/40 px-2 py-1.5 text-center"
+                                >
+                                    <p className="font-mono text-[10px] text-slate-400">{w}W</p>
+                                    <p className={`font-mono text-sm ${accentClasses[accent].title}`}>
+                                        {(w * KOOLLITE_LM_PER_W).toLocaleString()} lm
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="mt-2 text-xs text-slate-400">
+                            Same wattage → much more light. Or roughly half the wattage at the same brightness — your call.
+                        </p>
+                    </div>
+
                     <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                         <Field
                             label="Fixtures"
@@ -398,7 +466,8 @@ export const KoolliteDualPath = ({
                             testid={`${testIdPrefix}-input-watts`}
                         />
                         <Field
-                            label="Current lm/W"
+                            label="Existing fixture lm/W"
+                            hint="Koollite is fixed at 220"
                             value={inputs.currentEfficacy}
                             onChange={setNum("currentEfficacy")}
                             testid={`${testIdPrefix}-input-efficacy`}
@@ -510,7 +579,7 @@ export const KoolliteDualPath = ({
     );
 };
 
-const Field = ({ label, value, onChange, testid, step }) => (
+const Field = ({ label, value, onChange, testid, step, hint }) => (
     <label className="flex flex-col gap-1">
         <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
             {label}
@@ -524,6 +593,9 @@ const Field = ({ label, value, onChange, testid, step }) => (
             onChange={onChange}
             className="rounded-md border border-white/10 bg-ink-900 px-3 py-2 font-mono text-sm text-cyan-200 focus:border-cyan-500/50 focus:outline-none"
         />
+        {hint && (
+            <span className="font-mono text-[9px] text-slate-500">{hint}</span>
+        )}
     </label>
 );
 
@@ -585,14 +657,14 @@ export const KoolliteDualPathStrip = ({
                 <span className="font-semibold text-white">
                     Option A
                 </span>{" "}
-                · same wattage → up to{" "}
-                <span className={c.title}>+47% brightness</span>{" "}
+                · same wattage →{" "}
+                <span className={c.title}>more light (W × 220 lm)</span>{" "}
                 <span className="text-slate-500">·</span>{" "}
                 <span className="font-semibold text-white">
                     Option B
                 </span>{" "}
-                · same brightness →{" "}
-                <span className={c.title}>~50% wattage saved</span>
+                · half the wattage →{" "}
+                <span className={c.title}>same light, ~50% energy saved</span>
             </span>
             <span
                 className={`ml-auto inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.22em] ${c.title} group-hover:underline`}
