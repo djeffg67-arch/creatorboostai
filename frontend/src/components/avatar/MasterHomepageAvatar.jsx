@@ -206,9 +206,25 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
             setBuffering(true);
             setTapFallback(false);
             logMediaState("scene-change");
+            // Safety net: after 800ms re-check the video state. If the new
+            // src has already buffered enough (browser cached it from the
+            // hidden preloader on desktop), readyState>=2 and we should
+            // clear the buffering overlay even if `canplay`/`loadeddata`
+            // already fired before this effect committed React state.
+            const safetyId = window.setTimeout(() => {
+                if (v.readyState >= 2) {
+                    setBuffering(false);
+                    if (pendingPlayRef.current) {
+                        pendingPlayRef.current = false;
+                        tryPlay();
+                    }
+                }
+            }, 800);
+            return () => window.clearTimeout(safetyId);
         } catch { /* noop */ }
-        // logMediaState intentionally not in dep list — it reads from the
-        // same refs and we only want this effect to fire on sceneIdx change
+        return undefined;
+        // logMediaState/tryPlay intentionally not in dep list — they read
+        // refs and we only want this effect to fire on sceneIdx change
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sceneIdx]);
 
@@ -315,12 +331,64 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
             clearTap();
             setPaused(false);
         };
+        // `timeupdate` is the authoritative "video is making progress" signal.
+        // If currentTime advances, by definition the video is playing and the
+        // buffering overlay must NOT be visible. This is the safety net for
+        // the bug where `play` / `playing` events fired before React attached
+        // the listener (autoplay starts decoding immediately on mount, but
+        // the listener-effect runs only after the first paint).
+        let lastSeenTime = -1;
+        const onTimeUpdate = () => {
+            const t = v.currentTime;
+            if (t > lastSeenTime + 0.05) {
+                lastSeenTime = t;
+                // Progress is happening — force-clear any stale buffering UI
+                setBuffering(false);
+                setTapFallback(false);
+                clearStall();
+                clearTap();
+            }
+        };
+        // `play` fires the moment .play() is invoked or autoplay kicks in,
+        // BEFORE the first frame may have decoded. We still treat it as
+        // "playback intent confirmed" so we hide the spinner optimistically.
+        const onPlay = () => {
+            logMediaState("play");
+            setPaused(false);
+        };
 
         v.addEventListener("canplay",      onReady);
         v.addEventListener("loadeddata",   onReady);
         v.addEventListener("waiting",      onWaiting);
         v.addEventListener("stalled",      onStalled);
         v.addEventListener("playing",      onPlaying);
+        v.addEventListener("play",         onPlay);
+        v.addEventListener("timeupdate",   onTimeUpdate);
+
+        // Sync from the video element's current state — if `canplay` /
+        // `playing` already fired BEFORE we attached the listener (very
+        // common with autoplay videos because the browser starts decoding
+        // immediately on mount but our useEffect runs after first paint),
+        // we'd be stuck with `buffering=true` forever despite the video
+        // actually playing. This explicit sync catches that race.
+        if (v.readyState >= 2 /* HAVE_CURRENT_DATA */) {
+            // Defer one tick so React has a chance to commit the initial
+            // setBuffering(true) from scene-change effect before we clear it.
+            window.setTimeout(() => {
+                if (v.readyState >= 2) {
+                    setBuffering(false);
+                    if (pendingPlayRef.current) {
+                        pendingPlayRef.current = false;
+                        tryPlay();
+                    }
+                }
+                if (!v.paused) {
+                    setBuffering(false);
+                    setTapFallback(false);
+                    clearTap();
+                }
+            }, 0);
+        }
 
         // Arm tap fallback for the very first scene too — if loadeddata never
         // fires on iOS we'll still surface the manual play after 3s.
@@ -332,6 +400,8 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
             v.removeEventListener("waiting",    onWaiting);
             v.removeEventListener("stalled",    onStalled);
             v.removeEventListener("playing",    onPlaying);
+            v.removeEventListener("play",       onPlay);
+            v.removeEventListener("timeupdate", onTimeUpdate);
             clearStall();
             clearTap();
         };
