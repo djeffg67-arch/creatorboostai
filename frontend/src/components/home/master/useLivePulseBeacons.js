@@ -51,6 +51,20 @@ export const useLivePulseBeacons = () => {
     const [sseLive, setSseLive]   = useState(false);
     const [lastEvent, setLastEvent] = useState(null);  // { kind, action_id, title, ts }
     const [recentEvents, setRecentEvents] = useState([]); // ring buffer of last 5
+    const [counts, setCounts] = useState({
+        // Snapshot-seeded
+        revenue:      "—",   // string display, e.g. "$1.42M"
+        outbound:     0,     // leads captured today
+        tasks:        0,     // tasks/sends completed today
+        actions:      0,     // total AI actions today
+        executions:   0,     // live SSE-connected viewers / running streams
+        agents:       4,     // orchestrator agents (Strategy, Targeting, Asset, Execution)
+        // Session-incremented (zero on first paint, +1 per matching SSE pulse)
+        alerts:       0,
+        appointments: 0,
+        // last-bump epochMs per id, for transition cue
+        bumpedAt: {},
+    });
     const esRef           = useRef(null);
     const reconnectRef    = useRef(null);
     const cancelledRef    = useRef(false);
@@ -76,6 +90,22 @@ export const useLivePulseBeacons = () => {
                     ts: Date.now() - (i + 1) * 30000, // staggered older
                 }));
                 if (events.length) setRecentEvents(events);
+                // Seed category counters from snapshot KPIs
+                const kpis = d.kpis || {};
+                const parseNum = (v) => {
+                    if (typeof v === "number") return v;
+                    if (!v) return 0;
+                    const n = parseInt(String(v).replace(/[^\d]/g, ""), 10);
+                    return Number.isFinite(n) ? n : 0;
+                };
+                setCounts((prev) => ({
+                    ...prev,
+                    revenue:    (kpis.revenue_impact && kpis.revenue_impact.value) || prev.revenue,
+                    outbound:   parseNum(kpis.leads_captured && kpis.leads_captured.value) || prev.outbound,
+                    tasks:      parseNum(kpis.tasks_done && kpis.tasks_done.value) || prev.tasks,
+                    actions:    Number(d.ai_actions_today) || prev.actions,
+                    executions: Number(d.connected_count)  || prev.executions,
+                }));
             } catch {
                 /* ignore — strip just renders empty until first SSE event */
             }
@@ -114,6 +144,31 @@ export const useLivePulseBeacons = () => {
                     return next;
                 });
             }
+            // Per-category counter increments (every real pulse advances
+            // `actions`; specific kinds advance their own counters too).
+            setCounts((prev) => {
+                const next = { ...prev, actions: prev.actions + 1, bumpedAt: { ...prev.bumpedAt, actions: now } };
+                if (kind === "lead" || kind === "qualified") {
+                    next.outbound = prev.outbound + 1;
+                    next.bumpedAt = { ...next.bumpedAt, outbound: now };
+                }
+                if (kind === "send" || kind === "email" || kind === "task" || kind === "reply") {
+                    next.tasks = prev.tasks + 1;
+                    next.bumpedAt = { ...next.bumpedAt, tasks: now };
+                }
+                if (kind === "alert" || kind === "maintenance") {
+                    next.alerts = prev.alerts + 1;
+                    next.bumpedAt = { ...next.bumpedAt, alerts: now };
+                }
+                if (kind === "appointment") {
+                    next.appointments = prev.appointments + 1;
+                    next.bumpedAt = { ...next.bumpedAt, appointments: now };
+                }
+                if (kind === "invoice") {
+                    next.bumpedAt = { ...next.bumpedAt, revenue: now };
+                }
+                return next;
+            });
         };
 
         const open = () => {
@@ -128,8 +183,34 @@ export const useLivePulseBeacons = () => {
             }
             esRef.current = es;
 
-            es.addEventListener("ready",     () => { if (!cancelledRef.current) setSseLive(true); });
-            es.addEventListener("heartbeat", () => { if (!cancelledRef.current) setSseLive(true); });
+            es.addEventListener("ready", (e) => {
+                if (cancelledRef.current) return;
+                setSseLive(true);
+                try {
+                    const data = JSON.parse(e.data);
+                    if (typeof data.connected_count === "number") {
+                        setCounts((prev) => ({
+                            ...prev,
+                            executions: data.connected_count,
+                            bumpedAt: { ...prev.bumpedAt, executions: Date.now() },
+                        }));
+                    }
+                } catch { /* noop */ }
+            });
+            es.addEventListener("heartbeat", (e) => {
+                if (cancelledRef.current) return;
+                setSseLive(true);
+                try {
+                    const data = JSON.parse(e.data);
+                    if (typeof data.connected_count === "number") {
+                        setCounts((prev) => (
+                            prev.executions === data.connected_count
+                                ? prev
+                                : { ...prev, executions: data.connected_count, bumpedAt: { ...prev.bumpedAt, executions: Date.now() } }
+                        ));
+                    }
+                } catch { /* noop */ }
+            });
 
             es.addEventListener("pulse", (e) => {
                 if (cancelledRef.current) return;
@@ -158,7 +239,7 @@ export const useLivePulseBeacons = () => {
         };
     }, []);
 
-    return { flashes, sseLive, lastEvent, recentEvents };
+    return { flashes, sseLive, lastEvent, recentEvents, counts };
 };
 
 export default useLivePulseBeacons;

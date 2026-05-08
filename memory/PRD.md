@@ -1,8 +1,53 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 96+ · Live Action ID Strip + Audit-Bot Integration Doc)
+**Last update:** 2026-05-08 (Iter 96+ · Per-Category Telemetry Counters)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 📊 ITER 96+ · PER-CATEGORY TELEMETRY COUNTERS (P1 · COMPLETE in PREVIEW)
+
+**Status: 🟢 SHIPPED to preview.** Executive telemetry row mounted directly beneath the Live Action ID Strip. 8 segmented tiles displaying live category totals, seeded from `/api/public/system-pulse` snapshot and incremented on every SSE pulse.
+
+### Tiles
+| Tile | Source | Tone |
+|---|---|---|
+| OUTBOUND | snapshot.kpis.leads_captured + session leads/qualified | cyan |
+| REVENUE | snapshot.kpis.revenue_impact (display: $1.42M) | emerald |
+| AI ACTIONS | snapshot.ai_actions_today + every SSE pulse | violet |
+| ALERTS | session count of alert/maintenance kinds | amber |
+| APPOINTMENTS | session count of appointment kind | violet |
+| LIVE EXECUTIONS | SSE.connected_count (truthful, from `ready`/`heartbeat`) | cyan |
+| ACTIVE AGENTS | constant 4 (orchestrator: Strategy, Targeting, Asset, Execution) | violet |
+| TASKS | snapshot.kpis.tasks_done + session count of send/email/task/reply | emerald |
+
+### Verified live values from snapshot (Playwright run)
+```
+OUTBOUND=342 · REVENUE=$1.42M · ACTIONS=287 · TASKS=1,247
+EXECUTIONS=2 · AGENTS=4 · ALERTS=0 · APPOINTMENTS=0
+```
+
+### Visual language
+- 8-tile grid, mobile 2-col → tablet 4-col → desktop 8-col
+- Soft segmented containers separated by `gap-px bg-white/5` (1px hairlines)
+- Top hairline accent gradient (transparent → cyan-500/30 → transparent)
+- Per-tile: small dot + ALL-CAPS label + icon (right) + tabular-nums value + sub-label
+- Color edges per tone: emerald/cyan/violet/amber
+- **Smooth number transition** on increment: 380ms ease-out cubic interpolation, no flash, no bounce
+- **Subtle bump cue** on change: 1.4s inset border-glow that decays — keyed by timestamp so each event triggers its own animation cleanly
+- `prefers-reduced-motion` honored
+
+### Components
+- NEW: `/app/frontend/src/components/home/master/LiveCategoryCounters.jsx` (~155 LoC)
+- MODIFIED: `/app/frontend/src/components/home/master/useLivePulseBeacons.js` (+`counts` state, snapshot KPI seeding, per-kind increment, SSE-driven `executions`)
+- MODIFIED: `/app/frontend/src/components/home/master/MasterExperienceShell.jsx` (mounts `<LiveCategoryCounters />` beneath strip)
+
+### Bug found + fixed mid-flight
+Initial mount silently failed because an earlier `search_replace` for the `counts` useState declaration didn't apply (the `recentEvents` line was already in place from a prior session, breaking the `old_str` match). Caught it via Playwright run that captured the React error in console → "ReferenceError: counts is not defined". Re-applied the declaration; verified all 8 tiles now render. Lesson logged: always re-view file state before assuming a multi-edit chain landed.
+
+### Backend
+`/api/public/deploy-readiness` → `verdict=GREEN_DEPLOY_READY · critical_clean=true`. `yarn build` clean. ESLint clean. Test events cleaned.
 
 ---
 

@@ -8,6 +8,7 @@ import {
 import { LiveOperationalOverlay } from "./LiveOperationalOverlay";
 import { useLivePulseBeacons } from "./useLivePulseBeacons";
 import { LiveActionIDStrip } from "./LiveActionIDStrip";
+import { LiveCategoryCounters } from "./LiveCategoryCounters";
 
 /**
  * MasterExperienceShell · Iter 96+
@@ -59,7 +60,7 @@ const TONE_CLS = {
 export const MasterExperienceShell = () => {
     const stageRef = useRef(null);
     const [parallax, setParallax] = useState({ x: 0, y: 0 });
-    const { flashes, sseLive, lastEvent, recentEvents } = useLivePulseBeacons();
+    const { flashes, sseLive, lastEvent, recentEvents, counts } = useLivePulseBeacons();
 
     // Subtle parallax on mouse move — GPU-accelerated transform only
     useEffect(() => {
@@ -321,6 +322,11 @@ export const MasterExperienceShell = () => {
                         sseLive={sseLive}
                         lastEventTs={lastEvent ? lastEvent.ts : 0}
                     />
+
+                    {/* PER-CATEGORY COUNTER ROW — executive telemetry tiles
+                       seeded from /api/public/system-pulse and incremented
+                       on every SSE pulse. No flash, no scroll. */}
+                    <LiveCategoryCounters counts={counts} sseLive={sseLive} />
 
                     {/* Caption strip below dashboard */}
                     <p className="mt-5 max-w-3xl font-mono text-[10px] uppercase tracking-[0.20em] text-slate-500">
