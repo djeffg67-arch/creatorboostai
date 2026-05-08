@@ -82,10 +82,22 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
     const [paused, setPaused] = useState(false);
     const [fullscreen, setFullscreen] = useState(false);
     const [errored, setErrored] = useState(false);
+    const [buffering, setBuffering] = useState(false);
     const videoRef = useRef(null);
+    // Hidden preloader for the *next* scene so its bytes are already in the
+    // browser cache by the time we switch the visible <video>'s src.
+    const preloadRef = useRef(null);
+    // Stall watchdog id; if buffering > STALL_TIMEOUT_MS we skip to next scene
+    const stallTimerRef = useRef(null);
+    // Tracks the in-flight transition: on scene change we set src, then wait
+    // for canplay before invoking play(). play() called before then races.
+    const pendingPlayRef = useRef(false);
 
     const scene = MASTER_SCENES[sceneIdx];
     const total = MASTER_SCENES.length;
+    const nextScene = MASTER_SCENES[(sceneIdx + 1) % total];
+
+    const STALL_TIMEOUT_MS = 9000;
 
     // Install avatar voice lock for the lifetime of this component so legacy
     // TTS / SpeechSynthesis cannot overlap with the avatar's own audio track.
@@ -115,14 +127,74 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
     }, [muted]);
 
     // Restart playback from start whenever the scene changes.
+    // Single persistent <video> element — we let React update the src
+    // attribute (no `key` prop = no remount = no decoder teardown). Then we
+    // pause, mark "want to play once data is ready", and the canplay handler
+    // below will call .play() in lockstep with the audio decoder.
     useEffect(() => {
         const v = videoRef.current;
         if (!v) return;
         try {
-            v.currentTime = 0;
-            v.play().catch(() => { /* autoplay may be blocked until gesture */ });
+            try { v.pause(); } catch { /* noop */ }
+            // The video element will start fetching the new src as soon as
+            // React updates the attribute on render. We just need to wait
+            // for canplay before invoking play(), which prevents the racy
+            // "audio plays, video frozen" pattern on slow connections.
+            pendingPlayRef.current = true;
+            setBuffering(true);
         } catch { /* noop */ }
     }, [sceneIdx]);
+
+    // ─── Visible video event listeners (single registration) ────────────
+    // Kept as one effect to avoid the dance of attach/detach on every render.
+    useEffect(() => {
+        const v = videoRef.current;
+        if (!v) return undefined;
+
+        const clearStall = () => {
+            if (stallTimerRef.current) {
+                window.clearTimeout(stallTimerRef.current);
+                stallTimerRef.current = null;
+            }
+        };
+
+        const armStall = () => {
+            clearStall();
+            stallTimerRef.current = window.setTimeout(() => {
+                // After STALL_TIMEOUT_MS of buffering, skip rather than freeze
+                setErrored(true);
+                window.setTimeout(() => {
+                    setErrored(false);
+                    setSceneIdx((i) => (i + 1) % total);
+                }, 800);
+            }, STALL_TIMEOUT_MS);
+        };
+
+        const onCanPlay = () => {
+            setBuffering(false);
+            clearStall();
+            if (pendingPlayRef.current) {
+                pendingPlayRef.current = false;
+                v.play().catch(() => { /* autoplay may be blocked until gesture */ });
+            }
+        };
+        const onWaiting  = () => { setBuffering(true);  armStall(); };
+        const onStalled  = () => { setBuffering(true);  armStall(); };
+        const onPlaying  = () => { setBuffering(false); clearStall(); setPaused(false); };
+
+        v.addEventListener("canplay",  onCanPlay);
+        v.addEventListener("waiting",  onWaiting);
+        v.addEventListener("stalled",  onStalled);
+        v.addEventListener("playing",  onPlaying);
+
+        return () => {
+            v.removeEventListener("canplay",  onCanPlay);
+            v.removeEventListener("waiting",  onWaiting);
+            v.removeEventListener("stalled",  onStalled);
+            v.removeEventListener("playing",  onPlaying);
+            clearStall();
+        };
+    }, [total]);
 
     const goNext = () => setSceneIdx((i) => (i + 1) % total);
     const goPrev = () => setSceneIdx((i) => (i - 1 + total) % total);
@@ -173,20 +245,32 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
         >
             <div className="relative h-full w-full overflow-hidden rounded-xl">
                 <video
-                    key={scene.src} /* force remount on src change for clean transition */
                     ref={videoRef}
                     src={scene.src}
                     poster={scene.poster}
-                    autoPlay
                     playsInline
                     muted={muted}
-                    preload="metadata"
+                    preload="auto"
                     onEnded={onEnded}
                     onError={onError}
                     onPlay={() => setPaused(false)}
                     onPause={() => setPaused(true)}
                     className="h-full w-full animate-cb-scene-fade-in object-cover"
                     data-testid={`${testId}-video`}
+                />
+                {/* Hidden preloader for the next scene so its bytes are already
+                    in the cache by the time we switch the visible <video>'s
+                    src. Doesn't render, doesn't autoplay. */}
+                <video
+                    ref={preloadRef}
+                    src={nextScene.src}
+                    preload="auto"
+                    muted
+                    playsInline
+                    aria-hidden="true"
+                    tabIndex={-1}
+                    className="absolute h-px w-px opacity-0 pointer-events-none"
+                    data-testid={`${testId}-preload-video`}
                 />
 
                 {/* Top chip — scene title + index */}
@@ -257,6 +341,23 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                         </p>
                     </div>
                 )}
+
+                {/* Buffering overlay — shown while the player is waiting for
+                    enough data to keep playback in sync. Subtle dark wash +
+                    spinner so the user knows it's not a hang. */}
+                {buffering && !errored && (
+                    <div
+                        className="pointer-events-none absolute inset-0 grid place-items-center bg-ink-900/45 backdrop-blur-[2px]"
+                        data-testid={`${testId}-buffering`}
+                    >
+                        <div className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 bg-ink-900/85 px-3 py-1.5 backdrop-blur-md">
+                            <span className="cb-buffer-dot h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-cyan-200">
+                                Buffering…
+                            </span>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Scene-thumbnail rail (outside the framed video, below it) */}
@@ -304,6 +405,15 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                 }
                 .animate-cb-scene-fade-in {
                     animation: cb-scene-fade-in 460ms ease-out both;
+                }
+                /* Subtle pulse for buffering dot */
+                @keyframes cb-buffer-pulse {
+                    0%, 100% { opacity: 0.40; transform: scale(0.85); }
+                    50%      { opacity: 1;    transform: scale(1.10); }
+                }
+                .cb-buffer-dot {
+                    animation: cb-buffer-pulse 1.1s ease-in-out infinite;
+                    will-change: opacity, transform;
                 }
             `}</style>
         </div>

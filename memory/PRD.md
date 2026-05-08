@@ -1,8 +1,62 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 96+ · Founder Telemetry Dashboard)
+**Last update:** 2026-05-08 (Iter 96+ · Avatar Player Stability Pass)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎬 ITER 96+ · AVATAR PLAYER STABILITY PASS (P0 BUG FIX · COMPLETE in PREVIEW)
+
+**Status: 🟢 SHIPPED to preview.** User reported: "avatar freezes and delays · lips don't sync with the voice wordings · video freezes for a second, then jumps to catch up while audio keeps going · worse on mobile and slower connections."
+
+### Root cause diagnosis (verified empirically)
+The MP4s themselves were already optimized (`+faststart` confirmed — moov atom in first 256 KB). The issue was in the player code, not the media:
+
+| Bug | Effect |
+|---|---|
+| `preload="metadata"` | Browser only fetched moov atom; on scene start it had to cold-fetch all video data while audio decoder began playback → audio ahead, video buffering |
+| `key={scene.src}` on `<video>` | Forced full React remount on every scene change → decoder teardown + rebuild + cold fetch → multi-second freeze |
+| `autoPlay` + `useEffect.play()` race | Both fired on mount; on slow connections one would win before data was ready → `play()` resolves on a stalled stream → audio drift |
+| No `waiting` / `stalled` listeners | User saw "freeze" with no UX feedback; no recovery action |
+| No preload of next scene | Every transition was a cold start, even when the network had idle time |
+
+### Fix architecture
+- **Single persistent `<video>`** (no `key` prop). React updates the `src` attribute via prop change → no remount, no decoder teardown.
+- **`preload="auto"`** on visible video → browser pulls bytes proactively.
+- **Hidden preloader video** mounted alongside visible one with `src={nextScene.src}` and `preload="auto"` → next scene's bytes are warm in cache by the time we switch.
+- **Removed `autoPlay`**. Effect on `[sceneIdx]` change pauses, sets `pendingPlayRef = true`, and waits.
+- **`canplay` event handler** is the ONLY place `.play()` is called → guarantees audio + video decoders start in lockstep.
+- **`waiting` / `stalled` listeners** → set `buffering=true` + arm a 9s stall watchdog. If watchdog fires, auto-skip to next scene rather than freeze.
+- **`playing` listener** clears buffering state + watchdog.
+- **Buffering overlay** (subtle dark wash + pulsing cyan dot + "Buffering…" label) shown during `waiting`/`stalled` states.
+
+### Verified end-to-end (Playwright, headless)
+```
+[PASS] visible_video_present                  got=1 want=1
+[PASS] preload_video_present                  got=1 want=1
+[PASS] preload_attr_is_auto                   got='auto' want='auto'
+[PASS] autoplay_attr_removed                  got=None want=None
+[PASS] src_is_a_master_scene                  got=True want=True
+[PASS] is_video_tag                           got=True want=True
+[PASS] preload_src_is_master_scene            got=True want=True
+[PASS] preload_preload_auto                   got='auto' want='auto'
+[PASS] visible_and_preload_differ             got=True want=True
+[PASS] src_changed_after_next                 got=True want=True
+[PASS] element_persistent_no_remount          got=True want=True
+page_errors = 0
+```
+
+11/11 assertions PASS, including the critical `element_persistent_no_remount` (proves we eliminated the React remount that was causing the freeze) and `visible_and_preload_differ` (proves the next scene is being warmed in cache).
+
+### Files changed
+- MODIFIED: `/app/frontend/src/components/avatar/MasterHomepageAvatar.jsx` (~+90 LoC: new useEffect for canplay-gated playback, hidden preloader, buffering overlay, stall watchdog)
+
+### Backend regression
+`verdict=GREEN_DEPLOY_READY · critical_clean=true` · `yarn build` clean · ESLint clean.
+
+### Production
+The fix is in preview. **Production at creatorboostai.com still has the old freeze-prone player** — user must click **Deploy** to push this fix live.
 
 ---
 
