@@ -70,6 +70,24 @@ const MASTER_SCENES = [
 
 const VOICE_LOCK_PERSIST_KEY = "cb_avatar_voice_enabled";
 
+// iOS / Safari mobile detection. iOS only allows ONE active <video> decoder
+// per page — mounting a hidden preloader video competes with the visible one
+// for that slot and can leave the visible video stuck in `BUFFERING…` forever
+// (the symptom the user reported on iPhone). On mobile we therefore:
+//   · do NOT render the hidden preloader
+//   · use preload="metadata" instead of "auto" (less aggressive, faster TTFP)
+//   · drop the stall-watchdog from 9s → 5s
+//   · fall back to a Tap-to-Play button after 3s of buffering instead of an
+//     infinite spinner
+const detectMobile = () => {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    const isIOS = /iPad|iPhone|iPod/i.test(ua) || (ua.includes("Mac") && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+    const isSmallScreen = typeof window !== "undefined" && window.innerWidth < 1024;
+    return isIOS || isAndroid || isSmallScreen;
+};
+
 export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
     const [sceneIdx, setSceneIdx] = useState(0);
     const [muted, setMuted] = useState(() => {
@@ -84,12 +102,25 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
     const [fullscreen, setFullscreen] = useState(false);
     const [errored, setErrored] = useState(false);
     const [buffering, setBuffering] = useState(false);
+    // tapFallback: after TAP_FALLBACK_MS of buffering, hide the overlay and
+    // surface a "Tap to Start" button so the user is NEVER stuck in an
+    // infinite loading state on iOS Safari.
+    const [tapFallback, setTapFallback] = useState(false);
+    // Stable mobile flag (computed once on mount). Don't recompute on every
+    // render — would cause the preloader video to mount/unmount, which itself
+    // would compete for the iOS decoder slot.
+    const [isMobile] = useState(detectMobile);
     const videoRef = useRef(null);
     // Hidden preloader for the *next* scene so its bytes are already in the
     // browser cache by the time we switch the visible <video>'s src.
+    // Desktop only — on mobile this is null and the second <video> is not
+    // rendered at all (see iOS single-decoder note above).
     const preloadRef = useRef(null);
     // Stall watchdog id; if buffering > STALL_TIMEOUT_MS we skip to next scene
     const stallTimerRef = useRef(null);
+    // Tap-fallback watchdog id; if buffering > TAP_FALLBACK_MS we surface
+    // the manual Tap-to-Play UI.
+    const tapTimerRef = useRef(null);
     // Tracks the in-flight transition: on scene change we set src, then wait
     // for canplay before invoking play(). play() called before then races.
     const pendingPlayRef = useRef(false);
@@ -98,7 +129,8 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
     const total = MASTER_SCENES.length;
     const nextScene = MASTER_SCENES[(sceneIdx + 1) % total];
 
-    const STALL_TIMEOUT_MS = 9000;
+    const STALL_TIMEOUT_MS = isMobile ? 5000 : 9000;
+    const TAP_FALLBACK_MS = 3000;
 
     // Adaptive streaming — swap to /lite/ variants on slow / mobile networks
     // when (a) navigator.connection reports 2g/3g/saveData and (b) the lite
@@ -106,6 +138,28 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
     const { mode: adaptiveMode, getResolvedSrc } = useAdaptiveAvatarSrc(MASTER_SCENES[0].src);
     const visibleSrc = getResolvedSrc(scene.src);
     const preloadSrc = getResolvedSrc(nextScene.src);
+
+    // Diagnostic logger — gated to console.debug so it doesn't spam prod logs
+    // but is visible when DevTools is open + verbose logging on. Helps diagnose
+    // mobile Safari readyState / networkState behavior.
+    const logMediaState = (label, extra = {}) => {
+        const v = videoRef.current;
+        if (!v) return;
+        try {
+            // eslint-disable-next-line no-console
+            console.debug(`[avatar:${label}]`, {
+                sceneIdx,
+                isMobile,
+                readyState: v.readyState,
+                networkState: v.networkState,
+                currentTime: v.currentTime,
+                paused: v.paused,
+                muted: v.muted,
+                src: (v.currentSrc || v.src || "").split("/").pop(),
+                ...extra,
+            });
+        } catch { /* noop */ }
+    };
 
     // Install avatar voice lock for the lifetime of this component so legacy
     // TTS / SpeechSynthesis cannot overlap with the avatar's own audio track.
@@ -150,8 +204,50 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
             // "audio plays, video frozen" pattern on slow connections.
             pendingPlayRef.current = true;
             setBuffering(true);
+            setTapFallback(false);
+            logMediaState("scene-change");
         } catch { /* noop */ }
+        // logMediaState intentionally not in dep list — it reads from the
+        // same refs and we only want this effect to fire on sceneIdx change
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sceneIdx]);
+
+    // Robust play() — handles autoplay-policy rejections gracefully. Returns
+    // a promise that resolves true on success or false if the browser refused
+    // to autoplay (e.g., audio-without-gesture on iOS). On rejection we force
+    // muted=true and retry once — that's the canonical iOS Safari recovery
+    // path. If even the muted retry fails we surface the Tap-to-Start UI.
+    const tryPlay = async () => {
+        const v = videoRef.current;
+        if (!v) return false;
+        try {
+            const p = v.play();
+            if (p && typeof p.then === "function") {
+                await p;
+            }
+            logMediaState("play-resolved");
+            return true;
+        } catch (err) {
+            logMediaState("play-rejected", { err: String(err) });
+            // Retry muted — Safari blocks autoplay-with-sound until gesture
+            try {
+                v.muted = true;
+                setMuted(true);
+                const p2 = v.play();
+                if (p2 && typeof p2.then === "function") {
+                    await p2;
+                }
+                logMediaState("play-resolved-muted-retry");
+                return true;
+            } catch (err2) {
+                logMediaState("play-rejected-after-retry", { err: String(err2) });
+                // Surface the Tap-to-Start fallback UI
+                setBuffering(false);
+                setTapFallback(true);
+                return false;
+            }
+        }
+    };
 
     // ─── Visible video event listeners (single registration) ────────────
     // Kept as one effect to avoid the dance of attach/detach on every render.
@@ -165,11 +261,18 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                 stallTimerRef.current = null;
             }
         };
+        const clearTap = () => {
+            if (tapTimerRef.current) {
+                window.clearTimeout(tapTimerRef.current);
+                tapTimerRef.current = null;
+            }
+        };
 
         const armStall = () => {
             clearStall();
             stallTimerRef.current = window.setTimeout(() => {
                 // After STALL_TIMEOUT_MS of buffering, skip rather than freeze
+                logMediaState("stall-watchdog-fired");
                 setErrored(true);
                 window.setTimeout(() => {
                     setErrored(false);
@@ -178,31 +281,76 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
             }, STALL_TIMEOUT_MS);
         };
 
-        const onCanPlay = () => {
+        const armTapFallback = () => {
+            clearTap();
+            tapTimerRef.current = window.setTimeout(() => {
+                logMediaState("tap-fallback-fired");
+                // Hide the buffering overlay and reveal the Tap-to-Start CTA
+                // — never allow infinite buffering on iOS / Safari.
+                setBuffering(false);
+                setTapFallback(true);
+            }, TAP_FALLBACK_MS);
+        };
+
+        // Both `canplay` (W3C standard) and `loadeddata` (Safari fires this
+        // more reliably on iOS) are listened to so we don't deadlock if one
+        // event is suppressed by the browser.
+        const onReady = () => {
+            logMediaState("ready");
             setBuffering(false);
             clearStall();
+            clearTap();
             if (pendingPlayRef.current) {
                 pendingPlayRef.current = false;
-                v.play().catch(() => { /* autoplay may be blocked until gesture */ });
+                tryPlay();
             }
         };
-        const onWaiting  = () => { setBuffering(true);  armStall(); };
-        const onStalled  = () => { setBuffering(true);  armStall(); };
-        const onPlaying  = () => { setBuffering(false); clearStall(); setPaused(false); };
+        const onWaiting  = () => { logMediaState("waiting"); setBuffering(true);  armStall(); armTapFallback(); };
+        const onStalled  = () => { logMediaState("stalled"); setBuffering(true);  armStall(); armTapFallback(); };
+        const onPlaying  = () => {
+            logMediaState("playing");
+            setBuffering(false);
+            setTapFallback(false);
+            clearStall();
+            clearTap();
+            setPaused(false);
+        };
 
-        v.addEventListener("canplay",  onCanPlay);
-        v.addEventListener("waiting",  onWaiting);
-        v.addEventListener("stalled",  onStalled);
-        v.addEventListener("playing",  onPlaying);
+        v.addEventListener("canplay",      onReady);
+        v.addEventListener("loadeddata",   onReady);
+        v.addEventListener("waiting",      onWaiting);
+        v.addEventListener("stalled",      onStalled);
+        v.addEventListener("playing",      onPlaying);
+
+        // Arm tap fallback for the very first scene too — if loadeddata never
+        // fires on iOS we'll still surface the manual play after 3s.
+        armTapFallback();
 
         return () => {
-            v.removeEventListener("canplay",  onCanPlay);
-            v.removeEventListener("waiting",  onWaiting);
-            v.removeEventListener("stalled",  onStalled);
-            v.removeEventListener("playing",  onPlaying);
+            v.removeEventListener("canplay",    onReady);
+            v.removeEventListener("loadeddata", onReady);
+            v.removeEventListener("waiting",    onWaiting);
+            v.removeEventListener("stalled",    onStalled);
+            v.removeEventListener("playing",    onPlaying);
             clearStall();
+            clearTap();
         };
+        // STALL_TIMEOUT_MS / TAP_FALLBACK_MS are stable per-mount; total never changes
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [total]);
+
+    // Handler for the manual Tap-to-Start button. User gesture is the
+    // strongest possible autoplay unlocker on iOS Safari.
+    const handleTapToStart = async () => {
+        setTapFallback(false);
+        setBuffering(true);
+        const v = videoRef.current;
+        if (!v) return;
+        try { v.load(); } catch { /* noop */ }
+        // Inside the gesture handler, retrying play() is much more likely
+        // to succeed than the original autoplay attempt.
+        await tryPlay();
+    };
 
     const goNext = () => setSceneIdx((i) => (i + 1) % total);
     const goPrev = () => setSceneIdx((i) => (i - 1 + total) % total);
@@ -257,8 +405,9 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                     src={visibleSrc}
                     poster={scene.poster}
                     playsInline
+                    autoPlay
                     muted={muted}
-                    preload="auto"
+                    preload={isMobile ? "metadata" : "auto"}
                     onEnded={onEnded}
                     onError={onError}
                     onPlay={() => setPaused(false)}
@@ -266,21 +415,27 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                     className="h-full w-full animate-cb-scene-fade-in object-cover"
                     data-testid={`${testId}-video`}
                     data-adaptive-mode={adaptiveMode}
+                    data-is-mobile={isMobile ? "true" : "false"}
                 />
                 {/* Hidden preloader for the next scene so its bytes are already
                     in the cache by the time we switch the visible <video>'s
-                    src. Doesn't render, doesn't autoplay. */}
-                <video
-                    ref={preloadRef}
-                    src={preloadSrc}
-                    preload="auto"
-                    muted
-                    playsInline
-                    aria-hidden="true"
-                    tabIndex={-1}
-                    className="absolute h-px w-px opacity-0 pointer-events-none"
-                    data-testid={`${testId}-preload-video`}
-                />
+                    src. DESKTOP ONLY — iOS allows only ONE active video
+                    decoder per page; rendering this on mobile competes with
+                    the visible video for the decoder slot and can leave the
+                    visible one stuck in BUFFERING forever. */}
+                {!isMobile && (
+                    <video
+                        ref={preloadRef}
+                        src={preloadSrc}
+                        preload="auto"
+                        muted
+                        playsInline
+                        aria-hidden="true"
+                        tabIndex={-1}
+                        className="absolute h-px w-px opacity-0 pointer-events-none"
+                        data-testid={`${testId}-preload-video`}
+                    />
+                )}
 
                 {/* Top chip — scene title + index */}
                 <div className="pointer-events-none absolute left-3 top-3 right-3 flex items-center justify-between gap-2">
@@ -353,8 +508,9 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
 
                 {/* Buffering overlay — shown while the player is waiting for
                     enough data to keep playback in sync. Subtle dark wash +
-                    spinner so the user knows it's not a hang. */}
-                {buffering && !errored && (
+                    spinner so the user knows it's not a hang. Auto-hidden
+                    after TAP_FALLBACK_MS when the Tap-to-Start CTA appears. */}
+                {buffering && !errored && !tapFallback && (
                     <div
                         className="pointer-events-none absolute inset-0 grid place-items-center bg-ink-900/45 backdrop-blur-[2px]"
                         data-testid={`${testId}-buffering`}
@@ -366,6 +522,32 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                             </span>
                         </div>
                     </div>
+                )}
+
+                {/* Tap-to-Start fallback — shown when autoplay is blocked OR
+                    buffering exceeds TAP_FALLBACK_MS. iOS Safari frequently
+                    refuses to autoplay videos with audio without a user
+                    gesture; rather than leave the user staring at a buffering
+                    spinner, we surface a clear, premium CTA they can tap.
+                    A user gesture is the strongest possible autoplay
+                    unlocker — `tryPlay()` from inside this onClick handler
+                    almost always succeeds. */}
+                {tapFallback && !errored && (
+                    <button
+                        type="button"
+                        onClick={handleTapToStart}
+                        data-testid={`${testId}-tap-to-start`}
+                        className="absolute inset-0 grid place-items-center bg-ink-900/55 backdrop-blur-[2px] transition-opacity duration-300 hover:bg-ink-900/65"
+                    >
+                        <span className="inline-flex items-center gap-2.5 rounded-full border border-cyan-400/60 bg-ink-900/85 px-5 py-2.5 backdrop-blur-md shadow-[0_0_30px_rgba(6,182,212,0.4)]">
+                            <span className="grid h-7 w-7 place-items-center rounded-full bg-cyan-400 text-ink-900">
+                                <Play size={14} fill="currentColor" />
+                            </span>
+                            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100">
+                                Tap to Start
+                            </span>
+                        </span>
+                    </button>
                 )}
             </div>
 

@@ -1,0 +1,24 @@
+{
+  "summary": "Iter 98 — iOS Safari avatar buffering fix verified. All 9 testing requirements PASS at 13/13. Mobile (390x844) renders <video data-is-mobile='true' preload='metadata' autoplay playsinline> with NO hidden preloader sibling. Desktop (1280x800) renders both visible (preload='auto') and preloader videos with differing src (master-intro vs master-command-center). The user-reported critical bug (permanent BUFFERING…) is resolved: across a 10-second observation window on mobile, buffering=true was never persistent (max 1s before resolving via stall-watchdog auto-skip or tap-fallback). Buffering and tap-to-start are never visible simultaneously. Persistent <video> regression check passes (sameRef=true after next-scene click, src changed intro→security, document.contains===true). Mobile reorder zone places avatar (top=1693px) above industries (top=4269px). Adaptive hook is no-op on 4g (0 /lite/ HEAD requests, data-adaptive-mode='full'). Console.debug diagnostics captured 13 entries with labels ['scene-change','tap-fallback-fired']. ESLint clean on both files. Note (per main agent context): headless Chromium cannot decode H264 so the visible video naturally onError→auto-skip path runs (errored overlay 'Scene N unavailable · skipping…'); this is the intended failsafe and was explicitly NOT flagged as a bug.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "MasterHomepageAvatar.jsx is 626 lines — borderline of the >700 split rule but still acceptable. If more state is added consider extracting (a) the buffering/tap-fallback state machine into a useAvatarPlayback() hook and (b) the control-rail JSX into a sub-component.",
+    "STALL_TIMEOUT_MS and TAP_FALLBACK_MS are recomputed per-render but treated as stable inside the listener effect's deps comment — fine in practice because isMobile is set once at mount, but a useMemo would document intent more clearly.",
+    "tryPlay() success path leaves pendingPlayRef untouched after onReady consumes it — correct, but worth a one-line comment that the ref is single-shot per scene-change."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100% (13/13 assertions)"},
+  "test_credentials": "n/a",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Avatar component testId is 'home-hero-avatar' (passed as prop from HomePage.jsx) — NOT 'master-homepage-avatar'. Use [data-testid=home-hero-avatar-video], [data-testid=home-hero-avatar-buffering], [data-testid=home-hero-avatar-tap-to-start], [data-testid=home-hero-avatar-preload-video]. The avatar lives inside [data-testid=home-mobile-reorder-zone] on mobile and is far below the fold (~1700px) so use state='attached' on wait_for_selector or scrollIntoView before assertions. Headless Chromium fails H264 decode → onError fires → errored overlay shows 'Scene N unavailable · skipping…' and auto-advances; this is the intended failsafe path, do not regress-flag it. Acceptable mobile end states: (a) buf=false & playing, (b) buf=false & tap=true, (c) errored=true. Buffering must NEVER persist >TAP_FALLBACK_MS (3s) without resolving to one of those.",
+  "rca_of_the_issue": "Original bug: iPhone Safari users saw permanent 'BUFFERING…' overlay. Root cause was the hidden <video preload='auto'> preloader competing with the visible <video> for iOS's single-decoder-per-page slot, leaving the visible video stuck at readyState=0. Fix verified: detectMobile() (UA + viewport<1024) gates the preloader behind {!isMobile && (...)}, switches visible video to preload='metadata' on mobile, registers BOTH 'canplay' and 'loadeddata' listeners (Safari sometimes only fires the latter), arms a 3s tap-fallback watchdog that hides the buffering overlay and surfaces a Tap-to-Start CTA, and tryPlay() retries with forced muted=true on autoplay rejection. State transitions confirmed via console.debug logging."
+}
