@@ -46,7 +46,7 @@ export default function HookDemoPlayer({ demo }) {
     const advanceTimerRef = useRef(null);
     const actionTimersRef = useRef([]);
 
-    const frames = demo?.frames || [];
+    const frames = useMemo(() => demo?.frames || [], [demo]);
     const frame = frames[idx] || null;
     const totalMs = useMemo(() => frames.reduce((s, f) => s + (f.durationMs || 8000), 0), [frames]);
 

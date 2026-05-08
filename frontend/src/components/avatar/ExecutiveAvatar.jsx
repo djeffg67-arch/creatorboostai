@@ -333,7 +333,7 @@ export const ExecutiveAvatar = ({
             document.removeEventListener("touchstart", onGesture, opts);
             document.removeEventListener("keydown", onGesture, opts);
         };
-    }, [cfg.installVoiceLock, muted]);
+    }, [cfg.installVoiceLock, muted, silentLoopMode]);
 
     const loop =
         loopOverride !== undefined

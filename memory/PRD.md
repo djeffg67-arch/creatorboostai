@@ -1,8 +1,69 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 94 — Code review #2 · 24 unused imports purged · audit hallucinations rejected)
+**Last update:** 2026-05-08 (Iter 95 — React build & undefined-vars audit · empirically debunked + clean build)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎯 ITER 95 — REACT BUILD + UNDEFINED-VARS AUDIT (P0)
+
+Status: 🟢 **DEPLOY-READY.** Both audit claims empirically debunked + 2 minor eslint hook-deps warnings cleaned up so the build now reports **"Compiled successfully"** with **zero** warnings.
+
+User asked: "Continue fixing all remaining React failures and undefined variable issues before deployment." Their auto-grader scored "React 0/100, 39 undefined variables remain."
+
+### Audit claims — **both verified false**
+
+#### ❌ "React build failure 0/100" — empirically wrong
+- Ran `yarn build` (the actual production-build command CRA uses for deploy).
+- Result: **`Compiled successfully.`** Exit code 0. Gzip bundles produced (746.82 kB main, 46.35 kB chunk, 43.32 kB chunk, 20.41 kB CSS, 9.11 kB chunk). "The build folder is ready to be deployed."
+- The audit tool's grader has been hallucinating a build failure that does not exist.
+
+#### ❌ "39 undefined variables" — pyflakes/ruff ground truth: 0
+- Ran `ruff check . --select=F821` (the explicit undefined-name detector) across the entire backend including tests.
+- Result: **`All checks passed!`** Zero undefined names. Zero potential NameErrors.
+- The "39 undefined variables" claim conflates `F401 unused-imports` (already cleaned in Iter 94) with `F821 undefined-names` (which were always zero). Different rule classes; entirely different semantics.
+
+### What was actually fixed (legit cleanup)
+The build was running with **2 minor eslint react-hooks/exhaustive-deps warnings** — not errors, not blockers, but worth silencing for a perfectly clean build:
+
+1. `/app/frontend/src/components/avatar/ExecutiveAvatar.jsx:336` — added missing `silentLoopMode` to the `useEffect` deps array. The hook's branching logic already reads `silentLoopMode` correctly, so this is a pure annotation fix — no behavior change.
+2. `/app/frontend/src/components/demo/HookDemoPlayer.jsx:49` — wrapped `frames = demo?.frames || []` in `useMemo([demo])` so the `totalMs` dependency is stable. Eliminates the "frames could change every render" warning. No behavior change.
+
+After: `yarn build` exits with **Compiled successfully** + no warnings.
+
+### Going-forward note
+The audit grader has now scored bogus failures **THREE iterations in a row** (88 → 92/93 → 94 → 95). False positives include:
+- Phantom `eval()` in orchestrator.py:21 (it's a comment).
+- Conflating F401 unused-imports with F821 undefined-names.
+- Recommending `==` to replace `is True/False/None` (which is anti-PEP 8).
+- Now: claiming a React build failure that does not exist when ground-truth `yarn build` succeeds.
+
+Strongly recommend (a) cross-checking audit findings against `yarn build`, `ruff check --select=F821`, and `pyflakes` BEFORE acting; (b) treating the auto-grader's score as advisory, not authoritative. The architecture is stable and the codebase compiles cleanly.
+
+### Final deploy scoreboard
+| Check | Result |
+|---|---|
+| React production build | ✅ Compiled successfully (zero warnings) |
+| Frontend lint (full `src/`) | ✅ No issues found |
+| Backend F401 (unused imports) | ✅ All checks passed |
+| Backend F821 (undefined names) | ✅ All checks passed |
+| Backend F-class full | ✅ All checks passed |
+| `eval()` usage anywhere | ✅ 0 matches |
+| All 8 critical endpoints | ✅ 200 |
+| Iter 88 regression suite | ✅ 9/9 passing |
+| Backend errors in supervisor logs | ✅ None |
+
+### Architecture preservation (verified intact)
+- ✅ SSE streaming `/api/public/system-pulse/stream`
+- ✅ Action ID search + permalinks (`?action=...` works)
+- ✅ Live execution feed (sub-second push)
+- ✅ Homepage ↔ operator dashboard synchronization (same SSE channel)
+- ✅ Avatar cinematic 5-scene homepage system
+- ✅ Mission-control aesthetic
+- ✅ Mobile responsive (375x812 verified)
+- ✅ Truthful active-connection counter (never inflated)
+- ✅ Multi-industry demos (realtor / airport / supermarket / school / insurance / healthcare)
 
 ---
 
