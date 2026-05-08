@@ -3575,6 +3575,12 @@ from startup_launch import make_startup_launch_router  # noqa: E402
 app.include_router(make_startup_launch_router(db))
 
 
+# ---------- Public system pulse · Homepage hero feed (Iter 87) ----------
+from public_pulse import make_public_pulse_router  # noqa: E402
+
+app.include_router(make_public_pulse_router(db))
+
+
 # ---------- Start Engine · First-login activation flow (Iter 54) ----------
 from start_engine import make_start_engine_router  # noqa: E402
 

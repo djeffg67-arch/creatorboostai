@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
     Activity, Bell, ChevronRight, ShieldCheck, Workflow, Zap, TrendingUp,
@@ -6,6 +6,9 @@ import {
     Server, RadioTower, Lock, Globe2, Clock,
 } from "lucide-react";
 import { MasterHomepageAvatar } from "@/components/avatar/MasterHomepageAvatar";
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const PULSE_POLL_MS = 8000;
 
 /**
  * MasterCommandCenterHero
@@ -24,14 +27,22 @@ import { MasterHomepageAvatar } from "@/components/avatar/MasterHomepageAvatar";
  * bottom.
  */
 
-const EXECUTION_FEED = [
-    { time: "9:41 AM", title: "Lead from Website captured",     sub: "Routed to Sales Rep · Maria S.",        tone: "cyan" },
-    { time: "9:40 AM", title: "Maintenance Alert resolved",     sub: "Asset APU-410 · Terminal 3",            tone: "amber" },
-    { time: "9:40 AM", title: "Follow-up Email sent",           sub: "Lead · Solar Project Inquiry",          tone: "emerald" },
-    { time: "9:39 AM", title: "Deal Stage updated",             sub: "123 Main St · Under Contract",          tone: "fuchsia" },
-    { time: "9:38 AM", title: "Invoice generated",              sub: "INV-30493 · $32,450",                   tone: "cyan" },
-    { time: "9:36 AM", title: "New Appointment Booked",         sub: "Tom R. · Today 2:00 PM",                tone: "violet" },
+const FALLBACK_EVENTS = [
+    { time: "9:41 AM", kind: "lead",        title: "Lead from Website captured", sub: "Routed to Sales Rep · M.S.",   tone: "cyan" },
+    { time: "9:40 AM", kind: "maintenance", title: "Maintenance Alert resolved", sub: "Asset APU-410 · Terminal 3",   tone: "amber" },
+    { time: "9:40 AM", kind: "email",       title: "Follow-up Email sent",       sub: "Lead · Solar Project Inquiry", tone: "emerald" },
+    { time: "9:39 AM", kind: "deal",        title: "Deal Stage updated",         sub: "Property · Under Contract",    tone: "fuchsia" },
+    { time: "9:38 AM", kind: "invoice",     title: "Invoice generated",          sub: "Auto-routed for approval",     tone: "cyan" },
+    { time: "9:36 AM", kind: "appointment", title: "New Appointment Booked",     sub: "Calendar synced · Reminder set", tone: "violet" },
 ];
+
+const FALLBACK_KPIS = {
+    revenue_impact: { value: "$1.42M", delta: "+18%" },
+    leads_captured: { value: "342",    delta: "+24%" },
+    deals_pipeline: { value: "128",    delta: "+15%" },
+    tasks_done:     { value: "1,247",  delta: "+31%" },
+    system_health_pct: 100,
+};
 
 const TONE_CLS = {
     cyan:     "bg-cyan-400 text-cyan-300",
@@ -49,6 +60,56 @@ export const MasterCommandCenterHero = () => {
         return () => window.clearInterval(id);
     }, []);
     const clock = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    // Live system pulse — polls /api/public/system-pulse every 8s.
+    // Falls back to curated demo data on any error so the hero never feels dead.
+    const [pulse, setPulse] = useState({
+        events: FALLBACK_EVENTS,
+        kpis: FALLBACK_KPIS,
+        ai_actions_today: 287,
+        systems_operational: true,
+        streaming: true,
+        live: false, /* true once we get a successful response */
+    });
+
+    useEffect(() => {
+        let cancelled = false;
+        let timer = null;
+        const tick = async () => {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/public/system-pulse`, { cache: "no-store" });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const json = await res.json();
+                if (cancelled) return;
+                setPulse({
+                    events: Array.isArray(json.events) && json.events.length ? json.events : FALLBACK_EVENTS,
+                    kpis: { ...FALLBACK_KPIS, ...(json.kpis || {}) },
+                    ai_actions_today: Number(json.ai_actions_today) || 287,
+                    systems_operational: !!json.systems_operational,
+                    streaming: !!json.streaming,
+                    live: true,
+                });
+            } catch {
+                /* swallow; keep last good state */
+            } finally {
+                if (!cancelled) timer = window.setTimeout(tick, PULSE_POLL_MS);
+            }
+        };
+        tick();
+        return () => {
+            cancelled = true;
+            if (timer) window.clearTimeout(timer);
+        };
+    }, []);
+
+    const events = pulse.events;
+    const kpis = pulse.kpis;
+    const aiActionsLabel = useMemo(
+        () => `${(pulse.ai_actions_today || 0).toLocaleString()} actions executed today`,
+        [pulse.ai_actions_today],
+    );
+    const systemStatusLabel = pulse.systems_operational ? "All Systems Operational" : "Investigating";
+    const systemStatusTone = pulse.systems_operational ? "emerald" : "amber";
 
     return (
         <section
@@ -83,9 +144,9 @@ export const MasterCommandCenterHero = () => {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <StatusChip
-                            tone="emerald"
+                            tone={systemStatusTone}
                             label="Live System Status"
-                            value="All Systems Operational"
+                            value={systemStatusLabel}
                             Icon={Activity}
                             testid="mcc-status-system"
                             pulse
@@ -93,14 +154,14 @@ export const MasterCommandCenterHero = () => {
                         <StatusChip
                             tone="cyan"
                             label="AI Activity"
-                            value="287 actions executed today"
+                            value={aiActionsLabel}
                             Icon={Zap}
                             testid="mcc-status-ai"
                         />
                         <StatusChip
                             tone="slate"
                             label={clock}
-                            value="Local"
+                            value={pulse.live ? "Live" : "Local"}
                             Icon={Clock}
                             testid="mcc-status-clock"
                         />
@@ -186,16 +247,20 @@ export const MasterCommandCenterHero = () => {
                                 <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
                                     Live execution feed
                                 </span>
-                                <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-300">
-                                    Streaming
+                                <span
+                                    className={`inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.22em] ${pulse.live ? "text-emerald-300" : "text-slate-400"}`}
+                                    data-testid="mcc-feed-status"
+                                >
+                                    <span className={`h-1.5 w-1.5 rounded-full ${pulse.live ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
+                                    {pulse.live ? "Streaming" : "Connecting…"}
                                 </span>
                             </div>
                             <ul className="mt-2 space-y-2">
-                                {EXECUTION_FEED.map((e, i) => {
+                                {events.map((e, i) => {
                                     const tone = TONE_CLS[e.tone] || TONE_CLS.cyan;
                                     return (
                                         <li
-                                            key={i}
+                                            key={`${e.kind}-${e.time}-${i}`}
                                             className="rounded border border-white/5 bg-ink-700/40 p-2"
                                             data-testid={`mcc-feed-item-${i}`}
                                         >
@@ -225,17 +290,19 @@ export const MasterCommandCenterHero = () => {
                                 </span>
                             </div>
                             <div className="mt-3 grid grid-cols-2 gap-2">
-                                <KpiTile Icon={DollarSign}    label="Revenue impact" value="$1.42M"  delta="+18%"  tone="emerald" testid="mcc-kpi-revenue" />
-                                <KpiTile Icon={Target}        label="Leads captured" value="342"     delta="+24%"  tone="cyan"    testid="mcc-kpi-leads" />
-                                <KpiTile Icon={TrendingUp}    label="Deals in pipeline" value="128" delta="+15%"  tone="cyan"    testid="mcc-kpi-deals" />
-                                <KpiTile Icon={CheckCircle2}  label="Tasks completed"   value="1,247" delta="+31%" tone="emerald" testid="mcc-kpi-tasks" />
+                                <KpiTile Icon={DollarSign}    label="Revenue impact"     value={kpis.revenue_impact?.value} delta={kpis.revenue_impact?.delta} tone="emerald" testid="mcc-kpi-revenue" />
+                                <KpiTile Icon={Target}        label="Leads captured"     value={kpis.leads_captured?.value} delta={kpis.leads_captured?.delta} tone="cyan"    testid="mcc-kpi-leads" />
+                                <KpiTile Icon={TrendingUp}    label="Deals in pipeline"  value={kpis.deals_pipeline?.value} delta={kpis.deals_pipeline?.delta} tone="cyan"    testid="mcc-kpi-deals" />
+                                <KpiTile Icon={CheckCircle2}  label="Tasks completed"    value={kpis.tasks_done?.value}     delta={kpis.tasks_done?.delta}     tone="emerald" testid="mcc-kpi-tasks" />
                             </div>
                             <div className="mt-3 flex items-center justify-between rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2">
                                 <div className="flex items-center gap-2">
                                     <Users size={12} className="text-emerald-300" />
                                     <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-300">System health</span>
                                 </div>
-                                <span className="font-mono text-sm font-semibold text-emerald-200">100%</span>
+                                <span className="font-mono text-sm font-semibold text-emerald-200" data-testid="mcc-system-health">
+                                    {kpis.system_health_pct ?? 100}%
+                                </span>
                             </div>
                         </div>
                     </div>
