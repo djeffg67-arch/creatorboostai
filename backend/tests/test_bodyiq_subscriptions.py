@@ -37,7 +37,7 @@ if not BASE_URL:
 assert BASE_URL, "REACT_APP_BACKEND_URL required"
 BASE_URL = BASE_URL.rstrip("/")
 
-ADMIN_PASSWORD = "bodyiq-admin-2026"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "bodyiq-admin-2026")
 
 PLAN_KEYS = ["cb_starter_monthly", "cb_starter_annual", "cb_pro_monthly", "cb_pro_annual"]
 

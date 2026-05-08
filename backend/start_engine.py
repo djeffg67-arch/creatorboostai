@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import os
 import uuid
-import random
+import secrets
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
@@ -74,12 +74,14 @@ _SEED_CITIES = ["Austin TX", "Dallas TX", "Houston TX", "Atlanta GA", "Charlotte
 
 
 def _make_seed_lead(idx: int, user_email: str) -> Dict[str, Any]:
-    industry, label = random.choice(_SEED_INDUSTRIES)
-    suffix = random.choice(_SEED_COMPANY_TYPES[industry])
-    name = random.choice(_SEED_NAMES)
+    # `secrets` instead of `random` — used to satisfy the security audit even
+    # though these picks are non-sensitive (synthetic seed-lead generation).
+    industry, label = secrets.choice(_SEED_INDUSTRIES)
+    suffix = secrets.choice(_SEED_COMPANY_TYPES[industry])
+    name = secrets.choice(_SEED_NAMES)
     last = name.split(" ")[-1].lower()
     company = f"{name.split(' ')[0]} {suffix}"
-    domain_slug = f"{last}{random.randint(10, 999)}.example.com"
+    domain_slug = f"{last}{10 + secrets.randbelow(990)}.example.com"
     return {
         "name": name,
         "first_name": name.split(" ")[0],
@@ -88,7 +90,7 @@ def _make_seed_lead(idx: int, user_email: str) -> Dict[str, Any]:
         "company": company,
         "industry": industry,
         "industry_tag": industry,
-        "location": random.choice(_SEED_CITIES),
+        "location": secrets.choice(_SEED_CITIES),
         "title": "Owner / Operator",
         "source": "internal_seed",
         "import_method": "start_engine",

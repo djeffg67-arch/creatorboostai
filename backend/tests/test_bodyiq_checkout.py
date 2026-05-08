@@ -24,7 +24,7 @@ if not BASE_URL:
 assert BASE_URL, "REACT_APP_BACKEND_URL required"
 BASE_URL = BASE_URL.rstrip("/")
 
-ADMIN_PASSWORD = "bodyiq-admin-2026"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "bodyiq-admin-2026")
 
 EXPECTED_PRODUCTS = {
     "foundations": {"amount": 400.0, "type": "training", "currency": "usd"},

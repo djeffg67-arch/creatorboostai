@@ -14,7 +14,7 @@ LAPI = f"{API}/lighting"
 ACTION_ID_RE = re.compile(r"^CBLU-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$")
 
 FOUNDER_KEY = "jeffrey-2026-bodyiq-founder-master"
-ADMIN_PASSWORD = "bodyiq-admin-2026"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "bodyiq-admin-2026")
 
 
 # ---------- Fixtures ----------

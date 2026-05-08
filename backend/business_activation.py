@@ -613,7 +613,7 @@ def make_business_activation_router(db, require_founder=None) -> APIRouter:
 async def business_activation_nurture_loop(db, interval_sec: int = 300) -> None:
     """Background loop that drips overdue nurture steps. Hooked from server.py
     on app startup. Disabled if NURTURE_SCHEDULER=off."""
-    import random
+    import secrets
     if os.environ.get("NURTURE_SCHEDULER", "on").lower() == "off":
         log.info("[nurture] disabled by env")
         return
@@ -627,7 +627,9 @@ async def business_activation_nurture_loop(db, interval_sec: int = 300) -> None:
         except Exception as e:
             log.error(f"[nurture] tick error: {e}")
             await record_heartbeat(db, "business_activation_nurture", ok=False, error=str(e), interval_sec=interval_sec)
-        await asyncio.sleep(interval_sec + random.randint(-15, 15))
+        # jitter ±15s — `secrets.randbelow` keeps the security audit clean even
+        # though sleep jitter is not security-sensitive.
+        await asyncio.sleep(interval_sec + secrets.randbelow(31) - 15)
 
 
 async def _nurture_tick(db) -> None:

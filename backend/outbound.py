@@ -24,7 +24,6 @@ import hashlib
 import io
 import logging
 import os
-import random
 import re
 import secrets
 import uuid
@@ -1130,10 +1129,11 @@ def make_outbound_router(
                                 "demo_label": demo_info["label"],
                             }, "$inc": {"demos_delivered": 1}},
                         )
-                    # Iter 50 · randomized 60-120s spacing for real sends to
-                    # avoid uniform-cadence spam fingerprints.
+                    # Iter 50 · 60-120s spacing for real sends to avoid uniform-
+                    # cadence spam fingerprints. Uses `secrets.randbelow` per
+                    # the security audit even though jitter is non-sensitive.
                     if not is_simulated:
-                        await asyncio.sleep(random.randint(60, 120))
+                        await asyncio.sleep(60 + secrets.randbelow(61))
             except HTTPException:
                 break
             except Exception as e:
@@ -1641,7 +1641,11 @@ def make_outbound_router(
                 return False
 
             seg = _segment_for_demo(demo_type)
-            delay_hours = random.uniform(DEMO_VIEWER_DELAY_MIN_HRS, DEMO_VIEWER_DELAY_MAX_HRS)
+            # 12-24h delay before sending warm demo viewer outreach.
+            # `secrets.randbelow` keeps the security audit clean even though
+            # this jitter is non-sensitive (UX-only spreading).
+            delay_span = max(1, int((DEMO_VIEWER_DELAY_MAX_HRS - DEMO_VIEWER_DELAY_MIN_HRS) * 100))
+            delay_hours = DEMO_VIEWER_DELAY_MIN_HRS + (secrets.randbelow(delay_span) / 100.0)
             not_before = (now_dt() + timedelta(hours=delay_hours)).isoformat()
 
             doc = {
@@ -3323,7 +3327,7 @@ async def background_scheduler_loop(
         except Exception as e:
             log.error(f"[outbound] scheduler tick error: {e}")
             await record_heartbeat(db, "scheduler_loop", ok=False, error=str(e), interval_sec=interval_sec)
-        await asyncio.sleep(interval_sec + random.randint(-15, 15))
+        await asyncio.sleep(interval_sec + secrets.randbelow(31) - 15)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -3670,7 +3674,7 @@ async def imap_poller_loop(db, interval_sec: int = 300) -> None:
         except Exception as e:
             log.error(f"[imap] tick error: {e}")
             await record_heartbeat(db, "imap_poller", ok=False, error=str(e), interval_sec=interval_sec)
-        await asyncio.sleep(interval_sec + random.randint(-15, 15))
+        await asyncio.sleep(interval_sec + secrets.randbelow(31) - 15)
 
 
 async def daily_autopilot_loop(db, send_outbound_email, send_founder_notification, interval_sec: int = 86400) -> None:
@@ -3716,7 +3720,7 @@ async def daily_autopilot_loop(db, send_outbound_email, send_founder_notificatio
             cycle_err = str(e)
         await record_heartbeat(db, "daily_autopilot_loop", ok=cycle_ok, error=cycle_err,
                                interval_sec=interval_sec)
-        await asyncio.sleep(interval_sec + random.randint(-60, 60))
+        await asyncio.sleep(interval_sec + secrets.randbelow(121) - 60)
 
 
 _AUTOPILOT_HELPERS: Dict[int, Any] = {}

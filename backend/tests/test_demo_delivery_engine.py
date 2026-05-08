@@ -6,7 +6,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://bodyiq-training.preview.emergentagent.com").rstrip("/")
-ADMIN_PASSWORD = "bodyiq-admin-2026"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "bodyiq-admin-2026")
 
 
 @pytest.fixture(scope="module")

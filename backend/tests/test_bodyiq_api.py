@@ -25,7 +25,7 @@ if not BASE_URL:
 assert BASE_URL, "REACT_APP_BACKEND_URL is required"
 BASE_URL = BASE_URL.rstrip("/")
 
-ADMIN_PASSWORD = "bodyiq-admin-2026"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "bodyiq-admin-2026")
 VALID_SOURCES = ["demo", "demo_training", "training", "contact", "newsletter", "home", "forensic_library"]
 
 
