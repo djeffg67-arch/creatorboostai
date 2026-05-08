@@ -1,8 +1,50 @@
 # CreatorBoostAI + BodyIQ-AI — Master PRD
 
-**Last update:** 2026-05-08 (Iter 96 — Production deploy readiness · GREEN_DEPLOY_READY)
+**Last update:** 2026-05-08 (Iter 96+ — Master Experience Homepage rebuild · LIVE in PREVIEW)
 
 > Older iterations (38-53) are summarized in `/app/memory/CHANGELOG.md` if it exists, else inferred from git log.
+
+---
+
+## 🎬 ITER 96+ — MASTER EXPERIENCE HOMEPAGE (P0 · COMPLETE in PREVIEW)
+
+**Status: 🟢 SHIPPED to preview** (`https://bodyiq-training.preview.emergentagent.com/`). Production at `creatorboostai.com` remains on the prior homepage per user instruction (parallel mode — production stable, preview gets the rebuild). User to verify visually, then re-deploy to swap in the new flagship experience.
+
+### What shipped
+The homepage was rebuilt around the user's "CreatorBoostAI Master Experience" command-center vision. Six new components in `/app/frontend/src/components/home/master/`:
+
+1. **MasterExperienceShell.jsx** — Cinematic top hero. Collapsed sidebar tease (13 nav icons, desktop only, `aria-hidden`). H1 "The Operating System For Every Business." + 5 pulsing live status chips (system/ai/security/exec/industry). Master mockup image embedded as the centerpiece with cyan glow border, slow zoom (24s loop), parallax-on-mouse-move, ON AIR pip + corner brackets. Two CTAs (Launch Demo / Choose Industry).
+2. **IndustrySelectorMaster.jsx** — 14 industry cards (airports, real-estate, retail, manufacturing, logistics, healthcare, construction, sales-teams, startup-owners, influencers, insurance, contractors, schools, mortgage). Dark-graded thumbnails + cyan tint on hover + live badges. Each → `/demo/{slug}`.
+3. **PRESERVED MasterCommandCenterHero** — Moved deeper into the page (now after IndustrySelector, before Metrics). Avatar + Live Execution Feed + SSE connected counter all intact. Action ID search/permalinks still work.
+4. **CommandCenterMetrics.jsx** — "One Command Center. Every Operation." 8 KPI panels with `IntersectionObserver`-driven count-up animation: revenue $1.42M, leads 342, deals 128, tasks 1,247, ai-actions 287, integrations 42, automations 156, savings $612K.
+5. **EnterpriseSecurityLayer.jsx** — 8 trust pillars (SOC2, encryption, perms, governance, audit IDs, secure integrations, audit logs, data control) + sovereignty card with "Your Data. Your Control." copy + "Read Security Brief" CTA.
+6. **BuiltForEveryRole.jsx** — 6 role cards (owners/exec, ops, sales, employees, influencers, founders) with portrait, role chip, tagline, 3 bullets each.
+7. **FinalLaunchCTA.jsx** — Final-fold conversion strip. "This is not a demo. This is your future operating system." + dual CTA (Launch Demo / Build My Business) + 3 trust micro-points.
+
+Legacy sections (Leads engine, Operations Lifecycle, Koollite, etc.) preserved beneath the new flagship surface.
+
+### Avatar audio dedup
+- Removed unused `ExecutiveAvatar` import from HomePage.jsx.
+- Verified by testing agent: only ONE `<video>` element with audio plays on homepage (`MasterHomepageAvatar`).
+- `AvatarWidget` (chat) is text-only, no audio conflict.
+
+### Test results (Iter 96, testing agent v3)
+- Backend: 12/12 pytest assertions GREEN. `/api/public/deploy-readiness` still `verdict=GREEN_DEPLOY_READY`. SSE feed + Action permalinks intact. PII clean.
+- Frontend: 14/15 review items PASS first run, 1 cosmetic MEDIUM (3 broken Unsplash IDs in industry cards) **FIXED** post-test with verified 200 OK replacements.
+- Mobile 390×844: NO horizontal overflow, sidebar hidden, sections stack.
+- 0 JS console errors.
+
+### Files changed
+- NEW: 6 components in `/app/frontend/src/components/home/master/`
+- NEW: `/app/frontend/public/master-experience-hero.jpg` (581 KB master mockup)
+- MODIFIED: `/app/frontend/src/pages/HomePage.jsx` (new section ordering, `ExecutiveAvatar` import removed)
+
+### Known cosmetic (post-fix)
+None. All 3 broken Unsplash IDs replaced with verified-200 photo IDs.
+
+### Future polish (P3)
+- HomePage.jsx is now ~1022 lines (over 700 guideline). Legacy sections could be extracted to `/components/home/legacy/` later.
+- IndustrySelectorMaster could promote its 14-industry list to `/lib/industries.js` for reuse on `/demo` index.
 
 ---
 

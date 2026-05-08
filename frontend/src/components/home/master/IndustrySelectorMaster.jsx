@@ -46,7 +46,7 @@ const INDUSTRIES = [
     },
     {
         slug: "logistics", name: "Logistics", icon: Truck,
-        img: u("1601584115197-04ecc0da31d4"), // logistics truck fleet
+        img: u("1586528116311-ad8dd3c8310d"), // logistics truck fleet
         bullets: ["Fleet Management", "Route Optimization", "Deliveries · Tracking", "Fuel & Performance"],
         live: false,
     },
@@ -58,7 +58,7 @@ const INDUSTRIES = [
     },
     {
         slug: "construction", name: "Construction", icon: HardHat,
-        img: u("1503387762-bf76d61f7e75"), // construction site
+        img: u("1541888946425-d81bb19240f5"), // construction site
         bullets: ["Project Tracking", "Budget Control", "Safety Compliance", "Subcontractor Mgmt."],
         live: false,
     },
@@ -94,7 +94,7 @@ const INDUSTRIES = [
     },
     {
         slug: "schools", name: "Schools", icon: GraduationCap,
-        img: u("1523050854058-8df90110c9f1"), // campus building
+        img: u("1580582932707-520aed937b7b"), // campus building
         bullets: ["Enrollment Funnel", "Parent Communications", "Operations + Facilities", "Compliance Reports"],
         live: false,
     },
