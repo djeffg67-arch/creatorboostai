@@ -88,6 +88,14 @@ const BUFFER_RETRY_MS = 2000;          // 2s — auto-retry boundary per user sp
 const SCENE_LOAD_TIMEOUT_MS = 4000;    // 4s — hard ceiling before skipping scene
 const OVERLAY_DEBOUNCE_MS = 800;       // 800ms — suppress overlay on transient hiccups
 const MAX_RETRY_PER_SCENE = 1;         // retry once, then skip
+
+// CDN base for avatar MP4 hosting · Iter 102.
+// When REACT_APP_AVATAR_CDN_BASE is set (e.g. https://cdn.jsdelivr.net/gh/<user>/<repo>@main),
+// scene src URLs are rewritten to that origin so the videos are served from
+// edge-cached CDN nodes instead of competing with backend API traffic on the
+// pod. When unset, falls back to local /avatars/master/* — perfect for dev.
+const AVATAR_CDN_BASE = (process.env.REACT_APP_AVATAR_CDN_BASE || "").replace(/\/$/, "");
+const resolveSrc = (relPath) => (AVATAR_CDN_BASE ? `${AVATAR_CDN_BASE}${relPath}` : relPath);
 const ALL_EVENTS = [
     "loadstart", "loadedmetadata", "loadeddata", "canplay", "canplaythrough",
     "play", "playing", "waiting", "stalled", "suspend", "pause", "timeupdate",
@@ -375,10 +383,12 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
         });
 
         // ── Step 3: set the new src and trigger load ──
-        v.src = scene.src;
-        v.poster = scene.poster;
+        // resolveSrc() prepends AVATAR_CDN_BASE when the env var is set so
+        // videos load from edge-cached CDN, not the backend pod.
+        v.src = resolveSrc(scene.src);
+        v.poster = resolveSrc(scene.poster);
         try { v.load(); } catch { /* noop */ }
-        logEvent("scene-mounted");
+        logEvent("scene-mounted", { resolved_src: v.src });
 
         // ── Step 4: hard ceiling — if scene hasn't reported any progress
         // within SCENE_LOAD_TIMEOUT_MS, skip it (in addition to per-buffer
@@ -456,7 +466,7 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                 {!posterFallback ? (
                     <video
                         ref={videoRef}
-                        poster={scene.poster}
+                        poster={resolveSrc(scene.poster)}
                         playsInline
                         autoPlay
                         muted={muted}
@@ -468,7 +478,7 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                 ) : (
                     <div
                         className="absolute inset-0 grid place-items-center bg-cover bg-center"
-                        style={{ backgroundImage: `url('${scene.poster}')` }}
+                        style={{ backgroundImage: `url('${resolveSrc(scene.poster)}')` }}
                         data-testid={`${testId}-poster-fallback`}
                     >
                         <div className="absolute inset-0 bg-ink-900/70 backdrop-blur-[2px]" />
@@ -630,7 +640,7 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                                 }`}
                             >
                                 <img
-                                    src={s.poster}
+                                    src={resolveSrc(s.poster)}
                                     alt={s.title}
                                     loading="lazy"
                                     className="h-full w-full object-cover"

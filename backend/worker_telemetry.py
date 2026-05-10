@@ -115,18 +115,96 @@ async def get_all_workers(db) -> List[Dict[str, Any]]:
 async def compute_system_status(db, *, paused: bool = False, pause_reason: Optional[str] = None) -> Dict[str, Any]:
     """Computes the traffic-light status for the founder dashboard signal light.
 
-    Levels:
-      green  — engine running cleanly, all *expected* workers fresh, no errors.
-      yellow — paused-by-operator, OR 1 worker stale, OR errors >0% but <50%.
-      red    — multiple workers stale OR error rate ≥ 50% in last 24h.
+    Levels (Iter 102 — relaxed thresholds; previous logic flipped to YELLOW
+    on a SINGLE worker error in history, which is far too aggressive for a
+    long-running production engine that processes thousands of ticks):
+
+      green  — engine running cleanly:
+                 · 0 stale workers
+                 · 0 missing expected workers
+                 · error_rate < 5%
+      yellow — degraded but operational:
+                 · paused-by-operator, OR
+                 · 1 stale worker, OR
+                 · 1 missing expected worker, OR
+                 · error_rate ≥ 5% AND < 25%
+      red    — critical / not sending:
+                 · 2+ stale workers, OR
+                 · 2+ missing expected workers, OR
+                 · error_rate ≥ 25%, OR
+                 · scheduler explicitly OFF
 
     Workers that are intentionally disabled (e.g. imap_poller without IMAP env)
     or that haven't fired their first tick yet (e.g. daily_autopilot_loop on a
     fresh boot) are reported in `optional_inactive` rather than treated as a
     failure. The signal-light only cares about workers that *should* be running.
+
+    Diagnostic fields surfaced for the founder UI tooltip / expandable panel:
+      · last_successful_send_at  — ISO timestamp of the most recent OK tick
+                                    of `scheduler_loop` (or any send-related
+                                    worker), so the founder sees outbound is
+                                    actually moving even during a yellow blip.
+      · queue_latency_sec        — heuristic time since the most recent OK
+                                    scheduler tick (None if never ticked).
+      · last_warning_at          — most recent error timestamp across all
+                                    workers (drives "Last warning" chip).
+      · heartbeat_status         — "fresh" | "stale" | "none" — at-a-glance
+                                    summary of whether ANY worker is reporting.
     """
     import os
     workers = await get_all_workers(db)
+
+    # ── Diagnostic fields aggregated across all workers ──
+    last_ok_dt = None
+    last_err_dt = None
+    last_err_msg = None
+    scheduler_last_ok = None
+    for w in workers:
+        # Most recent OK tick across all workers
+        ok_at = w.get("last_ok_at")
+        if ok_at:
+            try:
+                dt = datetime.fromisoformat(ok_at)
+                if last_ok_dt is None or dt > last_ok_dt:
+                    last_ok_dt = dt
+            except Exception:
+                pass
+        # Most recent error
+        err_at = w.get("last_error_at")
+        if err_at:
+            try:
+                dt = datetime.fromisoformat(err_at)
+                if last_err_dt is None or dt > last_err_dt:
+                    last_err_dt = dt
+                    last_err_msg = w.get("last_error")
+            except Exception:
+                pass
+        # Scheduler-specific OK tick (drives "queue_latency" + "last_successful_send")
+        if w.get("worker") == "scheduler_loop" and w.get("last_ok_at"):
+            try:
+                scheduler_last_ok = datetime.fromisoformat(w["last_ok_at"])
+            except Exception:
+                pass
+
+    now_dt = datetime.now(timezone.utc)
+    queue_latency_sec = None
+    if scheduler_last_ok:
+        queue_latency_sec = int((now_dt - scheduler_last_ok).total_seconds())
+    elif last_ok_dt:
+        queue_latency_sec = int((now_dt - last_ok_dt).total_seconds())
+
+    diagnostics: Dict[str, Any] = {
+        "last_successful_send_at": scheduler_last_ok.isoformat() if scheduler_last_ok else (
+            last_ok_dt.isoformat() if last_ok_dt else None
+        ),
+        "last_warning_at": last_err_dt.isoformat() if last_err_dt else None,
+        "last_warning_message": last_err_msg,
+        "queue_latency_sec": queue_latency_sec,
+        "heartbeat_status": (
+            "stale" if (workers and any(w.get("is_stale") for w in workers))
+            else ("fresh" if workers else "none")
+        ),
+    }
 
     if paused:
         return {
@@ -138,6 +216,7 @@ async def compute_system_status(db, *, paused: bool = False, pause_reason: Optio
             "worker_count": len(workers),
             "stale_count": 0,
             "checked_at": _now_iso(),
+            **diagnostics,
         }
 
     # Which workers do we EXPECT to be active right now?
@@ -201,39 +280,69 @@ async def compute_system_status(db, *, paused: bool = False, pause_reason: Optio
             "stale_count": 0,
             "optional_inactive": optional_inactive,
             "checked_at": _now_iso(),
+            **diagnostics,
         }
 
-    if len(stale) >= 2 or error_rate >= 0.50 or len(missing) >= 2:
+    # Iter 102 thresholds: relaxed so a single historical error in a worker
+    # with thousands of ticks no longer flips the engine to YELLOW.
+    if (
+        len(stale) >= 2
+        or len(missing) >= 2
+        or error_rate >= 0.25
+        or not scheduler_on
+    ):
         level = "red"
+        if not scheduler_on:
+            reasons.append("scheduler_disabled_via_env")
         if len(stale) >= 2:
             reasons.append(f"{len(stale)}_workers_stale")
-        if error_rate >= 0.50:
-            reasons.append(f"error_rate_{round(error_rate*100)}pct")
+        if error_rate >= 0.25:
+            reasons.append(f"error_rate_{round(error_rate*100)}pct_critical")
         if len(missing) >= 2:
             reasons.append(f"{len(missing)}_expected_workers_missing")
-    elif len(stale) >= 1 or error_rate > 0.0 or len(missing) >= 1:
+    elif (
+        len(stale) >= 1
+        or len(missing) >= 1
+        or error_rate >= 0.05
+    ):
         level = "yellow"
         if len(stale) >= 1:
             reasons.append(f"{len(stale)}_worker_stale")
-        if error_rate > 0.0:
-            reasons.append(f"error_rate_{round(error_rate*100)}pct")
+        if error_rate >= 0.05:
+            reasons.append(f"error_rate_{round(error_rate*100)}pct_elevated")
         if len(missing) >= 1:
             reasons.append(f"{len(missing)}_expected_worker_missing")
     else:
         level = "green"
         reasons.append("all_expected_workers_fresh")
+        if error_rate > 0.0:
+            # Surface the rate in green-mode reasons too so the founder sees
+            # transparency ("0.3% errors · within tolerance") rather than
+            # being told everything is perfect when there are minor blips.
+            reasons.append(f"error_rate_{round(error_rate*100)}pct_within_tolerance")
 
     label_map = {"green": "Operational", "yellow": "Degraded", "red": "Stalled"}
-    summary_map = {
-        "green":  f"All {len(expected)} expected workers fresh · no recent errors.",
-        "yellow": f"{len(stale)} stale · {round(error_rate*100)}% errors · {len(missing)} missing.",
-        "red":    f"{len(stale)} stalled · {round(error_rate*100)}% errors · {len(missing)} missing.",
-    }
+    if level == "green":
+        summary = f"Sending live · {len(expected)} workers fresh · {round(error_rate*100, 1)}% errors."
+    elif level == "yellow":
+        # Surface the strongest signal: ongoing send activity if any.
+        if scheduler_last_ok and queue_latency_sec is not None and queue_latency_sec < 600:
+            summary = (
+                f"Sending live · last successful tick {queue_latency_sec}s ago · "
+                f"{len(stale)} stale · {round(error_rate*100, 1)}% errors."
+            )
+        else:
+            summary = (
+                f"{len(stale)} stale · {round(error_rate*100, 1)}% errors · "
+                f"{len(missing)} missing."
+            )
+    else:
+        summary = f"Sending halted · {len(stale)} stalled · {round(error_rate*100, 1)}% errors."
 
     return {
         "level": level,
         "label": label_map[level],
-        "summary": summary_map[level],
+        "summary": summary,
         "reasons": reasons,
         "workers": workers,
         "worker_count": len(workers),
@@ -245,6 +354,7 @@ async def compute_system_status(db, *, paused: bool = False, pause_reason: Optio
         "total_ticks": total_ticks,
         "total_errors": total_errors,
         "checked_at": _now_iso(),
+        **diagnostics,
     }
 
 

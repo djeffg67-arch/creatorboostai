@@ -2520,6 +2520,23 @@ const SystemSignalLight = ({ status, state }) => {
     const workers = status?.workers || [];
     const reasons = status?.reasons || [];
     const optionalInactive = status?.optional_inactive || [];
+    // Iter 102 diagnostic fields
+    const lastSendAt = status?.last_successful_send_at;
+    const lastWarnAt = status?.last_warning_at;
+    const lastWarnMsg = status?.last_warning_message;
+    const queueLatencySec = status?.queue_latency_sec;
+    const heartbeatStatus = status?.heartbeat_status;
+    const errorRatePct = typeof status?.error_rate === "number" ? Math.round(status.error_rate * 1000) / 10 : null;
+    const fmtAge = (iso) => {
+        if (!iso) return "—";
+        try {
+            const sec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+            if (sec < 60) return `${sec}s ago`;
+            if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+            if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+            return `${Math.floor(sec / 86400)}d ago`;
+        } catch { return "—"; }
+    };
 
     const TONE = {
         green:  { dot: "bg-emerald-400", glow: "shadow-[0_0_24px_rgba(16,185,129,0.55)]",
@@ -2539,6 +2556,9 @@ const SystemSignalLight = ({ status, state }) => {
     return (
         <div data-testid="system-signal-light"
              data-signal-level={level}
+             title={level === "green"
+                 ? `Operational · ${reasons.join(" · ") || "all healthy"}`
+                 : `Click "Workers" to see why · ${reasons.join(" · ")}`}
              className={`rounded-md border ${TONE.border} ${TONE.bg} px-4 py-3.5`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -2573,6 +2593,51 @@ const SystemSignalLight = ({ status, state }) => {
 
             {expanded && (
                 <div className="mt-3 border-t border-white/5 pt-3" data-testid="signal-workers">
+                    {/* Iter 102 · Founder diagnostics row — answers "why isn't it green?" at a glance */}
+                    <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="signal-diagnostics">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-2">
+                            <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-slate-500">Last successful send</p>
+                            <p className="mt-0.5 font-mono text-[11px] text-emerald-300" data-testid="signal-last-send">
+                                {fmtAge(lastSendAt)}
+                            </p>
+                        </div>
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-2">
+                            <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-slate-500">Queue latency</p>
+                            <p className="mt-0.5 font-mono text-[11px] text-cyan-300" data-testid="signal-queue-latency">
+                                {queueLatencySec != null ? `${queueLatencySec}s` : "—"}
+                            </p>
+                        </div>
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-2">
+                            <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-slate-500">Last warning</p>
+                            <p className={`mt-0.5 font-mono text-[11px] ${lastWarnAt ? "text-amber-300" : "text-slate-400"}`}
+                               data-testid="signal-last-warning"
+                               title={lastWarnMsg || ""}>
+                                {fmtAge(lastWarnAt)}
+                            </p>
+                        </div>
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-2">
+                            <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-slate-500">Heartbeat · Error rate</p>
+                            <p className="mt-0.5 font-mono text-[11px] text-slate-200" data-testid="signal-heartbeat">
+                                <span className={
+                                    heartbeatStatus === "fresh" ? "text-emerald-300"
+                                    : heartbeatStatus === "stale" ? "text-amber-300"
+                                    : "text-slate-400"
+                                }>
+                                    {heartbeatStatus || "—"}
+                                </span>
+                                {" · "}
+                                <span className={errorRatePct >= 5 ? "text-amber-300" : "text-slate-300"}>
+                                    {errorRatePct != null ? `${errorRatePct}%` : "—"}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    {lastWarnMsg && (
+                        <p className="-mt-1 mb-3 truncate font-mono text-[10px] text-amber-300/85" title={lastWarnMsg} data-testid="signal-last-warning-msg">
+                            <span className="text-slate-500">Most recent warning:</span> {lastWarnMsg}
+                        </p>
+                    )}
+
                     {/* Active worker rows */}
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {workers.length === 0 && (

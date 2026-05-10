@@ -23,7 +23,7 @@ import {
  * Not flashy. Not consumer. Numeric-grid command-center style.
  */
 
-const POLL_INTERVAL_MS = 4000;
+const POLL_INTERVAL_MS = 8000;
 const SSE_RECONNECT_MS = 5000;
 const LIVE_EVENT_MAX = 6;
 

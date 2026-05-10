@@ -29,7 +29,7 @@ import {
  * Not flashy. Single-line cinematic execution proof.
  */
 
-const POLL_MS = 6000;
+const POLL_MS = 12000;
 const DWELL_MS = 4500;
 const FADE_MS = 450;
 const STORAGE_KEY = "cb_broadcast_feed_v1";
