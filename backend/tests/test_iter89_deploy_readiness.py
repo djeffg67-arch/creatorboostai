@@ -39,7 +39,8 @@ class TestDeployReadiness:
 
     def test_no_eval_in_backend(self, session):
         d = session.get(f"{BASE_URL}/api/public/deploy-readiness", timeout=TIMEOUT).json()
-        assert d.get("security", {}).get("eval_calls_in_backend") == 0
+        # Field renamed in Iter 102c: security.eval_calls_in_backend -> dyn_exec.dangerous_dynamic_call_count
+        assert d.get("dyn_exec", {}).get("dangerous_dynamic_call_count") == 0
 
     def test_known_prod_only_secrets_absent_in_preview(self, session):
         d = session.get(f"{BASE_URL}/api/public/deploy-readiness", timeout=TIMEOUT).json()
@@ -72,7 +73,6 @@ class TestSystemPulse:
         assert len(events) >= 6, f"expected >= 6 events, got {len(events)}"
         # action_id badges expected per spec: fb-lead, fb-aint(maintenance), fb-mail, fb-deal, fb-invoice, fb-appt
         ids = [e.get("action_id", "") for e in events]
-        prefixes = {i.split("-")[0] + "-" + i.split("-")[1] for i in ids if i.count("-") >= 2}
         assert any(i.startswith("fb-lead") for i in ids), ids
         assert any(i.startswith("fb-deal") for i in ids), ids
         # All events must have title + tone + action_id

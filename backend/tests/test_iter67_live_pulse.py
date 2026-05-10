@@ -3,7 +3,6 @@ Iter 67 — LiveSendPulse backend smoke tests.
 POST /api/ops/outbound/live-pulse — founder-only telemetry feed.
 """
 import os
-import re
 import pytest
 import requests
 

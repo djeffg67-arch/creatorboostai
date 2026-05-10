@@ -6,10 +6,7 @@ review request. Email send and IMAP poll are mocked at the env level
 accordingly (PASS-WITH-NOTE for sends).
 """
 import os
-import io
 import time
-import json
-import hashlib
 import pytest
 import uuid
 import requests

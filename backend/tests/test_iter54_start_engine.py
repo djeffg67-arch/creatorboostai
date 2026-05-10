@@ -5,7 +5,6 @@ preview URL (REACT_APP_BACKEND_URL) and the founder master key from
 /app/memory/test_credentials.md.
 """
 import os
-import time
 import pytest
 import requests
 

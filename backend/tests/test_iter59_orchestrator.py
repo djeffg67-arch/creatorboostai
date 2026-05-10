@@ -13,7 +13,6 @@ from __future__ import annotations
 import os
 import time
 import uuid
-import asyncio
 import pytest
 import requests
 

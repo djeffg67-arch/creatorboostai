@@ -56,8 +56,6 @@ def test_live_pulse_healthy_engine_green(auth):
     assert sig["level"] == "green", f"expected green on healthy engine but got {sig['level']} ({sig.get('reasons')})"
     assert sig["heartbeat_status"] == "fresh", f"expected fresh, got {sig['heartbeat_status']}"
     assert sig["label"] == "Operational"
-    # 0% errors per the iter context
-    er = body.get("signal", {}).get("error_rate", 0) or 0
     # reasons should include the all_expected_workers_fresh tag for green
     assert "all_expected_workers_fresh" in sig["reasons"], \
         f"missing all_expected_workers_fresh in reasons: {sig['reasons']}"

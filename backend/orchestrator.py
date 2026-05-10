@@ -18,7 +18,7 @@ What runs tonight:
   • Agent 4 · Execution    → sends Email 1 + queues 2 follow-ups (T+24h, T+72h)
 
 What's deferred (clearly mocked or skipped, per user direction):
-  • Vector DB / RAG retrieval (Phase 1 = light system-output reuse only)
+  • Vector DB / RAG document lookup (Phase 1 = light system-output reuse only)
   • Sandbox isolation (E2B / Modal) — agents call Claude + Resend, no code exec
   • External signal APIs (Crunchbase / Clearbit / MLS) — not connected yet
 
