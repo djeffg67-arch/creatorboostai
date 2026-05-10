@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { Volume2, VolumeX, Play, Pause, Maximize2, X } from "lucide-react";
 import { resolveAvatarSources } from "@/lib/demoAvatarRegistry";
+import { resolveAvatarSrc } from "@/lib/resolveAvatarSrc";
 import { installAvatarVoiceLock, uninstallAvatarVoiceLock } from "@/lib/avatarVoiceLock";
 
 /**
@@ -45,12 +46,14 @@ import { installAvatarVoiceLock, uninstallAvatarVoiceLock } from "@/lib/avatarVo
  *     voice-interaction layers later.
  */
 
+// Iter 102d: route ALL default avatar sources through the CDN env var so
+// the demo pages stop loading 12.3 MB of MP4s from the deployment pod.
 const DEFAULT_SOURCES = {
-    heroLoop: "/avatars/avatar-hero-loop.mp4",
-    desktop: "/avatars/avatar-desktop-opt.mp4",
-    mobile: "/avatars/avatar-mobile-opt.mp4",
-    posterDesktop: "/avatars/poster-desktop.jpg",
-    posterMobile: "/avatars/poster-mobile.jpg",
+    heroLoop: resolveAvatarSrc("/avatars/avatar-hero-loop.mp4"),
+    desktop: resolveAvatarSrc("/avatars/avatar-desktop-opt.mp4"),
+    mobile: resolveAvatarSrc("/avatars/avatar-mobile-opt.mp4"),
+    posterDesktop: resolveAvatarSrc("/avatars/poster-desktop.jpg"),
+    posterMobile: resolveAvatarSrc("/avatars/poster-mobile.jpg"),
 };
 
 const useIsMobile = () => {
@@ -283,6 +286,28 @@ export const ExecutiveAvatar = ({
     const [playing, setPlaying] = useState(false);
     const [showFullscreen, setShowFullscreen] = useState(false);
     const [crossfade, setCrossfade] = useState(true); // visible by default
+
+    // Iter 102d · Duplicate-audio guard.
+    // The inline player and the fullscreen briefing player both reference
+    // the same desktop-opt MP4 with audio. When the user opens the
+    // fullscreen modal we pause the inline player so we never have two
+    // audio tracks playing simultaneously. When the modal closes we
+    // resume IFF playback was active before opening.
+    const wasPlayingBeforeFullscreenRef = useRef(false);
+    useEffect(() => {
+        const v = videoRef.current;
+        if (!v) return;
+        if (showFullscreen) {
+            wasPlayingBeforeFullscreenRef.current = !v.paused;
+            try { v.pause(); } catch { /* noop */ }
+        } else if (wasPlayingBeforeFullscreenRef.current) {
+            wasPlayingBeforeFullscreenRef.current = false;
+            try {
+                const p = v.play();
+                if (p && typeof p.then === "function") p.catch(() => { /* user-gesture-blocked: harmless */ });
+            } catch { /* noop */ }
+        }
+    }, [showFullscreen]);
 
     // Install global voice lock for hero / demo-cinematic variants so
     // the legacy demo TTS doesn't talk over the avatar.

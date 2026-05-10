@@ -89,13 +89,11 @@ const SCENE_LOAD_TIMEOUT_MS = 4000;    // 4s — hard ceiling before skipping sc
 const OVERLAY_DEBOUNCE_MS = 800;       // 800ms — suppress overlay on transient hiccups
 const MAX_RETRY_PER_SCENE = 1;         // retry once, then skip
 
-// CDN base for avatar MP4 hosting · Iter 102.
-// When REACT_APP_AVATAR_CDN_BASE is set (e.g. https://cdn.jsdelivr.net/gh/<user>/<repo>@main),
-// scene src URLs are rewritten to that origin so the videos are served from
-// edge-cached CDN nodes instead of competing with backend API traffic on the
-// pod. When unset, falls back to local /avatars/master/* — perfect for dev.
-const AVATAR_CDN_BASE = (process.env.REACT_APP_AVATAR_CDN_BASE || "").replace(/\/$/, "");
-const resolveSrc = (relPath) => (AVATAR_CDN_BASE ? `${AVATAR_CDN_BASE}${relPath}` : relPath);
+// CDN base for avatar MP4 hosting · Iter 102d. Now uses the shared
+// resolveAvatarSrc helper so ALL avatar components (homepage + demos +
+// narration scripts page) flip through ONE env var: REACT_APP_AVATAR_CDN_BASE.
+import { resolveAvatarSrc as resolveSrc, AVATAR_CDN_BASE_VALUE } from "@/lib/resolveAvatarSrc";
+const AVATAR_CDN_BASE = AVATAR_CDN_BASE_VALUE;
 const ALL_EVENTS = [
     "loadstart", "loadedmetadata", "loadeddata", "canplay", "canplaythrough",
     "play", "playing", "waiting", "stalled", "suspend", "pause", "timeupdate",

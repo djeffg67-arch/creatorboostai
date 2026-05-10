@@ -30,7 +30,14 @@
  *       },
  *     },
  *   }
+ *
+ * Iter 102d: every URL returned from `resolveAvatarSources()` is routed
+ * through `resolveAvatarSrc()` so when REACT_APP_AVATAR_CDN_BASE is set
+ * the assets serve from edge-cached CDN nodes (jsDelivr / Cloudinary /
+ * etc.) instead of competing with backend API traffic on the pod.
  */
+
+import { resolveAvatarSrc } from "./resolveAvatarSrc";
 
 const DEFAULT_FALLBACK = {
     desktop: "/avatars/avatar-desktop-opt.mp4",
@@ -97,9 +104,9 @@ export const resolveAvatarSources = (
         (isMobile ? fb.posterMobile : fb.poster);
 
     return {
-        src,
-        poster,
-        loopSrc: fb.loop,
+        src: resolveAvatarSrc(src),
+        poster: resolveAvatarSrc(poster),
+        loopSrc: resolveAvatarSrc(fb.loop),
         durationMs: sceneEntry?.durationMs || null,
         hasSceneClip: Boolean(
             isMobile ? sceneEntry?.mobile : sceneEntry?.desktop,
