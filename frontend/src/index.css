@@ -279,3 +279,13 @@ code, .font-mono {
 
 /* Smooth scroll */
 html { scroll-behavior: smooth; }
+
+/* Iter 102b · master-dashboard-stage edge-to-edge bleed on viewports wider
+   than 1720px. Done via CSS instead of an arbitrary Tailwind class so
+   postcss-calc doesn't choke on the (max(...)) * -1 negation pattern. */
+@media (min-width: 1024px) {
+    .master-dashboard-bleed {
+        margin-left:  calc(min(0px, (1720px - 100vw) / 2));
+        margin-right: calc(min(0px, (1720px - 100vw) / 2));
+    }
+}

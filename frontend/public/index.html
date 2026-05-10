@@ -17,10 +17,13 @@
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
-        <!-- Aggressive preload for the homepage avatar's first cinematic
-             scene · Iter 101 · so by the time the avatar mounts the bytes
-             are already in the HTTP cache. Eliminates first-paint buffering. -->
-        <link rel="preload" as="video" href="/avatars/master/master-intro-opt.mp4" type="video/mp4" />
+        <!-- Aggressive prefetch for the homepage avatar's cinematic scenes ·
+             Iter 102b · so by the time the avatar mounts the bytes are
+             already in the HTTP cache. Eliminates first-paint buffering.
+             Note: `rel=preload as=video` is not supported in Chrome (warns
+             with "unsupported `as` value") so we use `rel=prefetch` for all
+             scenes — same browser-cache effect, zero console noise. -->
+        <link rel="prefetch" href="/avatars/master/master-intro-opt.mp4" />
         <link rel="prefetch" href="/avatars/master/master-command-center-opt.mp4" />
         <link rel="prefetch" href="/avatars/master/master-security-opt.mp4" />
         <link rel="prefetch" href="/avatars/master/master-execution-layer-opt.mp4" />

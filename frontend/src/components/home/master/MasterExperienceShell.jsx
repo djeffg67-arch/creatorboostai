@@ -270,7 +270,7 @@ export const MasterExperienceShell = () => {
                        ·   data flow, ECG heartbeat) for the "alive system" feel. */}
                     <div
                         data-testid="master-dashboard-stage"
-                        className="relative mt-12 overflow-hidden rounded-2xl lg:-mx-[max(0px,calc((100vw-1720px)/2))] lg:mr-[-2vw]"
+                        className="relative mt-12 overflow-hidden rounded-2xl lg:mr-[-2vw] master-dashboard-bleed"
                         style={{
                             transform: `perspective(2200px) rotateY(${parallax.x * 0.025}deg) rotateX(${-parallax.y * 0.025}deg)`,
                             transition: "transform 0.22s ease-out",

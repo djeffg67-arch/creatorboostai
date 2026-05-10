@@ -415,7 +415,7 @@ export const BroadcastFeed = ({
                 data-active={current ? "true" : "false"}
             >
                 <div
-                    className={`pointer-events-auto mx-3 mb-3 w-full max-w-5xl transition-all duration-[450ms] ease-out ${
+                    className={`pointer-events-auto mx-3 mb-3 w-full max-w-5xl transition-all duration-500 ease-out ${
                         current && showing
                             ? "translate-y-0 opacity-100"
                             : "translate-y-6 opacity-0"
