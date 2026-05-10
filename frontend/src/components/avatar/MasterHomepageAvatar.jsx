@@ -85,9 +85,16 @@ const MASTER_SCENES = [
 
 const VOICE_LOCK_PERSIST_KEY = "cb_avatar_voice_enabled";
 const BUFFER_RETRY_MS = 2000;          // 2s — auto-retry boundary per user spec
-const SCENE_LOAD_TIMEOUT_MS = 4000;    // 4s — hard ceiling before skipping scene
+// Iter 102e · SCENE_LOAD_TIMEOUT_MS raised 4s → 14s. The 4-second ceiling was
+// killing legitimate first-visit users whose nearest jsDelivr edge had a cold
+// cache miss (5-8s to fetch from GitHub origin then propagate). On a warm edge,
+// the first frame arrives in <500ms so the timeout never fires; on a cold edge,
+// 14s is enough to serve the metadata+first chunk of the 2-9 MB MP4s without
+// false-positive "scene unavailable" skips that cascade into the poster fallback.
+const SCENE_LOAD_TIMEOUT_MS = 14000;
 const OVERLAY_DEBOUNCE_MS = 800;       // 800ms — suppress overlay on transient hiccups
 const MAX_RETRY_PER_SCENE = 1;         // retry once, then skip
+const MAX_SCENE_ERRORS_BEFORE_POSTER = 3; // Iter 102e · poster only after 3 scene fails (was 5)
 
 // CDN base for avatar MP4 hosting · Iter 102d. Now uses the shared
 // resolveAvatarSrc helper so ALL avatar components (homepage + demos +
@@ -269,15 +276,15 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                 erroredScenesRef.current.add(scene.id);
                 logEvent("buffer-retry-exhausted-skip");
                 setBuffering(false);
-                if (erroredScenesRef.current.size >= total) {
-                    // All scenes have failed → poster fallback
+                if (erroredScenesRef.current.size >= MAX_SCENE_ERRORS_BEFORE_POSTER) {
+                    // 3+ scenes failed → poster fallback
                     setPosterFallback(true);
                 } else {
                     goNext();
                 }
             }
         }, BUFFER_RETRY_MS);
-    }, [logEvent, tryPlay, scene.id, total, goNext]);
+    }, [logEvent, tryPlay, scene.id, goNext]);
 
     // ─── Voice lock ─────────────────────────────────────────────────────
     useEffect(() => {
@@ -369,7 +376,7 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
                     erroredScenesRef.current.add(scene.id);
                     logEvent("error-skip");
                     setBuffering(false);
-                    if (erroredScenesRef.current.size >= total) {
+                    if (erroredScenesRef.current.size >= MAX_SCENE_ERRORS_BEFORE_POSTER) {
                         setPosterFallback(true);
                     } else {
                         window.setTimeout(() => goNext(), 600);
@@ -389,19 +396,34 @@ export const MasterHomepageAvatar = ({ testId = "master-homepage-avatar" }) => {
         logEvent("scene-mounted", { resolved_src: v.src });
 
         // ── Step 4: hard ceiling — if scene hasn't reported any progress
-        // within SCENE_LOAD_TIMEOUT_MS, skip it (in addition to per-buffer
-        // watchdog). Defends against missed events on flaky decoders. ──
-        sceneTimerRef.current = window.setTimeout(() => {
-            if (v.readyState < 2 /* HAVE_CURRENT_DATA */) {
+        // within SCENE_LOAD_TIMEOUT_MS, retry-once-then-skip. Defends
+        // against missed events on flaky decoders AND against legitimately
+        // slow jsDelivr cold-edge first fetches. Retry uses v.load() which
+        // forces a fresh fetch (in case the previous attempt died silently).
+        // ──
+        let sceneRetryAttempted = false;
+        const armSceneLoadTimeout = () => {
+            clearSceneTimer();
+            sceneTimerRef.current = window.setTimeout(() => {
+                if (v.readyState >= 2 /* HAVE_CURRENT_DATA */) return;
+                if (!sceneRetryAttempted) {
+                    sceneRetryAttempted = true;
+                    logEvent("scene-load-timeout-retry");
+                    try { v.load(); } catch { /* noop */ }
+                    tryPlay();
+                    armSceneLoadTimeout(); // give the retry another full window
+                    return;
+                }
                 erroredScenesRef.current.add(scene.id);
                 logEvent("scene-load-timeout-skip");
-                if (erroredScenesRef.current.size >= total) {
+                if (erroredScenesRef.current.size >= MAX_SCENE_ERRORS_BEFORE_POSTER) {
                     setPosterFallback(true);
                 } else {
                     goNext();
                 }
-            }
-        }, SCENE_LOAD_TIMEOUT_MS);
+            }, SCENE_LOAD_TIMEOUT_MS);
+        };
+        armSceneLoadTimeout();
 
         // ── Step 5: cleanup on unmount or next scene change ──
         return () => {
