@@ -74,8 +74,23 @@ const MASTER_SCENES = [
         durationMs: 124200,
     },
     {
-        id: "industries",
+        // Iter 102f · NEW segment. Reinforces that CreatorBoostAI extends
+        // beyond lead-gen and software coordination — into maintenance ops,
+        // service dispatch, infrastructure oversight, facility ops, vendor
+        // coordination, lighting/energy workflows, retail-store maintenance
+        // management, and enterprise operational continuity.
+        // Source MP4 was 15 MB · 1080×1920 · 6.8 Mbps; ffmpeg-transcoded to
+        // H.264 main@4.0 · 720×1280 · 2 Mbps · faststart → 4.4 MB.
+        id: "operations-maintenance",
         index: 5,
+        title: "Operations · Maintenance · Infrastructure",
+        src: "/avatars/master/master-operations-opt.mp4",
+        poster: "/avatars/master/master-operations-poster.jpg",
+        durationMs: 17720,
+    },
+    {
+        id: "industries",
+        index: 6,
         title: "Industries · Startup · Sales Reps",
         src: "/avatars/master/master-industries-opt.mp4",
         poster: "/avatars/master/master-industries-poster.jpg",
